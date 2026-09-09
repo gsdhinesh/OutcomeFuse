@@ -69,7 +69,7 @@ criteria:
         type: regex-match
         args:
           path: $.fix_summary
-          pattern: '^(?=.{40,}$).*\b(add|remove|guard|reorder|rename|clamp|await|close|validate|initialise)\b.*$'
+          pattern: '(?s)^(?=.{40,}$).*\b(add|remove|guard|reorder|rename|clamp|await|close|validate|initialise)\b.*$'
           max_input_bytes: 4096
 
     - id: evidence-refs-resolve

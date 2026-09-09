@@ -2,9 +2,12 @@
 name = "outcomefuse"
 version = "0.1.0"
 description = "The quality-gated budget runtime for AI agents"
-readme = "doc/info.md"
+readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2"]
+dependencies = [
+    "pydantic>=2",
+    "pyyaml>=6",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -14,9 +17,7 @@ build-backend = "hatchling.build"
 packages = ["src/outcomefuse"]
 
 [dependency-groups]
-# pyyaml is dev-only while it is used solely by the freeze scripts. E3 loads
-# contracts through a safe loader at runtime and will promote it.
-dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -57,7 +57,7 @@ criteria:
         type: regex-match
         args:
           path: $.sql
-          pattern: '^(?i)(?!.*\b(insert|update|delete|drop|alter|truncate|create|grant)\b).*\bselect\b.*$'
+          pattern: '(?is)^(?!.*\b(insert|update|delete|drop|alter|truncate|create|grant)\b).*\bselect\b.*$'
           max_input_bytes: 8192
 
     - id: row-count-matches-key
@@ -132,4 +132,6 @@ human_approval_conditions:
   - tool: sql_execute_write
     when: always
 approval_timeout_seconds: 90
-on_timeout: fail-closed
+# Names a policy_action: end the run, gated call unmade. `fail-closed` is a
+# decision_reason, not a disposition.
+on_timeout: terminate

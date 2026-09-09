@@ -120,4 +120,6 @@ escalation:
 
 human_approval_conditions: []
 approval_timeout_seconds: 120
-on_timeout: fail-closed
+# Names a policy_action: end the run, gated call unmade. `fail-closed` is a
+# decision_reason, not a disposition.
+on_timeout: terminate
