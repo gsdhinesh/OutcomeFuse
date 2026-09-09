@@ -14,12 +14,16 @@ build-backend = "hatchling.build"
 packages = ["src/outcomefuse"]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+# pyyaml is dev-only while it is used solely by the freeze scripts. E3 loads
+# contracts through a safe loader at runtime and will promote it.
+dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Without this the suite only runs after an install, an undeclared precondition.
-pythonpath = ["src"]
+# freeze/ is on the path because the scripts that decide whether every answer
+# key is correct are themselves under test.
+pythonpath = ["src", "freeze"]
 addopts = "--strict-markers --strict-config"
 xfail_strict = true
 filterwarnings = ["error"]
@@ -27,7 +31,7 @@ filterwarnings = ["error"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "freeze"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "RUF", "S", "PTH", "BLE"]

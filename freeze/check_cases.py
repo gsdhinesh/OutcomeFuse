@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
 from derive_answer_keys import RULE_STEPS, load_documents, select_document
 
 ROOT = Path(__file__).resolve().parent.parent
