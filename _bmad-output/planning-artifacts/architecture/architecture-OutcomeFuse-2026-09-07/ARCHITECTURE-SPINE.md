@@ -465,6 +465,11 @@ outcomefuse/
     calibration/
     evaluation/             # sealed until preregistration completes
   contracts/                # one per committed workload, authored before the freeze
+  freeze/                   # the cross-cutting artifacts sealed in the same FR65 operation
+    RUBRIC.md               # blind-review instrument; not the gate
+    BASELINE.md             # FR64 frozen baseline definition
+    CASE-CONSTRUCTION-RULES.md
+    COVERAGE-CLASSIFICATION.md  # E/N/A per criterion (FR108); E3 produces the report
   preregistration/          # hashed, timestamped target records (FR66, FR102)
   workspace/                # gitignored output
     outcomefuse.db          # canonical record store, many runs, WAL, writers serialised

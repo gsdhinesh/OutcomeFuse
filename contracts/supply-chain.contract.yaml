@@ -1,0 +1,139 @@
+# Outcome Contract — Supply-chain exception investigation
+# Workload 4 of 4, and the PRD's named MVP persona: a supply-chain planning
+# operations engineer working recurring exceptions. The workload closest to the
+# product story, and the one where a wrong recommendation has a real cost.
+
+contract_id: ofc-supply-chain
+version: 1
+workload: supply-chain
+
+task_goal: >
+  Investigate a flagged supply-chain exception against a fixed synthetic order,
+  shipment and supplier-policy dataset, and recommend a disposition.
+
+deliverable:
+  structure:
+    exception_type: string
+    root_cause_code: string      # controlled code from the case answer key
+    impacted_orders: array
+    recommended_action: string
+    policy_refs: array           # clauses resolvable in the citable index
+    est_delay_days: integer
+
+criteria:
+  mandatory:
+    - id: exception-type-matches-key
+      description: >
+        The classification equals the answer key. The controlled taxonomy is
+        listed in the deliverable structure; membership in it would only prove
+        the label is legal, not that the exception was classified correctly.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.exception_type, key: exception_type }
+
+    - id: root-cause-matches-key
+      description: >
+        The root-cause code equals the answer key. Root-cause *correctness* is
+        checkable here only because the taxonomy is closed and the key was
+        authored with the case — this is a controlled-vocabulary match, not
+        semantic understanding, and the coverage report says so.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.root_cause_code, key: root_cause_code }
+
+    - id: impacted-orders-identified
+      description: At least one impacted order, and not an unbounded sweep.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.impacted_orders, of: distinct-count, min: 1, max: 50 }
+
+    - id: recommended-action-matches-key
+      description: >
+        The disposition equals the answer key. This is the criterion the
+        persona is actually paying for, so it is checked against a known-correct
+        value rather than against a list of permissible strings.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.recommended_action, key: recommended_action }
+
+    - id: policy-refs-resolve
+      description: >
+        Every supplier-policy clause cited actually exists. An invented clause
+        is the failure mode that would most damage trust in this workload.
+      classification: E
+      verifier: { type: citation-resolves, args: { path: '$.policy_refs[*].id' } }
+
+    - id: delay-estimate-bounded
+      description: A delay estimate inside the horizon the dataset can support.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.est_delay_days, of: value, min: 0, max: 180 }
+
+  optional:
+    - id: alternate-considered
+      description: An alternative disposition was weighed and recorded.
+      classification: E
+      verifier: { type: field-present, args: { path: $.alternatives } }
+
+  advisory:
+    - id: recommendation-is-justified
+      description: >
+        Whether the recommended action follows from the evidence and the cited
+        policy. This is the criterion an operations engineer actually cares
+        about, and no deterministic verifier reaches it. Naming it advisory is
+        the honest position; folding it into the mandatory set by proxy would
+        not be.
+      classification: A
+
+    - id: evidence-completeness
+      description: >
+        Whether the investigation gathered everything a competent analyst would
+        have gathered before recommending.
+      classification: A
+
+budget:
+  max_tokens: 70000
+  max_estimated_cost: 0.55
+  verification_reserve:
+    max_tokens: 10000
+    max_estimated_cost: 0.08
+  max_tool_calls: 35
+  max_iterations: 8
+
+tools:
+  - name: order_lookup
+    deterministic: true
+    side_effecting: false
+  - name: shipment_trace
+    deterministic: true
+    side_effecting: false
+  - name: supplier_policy_lookup
+    deterministic: true
+    side_effecting: false
+  - name: notify_planner
+    # Sends a message a human would see. Never suppressed for optimisation.
+    deterministic: false
+    side_effecting: true
+
+models:
+  eligible: [gpt-4o-mini, gpt-4o]
+  start: gpt-4o-mini
+
+escalation:
+  on_gate_fail: retry-then-escalate
+  max_escalations: 1
+  never_breach_verification_reserve: true
+
+human_approval_conditions:
+  - tool: notify_planner
+    when: always
+  - criterion: recommended_action
+    when: value_in
+    value: [escalate-to-buyer, resource-alternate-supplier]
+approval_timeout_seconds: 180
+on_timeout: request-human

@@ -1,0 +1,139 @@
+# Outcome Contract — Codebase Q&A and triage
+# Workload 2 of 4. Carries the first side-effecting tool in the set, so it is
+# the contract that exercises FR33: no optimisation-driven suppression of a
+# call that can change the world.
+
+contract_id: ofc-code-triage
+version: 1
+workload: code-triage
+
+task_goal: >
+  Given a failing behaviour report against a fixed synthetic repository,
+  identify where the defect lives and characterise it.
+
+deliverable:
+  structure:
+    root_cause_file: string      # repo-relative POSIX path
+    root_cause_line: integer
+    severity: string
+    fix_summary: string
+    evidence_refs: array         # symbols or files inspected, resolvable
+
+criteria:
+  mandatory:
+    - id: root-cause-file-present
+      description: A specific file is named, not a directory or a hedge.
+      classification: E
+      verifier: { type: field-present, args: { path: $.root_cause_file } }
+
+    - id: root-cause-file-correct
+      description: >
+        The named file equals the case answer key. Code-location correctness is
+        the one semantic-sounding property here that *is* deterministically
+        checkable, because the key was authored with the case.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.root_cause_file, key: root_cause_file }
+
+    - id: root-cause-line-in-span
+      description: >
+        The line falls inside the defect span recorded in the answer key. A
+        range rather than an exact line, because an off-by-two on a multi-line
+        expression is a correct triage.
+      classification: E
+      verifier:
+        type: numeric-range
+        args:
+          path: $.root_cause_line
+          min_from_key: root_cause_line_min
+          max_from_key: root_cause_line_max
+
+    - id: severity-matches-key
+      description: >
+        Severity equals the answer key. The key pins it for every synthetic
+        defect, so membership in the controlled set would only prove the value
+        is legal — this proves it is right.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.severity, key: severity }
+
+    - id: fix-summary-substantive
+      description: >
+        A fix summary of at least forty characters that names an action. Length
+        alone is a weak proxy and is labelled as such in the coverage report.
+      classification: E
+      verifier:
+        type: regex-match
+        args:
+          path: $.fix_summary
+          pattern: '^(?=.{40,}$).*\b(add|remove|guard|reorder|rename|clamp|await|close|validate|initialise)\b.*$'
+          max_input_bytes: 4096
+
+    - id: evidence-refs-resolve
+      description: Every file or symbol the triage cites actually exists.
+      classification: E
+      verifier: { type: citation-resolves, args: { path: '$.evidence_refs[*].id' } }
+
+  optional:
+    - id: regression-test-named
+      description: A test that would have caught the defect is identified.
+      classification: E
+      verifier: { type: field-present, args: { path: $.suggested_test } }
+
+  advisory:
+    - id: root-cause-explanation-correct
+      description: >
+        Whether the *explanation* of the defect is right, as distinct from the
+        location being right. Deterministically uncheckable — the location
+        criteria above are what the gate actually rests on, and the coverage
+        report must not let the two be conflated.
+      classification: A
+
+    - id: fix-is-appropriate
+      description: Whether the proposed fix would actually resolve the defect.
+      classification: A
+
+budget:
+  max_tokens: 80000
+  max_estimated_cost: 0.60
+  verification_reserve:
+    max_tokens: 12000
+    max_estimated_cost: 0.09
+  max_tool_calls: 40
+  max_iterations: 10
+
+tools:
+  - name: repo_grep
+    deterministic: true
+    side_effecting: false
+  - name: read_file
+    deterministic: true
+    side_effecting: false
+  - name: symbol_refs
+    deterministic: true
+    side_effecting: false
+  - name: run_tests
+    # Executes the suite in a scratch workspace. Non-deterministic in duration
+    # and observable outside the run, so it is never cached, deduplicated or
+    # denied for optimisation reasons (FR33) — only for safety, affordability
+    # or approval.
+    deterministic: false
+    side_effecting: true
+
+models:
+  eligible: [gpt-4o-mini, gpt-4o]
+  start: gpt-4o-mini
+
+escalation:
+  on_gate_fail: retry-then-escalate
+  max_escalations: 1
+  never_breach_verification_reserve: true
+
+human_approval_conditions:
+  - tool: run_tests
+    when: call_index_exceeds
+    value: 3
+approval_timeout_seconds: 120
+on_timeout: return-partial

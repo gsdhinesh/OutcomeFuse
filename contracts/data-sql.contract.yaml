@@ -1,0 +1,134 @@
+# Outcome Contract — Data and SQL analysis
+# Workload 3 of 4. The workload where "the answer is a number" makes
+# reference-backed verification strongest, and where a write-capable tool must
+# be structurally excluded from every optimisation path.
+
+contract_id: ofc-data-sql
+version: 1
+workload: data-sql
+
+task_goal: >
+  Answer a quantitative business question against a fixed synthetic relational
+  dataset, returning the figure, its units, and the query that produced it.
+
+deliverable:
+  structure:
+    result_value: number
+    units: string
+    sql: string
+    row_count: integer
+    tables_used: array
+
+criteria:
+  mandatory:
+    - id: result-matches-key
+      description: >
+        The computed figure equals the answer key. Query-result correctness is
+        fully reference-backed here, which is why this workload carries the
+        set's strongest verification and should be labelled as the strong case
+        rather than treated as representative.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.result_value, key: result_value }
+
+    - id: units-match-key
+      description: >
+        Units equal the answer key. A figure with the wrong units is a wrong
+        answer, and the key pins the units for every case.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.units, key: units }
+
+    - id: sql-present
+      description: The query is returned so the figure can be re-derived.
+      classification: E
+      verifier: { type: field-present, args: { path: $.sql } }
+
+    - id: sql-is-read-only
+      description: >
+        The returned query performs no mutation. A regex is a blunt instrument
+        for this and is deliberately paired with the write tool being declared
+        side-effecting — the contract does not rely on the pattern alone.
+      classification: E
+      verifier:
+        type: regex-match
+        args:
+          path: $.sql
+          pattern: '^(?i)(?!.*\b(insert|update|delete|drop|alter|truncate|create|grant)\b).*\bselect\b.*$'
+          max_input_bytes: 8192
+
+    - id: row-count-matches-key
+      description: >
+        The row count equals the answer key. Two queries returning the same
+        aggregate from different row sets is the classic silent-wrong-answer
+        case, and only the key catches it.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.row_count, key: row_count }
+
+    - id: tables-used-plausible
+      description: Between one and six tables were touched.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.tables_used, of: distinct-count, min: 1, max: 6 }
+
+  optional:
+    - id: assumptions-recorded
+      description: Filters and date boundaries the analyst chose are stated.
+      classification: E
+      verifier: { type: field-present, args: { path: $.assumptions } }
+
+  advisory:
+    - id: question-actually-answered
+      description: >
+        Whether the query answers the question asked, as opposed to producing a
+        number that happens to match. With a single answer key these coincide;
+        on a production workload they would not, and that gap is the honest
+        limit of this workload's evidence.
+      classification: A
+
+    - id: query-is-idiomatic
+      description: Whether the SQL is reasonable rather than merely correct.
+      classification: A
+
+budget:
+  max_tokens: 45000
+  max_estimated_cost: 0.35
+  verification_reserve:
+    max_tokens: 7000
+    max_estimated_cost: 0.05
+  max_tool_calls: 24
+  max_iterations: 6
+
+tools:
+  - name: schema_describe
+    deterministic: true
+    side_effecting: false
+  - name: sql_query
+    # Read-only against a frozen snapshot, so results are reusable within a run.
+    deterministic: true
+    side_effecting: false
+  - name: sql_execute_write
+    # Present precisely so the conformance battery can prove it is never
+    # cached, deduplicated or optimisation-denied. No case requires it.
+    deterministic: false
+    side_effecting: true
+
+models:
+  eligible: [gpt-4o-mini, gpt-4o]
+  start: gpt-4o-mini
+
+escalation:
+  on_gate_fail: retry-then-escalate
+  max_escalations: 1
+  never_breach_verification_reserve: true
+
+human_approval_conditions:
+  - tool: sql_execute_write
+    when: always
+approval_timeout_seconds: 90
+on_timeout: fail-closed

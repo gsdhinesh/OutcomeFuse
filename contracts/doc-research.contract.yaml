@@ -1,0 +1,123 @@
+# Outcome Contract — Document research and investigation
+# Workload 1 of 4. Authored before the freeze (FR108) and before the verifier
+# registry exists (E3), which is the point: the registry is sized to the
+# contracts, not the contracts trimmed to the registry.
+
+contract_id: ofc-doc-research
+version: 1
+workload: doc-research
+
+task_goal: >
+  Answer a research question over a fixed synthetic document corpus, and return
+  the answer together with the corpus evidence it rests on.
+
+deliverable:
+  structure:
+    answer: string
+    answer_code: string          # controlled value drawn from the case answer key
+    primary_source_id: string    # the document the answer chiefly rests on
+    citations: array             # objects with an `id` resolvable in the citable index
+    excluded_candidates: array   # documents considered and rejected
+    confidence: string
+
+criteria:
+  # Mandatory criteria constitute the quality floor. Every one names a verifier
+  # from the closed registry; nothing here may be checked by a model.
+  mandatory:
+    - id: answer-present
+      description: The deliverable carries a non-empty answer.
+      classification: E
+      verifier: { type: field-present, args: { path: $.answer } }
+
+    - id: answer-is-text
+      description: The answer is prose, not a structure smuggled into the field.
+      classification: E
+      verifier: { type: type-is, args: { path: $.answer, type: string } }
+
+    - id: answer-matches-key
+      description: >
+        The controlled answer code equals the case answer key. This is the only
+        mandatory criterion that establishes the answer is actually correct.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.answer_code, key: answer_code }
+
+    - id: citations-sufficient
+      description: At least two distinct corpus citations support the answer.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.citations, of: distinct-count, min: 2, max: 12 }
+
+    - id: primary-source-matches-key
+      description: >
+        The document identified as the primary source equals the answer key.
+        The key pins this, so checking against it is strictly stronger than
+        checking the citation merely resolves.
+      classification: E
+      verifier:
+        type: exact-match-against-answer-key
+        args: { path: $.primary_source_id, key: primary_source_id }
+
+    - id: citations-resolve
+      description: >
+        Every cited identifier resolves in the run's derived citable index. A
+        fabricated citation fails the gate rather than being scored down.
+      classification: E
+      verifier: { type: citation-resolves, args: { path: '$.citations[*].id' } }
+
+  optional:
+    - id: excluded-candidates-recorded
+      description: Rejected documents are listed, so the search can be audited.
+      classification: E
+      verifier: { type: field-present, args: { path: $.excluded_candidates } }
+
+  # Advisory criteria never gate. They are recorded and fed to the
+  # counter-metrics. Each one here is semantic, which is exactly why it cannot
+  # be mandatory (AD-7).
+  advisory:
+    - id: conclusion-is-supported
+      description: >
+        The answer is *supported* by the cited passages rather than merely
+        accompanied by them. No deterministic verifier can establish this, so it
+        is advisory by construction and is named here rather than quietly
+        omitted.
+      classification: A
+
+    - id: answer-completeness
+      description: The answer addresses every part of a multi-part question.
+      classification: A
+
+budget:
+  max_tokens: 60000
+  max_estimated_cost: 0.45
+  verification_reserve:
+    max_tokens: 9000
+    max_estimated_cost: 0.07
+  max_tool_calls: 30
+  max_iterations: 8
+
+tools:
+  - name: corpus_search
+    deterministic: true
+    side_effecting: false
+  - name: document_fetch
+    deterministic: true
+    side_effecting: false
+  - name: passage_extract
+    deterministic: true
+    side_effecting: false
+
+models:
+  eligible: [gpt-4o-mini, gpt-4o]
+  start: gpt-4o-mini
+
+escalation:
+  on_gate_fail: retry-then-escalate
+  max_escalations: 1
+  never_breach_verification_reserve: true
+
+human_approval_conditions: []
+approval_timeout_seconds: 120
+on_timeout: fail-closed
