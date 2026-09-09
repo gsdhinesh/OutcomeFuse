@@ -174,11 +174,17 @@ cases:
           yields 3 rather than the correct 4 — verified to discriminate, which
           it did not in the first draft of the corpus, where both filters
           happened to return 4 and the trap tested nothing.
+        wrong_sql: >
+          SELECT COUNT(*) FROM shipments
+          WHERE shipped_date BETWEEN '2026-05-01' AND '2026-05-31'
       - id: null-delivered-date
         detail: >
-          In-transit and lost shipments have a NULL delivered_date. A BETWEEN
-          on a NULL yields NULL rather than false, which is correct here, but
-          an agent building the filter in application code may count them.
+          In-transit and lost shipments have a NULL delivered_date. In SQL a
+          BETWEEN on NULL yields NULL rather than false, so the correct query
+          is already safe — the hazard is an agent filtering in application
+          code, which no SQL can express. Declared non-discriminating because
+          the wrong reading has no SQL form, not because it does not matter.
+        discriminates: false
     notes: >
       The shipped-versus-delivered confusion is the single most common real
       error in this shape of question, which is why it is the trap.

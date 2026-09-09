@@ -257,12 +257,18 @@ cases:
         detail: >
           Orders 1004 and 1012 are EMEA, in Q1, and cancelled. Including them
           is the intended trap; the prompt excludes them explicitly.
+        wrong_sql: >
+          SELECT SUM(ol.quantity * ol.unit_price_cents)
+          FROM orders o JOIN order_lines ol ON ol.order_id = o.order_id
+          WHERE o.customer_region = 'EMEA'
+            AND o.order_date BETWEEN '2026-01-01' AND '2026-03-31'
       - id: closed-only
         detail: >
-          Filtering to status = 'closed' rather than excluding 'cancelled' is
-          the same answer here by coincidence of the data, so this distractor
-          is recorded but does not currently discriminate. Noted rather than
-          quietly relied on.
+          Filtering to status = 'closed' rather than excluding 'cancelled'
+          returns the same figure on v1 data, because every non-cancelled EMEA
+          Q1 order happens to be closed. Declared non-discriminating rather
+          than left to imply a rigour it does not have.
+        discriminates: false
     notes: >
       Tests predicate discipline against two nearby wrong readings. The second
       distractor is honestly labelled as non-discriminating on v1 data.
@@ -292,10 +298,18 @@ cases:
         detail: >
           NC-BRG-12 is the same supplier, same category, and one character
           different in the SKU. Picking it is the intended failure.
+        wrong_sql: >
+          SELECT SUM(ol.quantity * ol.unit_price_cents)
+          FROM order_lines ol JOIN products p ON p.product_id = ol.product_id
+          WHERE p.sku = 'NC-BRG-12'
       - id: cost-not-price
         detail: >
           products.unit_cost_cents sits beside order_lines.unit_price_cents.
           Revenue uses price; using cost yields a plausible smaller figure.
+        wrong_sql: >
+          SELECT SUM(ol.quantity * p.unit_cost_cents)
+          FROM order_lines ol JOIN products p ON p.product_id = ol.product_id
+          WHERE p.sku = 'NC-BRG-08'
     notes: >
       Two independent traps, one on row selection and one on column selection.
 
