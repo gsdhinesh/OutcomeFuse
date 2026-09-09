@@ -439,7 +439,8 @@ outcomefuse/
   pyproject.toml            # uv project, src layout, host adapters as optional extras
   src/outcomefuse/
     core/                   # PURE — no I/O, no clock, no network
-      contract/             # schema, validation, canonicalise, verifier registry
+      canon/                # AD-6: the one canonicaliser — both hashing routes
+      contract/             # schema, validation, verifier registry
       ledger/               # allocate, reserve, settle, attribute
       gate/                 # criterion evaluation, verdict, quality_state
       policy/               # the FR2 precedence ladder, proposal resolution
@@ -477,6 +478,7 @@ outcomefuse/
 
 | Feature | Lives in | Governed by |
 | --- | --- | --- |
+| Canonicaliser (serves every hash) | `core/canon` | AD-6 |
 | F1 Runtime Decision Policy | `core/policy` | AD-2, AD-3, AD-4, AD-8, AD-18 |
 | F2 Outcome Contract | `core/contract` | AD-6, AD-7 |
 | F3 Budget Ledger | `core/ledger` | AD-3, AD-4, AD-13, AD-18 |

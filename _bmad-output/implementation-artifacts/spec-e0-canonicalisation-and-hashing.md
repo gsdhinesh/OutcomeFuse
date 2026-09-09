@@ -160,7 +160,7 @@ def _sealed(route: str, payload: Any) -> Digest:
 
 **`Digest` field constraints:** `sha256` matches `^[0-9a-f]{64}$` and `normalisation` is non-empty, enforced on **deserialised** records, not just freshly produced ones. `require_route` verifies the declared normalisation equals the pinned version, and converts a pydantic `ValidationError` into `RouteDeclarationError` so callers face one error type. `_check_route` must report a non-string route as such rather than calling it "empty".
 
-**Placement note:** the architecture's source tree comment lists `canonicalise` under `core/contract/`, but AD-6 describes it as a core-owned function serving the fuse, the ledger and the harness alike, and the freeze tool must import it without dragging in contract schemas. This spec places it at `core/canon/`. Flag at review if the literal tree should win.
+**Placement note — resolved 2026-09-09.** The architecture's source tree previously listed `canonicalise` under `core/contract/`, but AD-6 describes it as a core-owned function serving the fuse, the ledger and the harness alike, and the freeze tool must import it without dragging in contract schemas. It lives at `core/canon/`, and ARCHITECTURE-SPINE's source tree and capability map have been updated to match, so the spine and the code no longer disagree.
 
 ## Verification
 

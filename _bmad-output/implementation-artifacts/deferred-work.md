@@ -33,8 +33,8 @@
   evidence: `CON`, `NUL`, `aux.py`, `a.py.` and `notes.py:stream` resolve differently on Windows than on Linux, so the same declared manifest can name different files on the two platforms. The current guards cover `..`, absolute, drive-qualified and null-byte paths only.
 
 - source_spec: `spec-e0-canonicalisation-and-hashing.md`
-  summary: Run the suite on Linux as well as Windows, and type-check the package.
-  evidence: The whole cross-platform agreement argument is currently reasoned rather than measured — no Linux execution has happened. The package also ships `py.typed`, asserting type completeness to later epics, with no mypy or pyright in the dev group to back it.
+  summary: Type-check the package, and keep the Linux run going as CI rather than a one-off.
+  evidence: Cross-platform agreement was measured on 2026-09-09 — `python:3.12-slim` in Docker produced 143 passed / 1 skipped and the identical pinned digest `fb2dc3f5…08bf20` — but that was a manual run, so it will rot. The package also ships `py.typed`, asserting type completeness to later epics, with no mypy or pyright in the dev group to back it. Note the two platforms skip *different* containment tests, so only running both actually exercises the guard.
 
 - source_spec: `spec-e0-canonicalisation-and-hashing.md`
   summary: Decide whether a CLI JSON payload should be limit-independent with respect to `PYTHONINTMAXSTRDIGITS`.
