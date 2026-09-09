@@ -19,27 +19,32 @@ them.
 
 ## Rules every case obeys
 
-1. **The answer key is authored with the case, never after a run.** A key
-   written after seeing model output is fitted to the output. Keys are committed
-   in the same change as the case.
-2. **Every mandatory criterion in the workload's contract is satisfiable from
+1. **The answer key is derived from the corpus, never hand-written.** Each
+   answerable case carries `reference` SQL, and the key is produced by executing
+   it against the frozen corpus (`freeze/derive_answer_keys.py`). A key typed by
+   hand can silently disagree with the data it describes, and at the freeze both
+   are sealed together and the disagreement becomes permanent.
+2. **Keys live in a separate file from the cases.** The harness surfaces only
+   `prompt` to the agent; the correct answer must not be one field access away
+   from the text handed to the model.
+3. **Every mandatory criterion in the workload's contract is satisfiable from
    the case's own data.** A case that cannot in principle pass is a broken case,
    not a hard one.
-3. **The key pins exactly the fields the contract checks against it** — no more.
+4. **The key pins exactly the fields the contract checks against it** — no more.
    An unused key field invites a later criterion to be fitted to it.
-4. **Solvable by a competent agent within the contract's ceilings.** If the
+5. **Solvable by a competent agent within the contract's ceilings.** If the
    ceiling makes a case unsolvable, the comparison measures the ceiling.
-5. **Not solvable by guessing.** Controlled-vocabulary answers need enough
+6. **Not solvable by guessing.** Controlled-vocabulary answers need enough
    plausible alternatives that a blind guess is unlikely to hit. Recorded per
    case as `guess_baseline`, so a suspiciously high pass rate is diagnosable.
-6. **The evidence exists in the corpus.** Every citable identifier the key
+7. **The evidence exists in the corpus.** Every citable identifier the key
    references resolves in the case's citable index. A case whose answer cannot
    be evidenced tests fabrication, not competence — those exist, and are tagged.
-7. **Deterministic tools return deterministic results.** A tool declared
+8. **Deterministic tools return deterministic results.** A tool declared
    deterministic in the contract returns identical output for identical
    canonical arguments across the whole case set. If that fails, cache-hit and
    deduplication measurements are meaningless.
-8. **No case requires a side-effecting tool to pass.** Side-effecting tools are
+9. **No case requires a side-effecting tool to pass.** Side-effecting tools are
    present so the conformance battery can prove they are never suppressed, not
    because the work needs them.
 
@@ -68,6 +73,13 @@ to bite on.
 - Distractors are **plausible**, not adversarial nonsense: near-miss dates,
   superseded policy clauses, a similarly-named symbol in another module, a
   correct figure for the wrong period.
+- **A distractor must be verified to discriminate.** Compute the wrong reading
+  against the corpus and confirm it yields a different answer from the right
+  one. A trap that returns the correct value by coincidence of the data tests
+  nothing while looking rigorous — this has already happened once, in the first
+  draft of `ds-e-007`, and was caught only by checking rather than assuming. A
+  distractor that does not discriminate is either fixed or labelled as
+  non-discriminating; it is never left to imply a rigour it does not have.
 
 ## Calibration and evaluation split
 
@@ -93,22 +105,34 @@ being written.
 ## Case record shape
 
 ```yaml
-case_id: dr-014
-workload: doc-research
-split: calibration          # calibration | evaluation
-difficulty: multi-hop
-data_class: synthetic
-guess_baseline: 0.08        # probability a blind guess satisfies the key
+case_id: ds-c-014
+difficulty: multi-hop          # direct | multi-hop | distractor-heavy | unanswerable
+guess_baseline: 0.0           # probability a blind guess satisfies the key
+units: usd
+expected_outcome: answer      # answer | partial
 prompt: >
-  ...
-corpus_ref: corpora/doc-research/v1
-answer_key:
-  answer_code: ...
-  primary_source_id: ...
-distractors: [...]          # distractor-heavy cases only
+  The only field the agent ever sees.
+reference:                    # omitted for unanswerable cases
+  value_sql: SELECT ...
+  value_is_cents: true
+  rows_sql: SELECT COUNT(*) ...
+distractors:                  # distractor-heavy cases only
+  - id: adjacent-sku
+    detail: >
+      What the wrong reading is, and that it was verified to discriminate.
 notes: >
   Why this case exists and what it is meant to catch.
 ```
+
+Split, workload, `data_class` and `corpus_ref` are declared once per file rather
+than repeated per case. The derived key carries `result_value`, `units` and
+`row_count` for answerable cases, or `expected_outcome: partial` and the
+`unmet_criteria` a correct partial result must name.
+
+**`row_count` means contributing base rows, not rows returned.** An aggregate
+returns one row whatever it computes, so counting returned rows would make the
+criterion vacuous. Counting contributing rows is what catches a right-looking
+figure computed over the wrong row set.
 
 ## Case counts
 

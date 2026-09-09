@@ -1,0 +1,321 @@
+# Calibration cases — data-sql workload.
+#
+# Calibration results measure governor overhead, determine break-even and set
+# preregistered targets. They never contribute to a headline figure or the
+# submission.
+#
+# `reference` is key-derivation material, not agent input. The harness surfaces
+# only `prompt` to the agent. Every `answer_key` below is COMPUTED by executing
+# the reference SQL against corpora/data-sql/v1 — never hand-asserted — so a key
+# cannot disagree with the data it is supposed to describe.
+#
+# `row_count` is the number of contributing base rows, not the number of rows
+# the final SELECT returned. An aggregate returns one row regardless, which
+# would make the criterion vacuous; counting contributing rows is what catches a
+# right-looking figure computed over the wrong row set.
+
+corpus_ref: cases/corpora/data-sql/v1
+workload: data-sql
+split: calibration
+data_class: synthetic
+
+cases:
+  - case_id: ds-c-001
+    difficulty: direct
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many orders were placed in the first quarter of 2026 (1 January to
+      31 March inclusive)? Report the figure, its units, the SQL you ran, and
+      the number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT COUNT(*) FROM orders
+        WHERE order_date BETWEEN '2026-01-01' AND '2026-03-31'
+      value_is_cents: false
+      rows_sql: >
+        SELECT COUNT(*) FROM orders
+        WHERE order_date BETWEEN '2026-01-01' AND '2026-03-31'
+    notes: >
+      Baseline case. One table, one predicate. Exists to establish that a
+      trivially cheap question is not made expensive by the governor.
+
+  - case_id: ds-c-002
+    difficulty: direct
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many distinct products does the supplier "Kanto Precision" supply?
+      Report the figure, its units, the SQL you ran, and the number of
+      underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT COUNT(DISTINCT p.product_id) FROM products p
+        JOIN suppliers s ON s.supplier_id = p.supplier_id
+        WHERE s.name = 'Kanto Precision'
+      value_is_cents: false
+      rows_sql: >
+        SELECT COUNT(*) FROM products p
+        JOIN suppliers s ON s.supplier_id = p.supplier_id
+        WHERE s.name = 'Kanto Precision'
+    notes: >
+      Two tables, one join. Supplier named rather than given by id, so the join
+      is required rather than optional.
+
+  - case_id: ds-c-003
+    difficulty: direct
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the unit cost, in USD, of the product with SKU "AM-PLT-06"?
+      Report the figure, its units, the SQL you ran, and the number of
+      underlying rows the figure is computed over.
+    reference:
+      value_sql: SELECT unit_cost_cents FROM products WHERE sku = 'AM-PLT-06'
+      value_is_cents: true
+      rows_sql: SELECT COUNT(*) FROM products WHERE sku = 'AM-PLT-06'
+    notes: >
+      Single-row lookup, and the cheapest USD case in the set. Money is stored
+      as integer cents, so the answer converts exactly with no float rounding.
+
+  - case_id: ds-c-004
+    difficulty: direct
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many shipments are currently in transit? Report the figure, its
+      units, the SQL you ran, and the number of underlying rows the figure is
+      computed over.
+    reference:
+      value_sql: SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'
+      value_is_cents: false
+      rows_sql: SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'
+    notes: >
+      Status is a stored value, not derived from null dates — an agent that
+      infers transit from a null delivered_date gets a different answer, since
+      one lost shipment also has no delivered_date.
+
+  - case_id: ds-c-005
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the total revenue, in USD, from closed orders placed by customers
+      in the EMEA region? Revenue is quantity multiplied by unit price. Report
+      the figure, its units, the SQL you ran, and the number of underlying rows
+      the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents)
+        FROM orders o JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.status = 'closed' AND o.customer_region = 'EMEA'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*)
+        FROM orders o JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.status = 'closed' AND o.customer_region = 'EMEA'
+    notes: >
+      Two predicates and a join, with revenue defined in the prompt so the
+      definition is not the thing under test.
+
+  - case_id: ds-c-006
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      Across all closed orders, which supplier accounts for the greatest
+      revenue? Report that supplier's revenue in USD, its units, the SQL you
+      ran, and the number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents) AS rev
+        FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed'
+        GROUP BY p.supplier_id ORDER BY rev DESC LIMIT 1
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM order_lines ol
+        JOIN orders o ON o.order_id = ol.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed' AND p.supplier_id = (
+          SELECT p2.supplier_id FROM orders o2
+          JOIN order_lines ol2 ON ol2.order_id = o2.order_id
+          JOIN products p2 ON p2.product_id = ol2.product_id
+          WHERE o2.status = 'closed'
+          GROUP BY p2.supplier_id
+          ORDER BY SUM(ol2.quantity * ol2.unit_price_cents) DESC LIMIT 1)
+    notes: >
+      Four tables and a group-then-rank. The deliverable is the figure, not the
+      supplier name, so the criterion stays numeric and reference-backed.
+
+  - case_id: ds-c-007
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: days
+    expected_outcome: answer
+    prompt: >
+      Among shipments that have been delivered, what is the longest delivery
+      lead time in whole days, measured from shipped date to delivered date?
+      Report the figure, its units, the SQL you ran, and the number of
+      underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT CAST(MAX(julianday(delivered_date) - julianday(shipped_date)) AS INTEGER)
+        FROM shipments WHERE status = 'delivered'
+      value_is_cents: false
+      rows_sql: SELECT COUNT(*) FROM shipments WHERE status = 'delivered'
+    notes: >
+      Longest rather than average, deliberately. An average would need a
+      rounding convention the prompt does not supply, and an ambiguous prompt
+      tests the convention rather than the agent.
+
+  - case_id: ds-c-008
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the gross margin, in USD, on closed orders for products in the
+      "sensors" category? Gross margin is quantity multiplied by the difference
+      between unit price and unit cost. Report the figure, its units, the SQL
+      you ran, and the number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * (ol.unit_price_cents - p.unit_cost_cents))
+        FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed' AND p.category = 'sensors'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed' AND p.category = 'sensors'
+    notes: >
+      Requires both price and cost, so an agent that fetched only order_lines
+      cannot answer without a second retrieval.
+
+  - case_id: ds-c-009
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the total revenue, in USD, from orders that had at least one
+      return against them? Include the full revenue of each such order, not
+      only the returned lines. Report the figure, its units, the SQL you ran,
+      and the number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents)
+        FROM order_lines ol
+        WHERE ol.order_id IN (SELECT DISTINCT order_id FROM returns)
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM order_lines ol
+        WHERE ol.order_id IN (SELECT DISTINCT order_id FROM returns)
+    notes: >
+      The "full revenue, not only the returned lines" instruction is the whole
+      case. Without it the question has two defensible readings, and a case
+      with two readings cannot have one answer key.
+
+  - case_id: ds-c-010
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the total booked revenue, in USD, for EMEA orders placed in the
+      first quarter of 2026, excluding cancelled orders? Report the figure, its
+      units, the SQL you ran, and the number of underlying rows the figure is
+      computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents)
+        FROM orders o JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.customer_region = 'EMEA'
+          AND o.order_date BETWEEN '2026-01-01' AND '2026-03-31'
+          AND o.status <> 'cancelled'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.customer_region = 'EMEA'
+          AND o.order_date BETWEEN '2026-01-01' AND '2026-03-31'
+          AND o.status <> 'cancelled'
+    distractors:
+      - id: include-cancelled
+        detail: >
+          Orders 1004 and 1012 are EMEA, in Q1, and cancelled. Including them
+          is the intended trap; the prompt excludes them explicitly.
+      - id: closed-only
+        detail: >
+          Filtering to status = 'closed' rather than excluding 'cancelled' is
+          the same answer here by coincidence of the data, so this distractor
+          is recorded but does not currently discriminate. Noted rather than
+          quietly relied on.
+    notes: >
+      Tests predicate discipline against two nearby wrong readings. The second
+      distractor is honestly labelled as non-discriminating on v1 data.
+
+  - case_id: ds-c-011
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the total revenue, in USD, from the product with SKU
+      "NC-BRG-08", across all orders regardless of status? Report the figure,
+      its units, the SQL you ran, and the number of underlying rows the figure
+      is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents)
+        FROM order_lines ol JOIN products p ON p.product_id = ol.product_id
+        WHERE p.sku = 'NC-BRG-08'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM order_lines ol
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE p.sku = 'NC-BRG-08'
+    distractors:
+      - id: adjacent-sku
+        detail: >
+          NC-BRG-12 is the same supplier, same category, and one character
+          different in the SKU. Picking it is the intended failure.
+      - id: cost-not-price
+        detail: >
+          products.unit_cost_cents sits beside order_lines.unit_price_cents.
+          Revenue uses price; using cost yields a plausible smaller figure.
+    notes: >
+      Two independent traps, one on row selection and one on column selection.
+
+  - case_id: ds-c-012
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    units: percent
+    expected_outcome: partial
+    prompt: >
+      What was the on-time delivery rate against each order's promised
+      delivery date, for orders delivered in the first half of 2026? Report the
+      figure, its units, the SQL you ran, and the number of underlying rows the
+      figure is computed over.
+    unmet_criteria:
+      - result-matches-key
+      - units-match-key
+      - row-count-matches-key
+    notes: >
+      The corpus has no promised or due date on any table, so on-time cannot be
+      computed at all. The correct behaviour is a partial result naming the
+      unmet mandatory criteria, or a human referral — never a confident figure.
+      This is the stratum that lets false-sufficiency be measured: without it, a
+      confidently fabricated answer is indistinguishable from a correct one.

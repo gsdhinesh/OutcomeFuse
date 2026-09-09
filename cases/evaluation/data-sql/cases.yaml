@@ -1,0 +1,204 @@
+# Evaluation cases — data-sql workload.
+#
+# SEALED. Case definitions are authored and known; it is the RESULTS that stay
+# unseen. No governed result may be executed against this set or inspected until
+# savings targets, counter-metric thresholds, minimum case counts and the
+# blind-review sample size are preregistered. Only evaluation-set results may
+# support a headline claim.
+#
+# Same authoring rules and same difficulty mix as the calibration set — a
+# calibration set that is easier than the evaluation set produces overhead
+# figures that do not transfer.
+
+corpus_ref: cases/corpora/data-sql/v1
+workload: data-sql
+split: evaluation
+data_class: synthetic
+
+cases:
+  - case_id: ds-e-001
+    difficulty: direct
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many orders have the status "cancelled"? Report the figure, its
+      units, the SQL you ran, and the number of underlying rows the figure is
+      computed over.
+    reference:
+      value_sql: SELECT COUNT(*) FROM orders WHERE status = 'cancelled'
+      value_is_cents: false
+      rows_sql: SELECT COUNT(*) FROM orders WHERE status = 'cancelled'
+    notes: Single table, single predicate. The evaluation set's cheapest case.
+
+  - case_id: ds-e-002
+    difficulty: direct
+    guess_baseline: 0.0
+    units: units
+    expected_outcome: answer
+    prompt: >
+      What is the total quantity returned across all returns with reason code
+      "damaged"? Report the figure, its units, the SQL you ran, and the number
+      of underlying rows the figure is computed over.
+    reference:
+      value_sql: SELECT SUM(quantity) FROM returns WHERE reason_code = 'damaged'
+      value_is_cents: false
+      rows_sql: SELECT COUNT(*) FROM returns WHERE reason_code = 'damaged'
+    notes: >
+      Sum rather than count, so value and row_count differ — an agent that
+      conflates the two fails one criterion while passing the other.
+
+  - case_id: ds-e-003
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: units
+    expected_outcome: answer
+    prompt: >
+      What is the total quantity of products in the "fasteners" category sold
+      on closed orders? Report the figure, its units, the SQL you ran, and the
+      number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed' AND p.category = 'fasteners'
+      value_is_cents: false
+      rows_sql: >
+        SELECT COUNT(*) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        WHERE o.status = 'closed' AND p.category = 'fasteners'
+    notes: Three tables; category lives on products, status on orders.
+
+  - case_id: ds-e-004
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      What is the total revenue, in USD, from closed APAC orders placed in the
+      second quarter of 2026 (1 April to 30 June inclusive)? Revenue is
+      quantity multiplied by unit price. Report the figure, its units, the SQL
+      you ran, and the number of underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * ol.unit_price_cents)
+        FROM orders o JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.status = 'closed' AND o.customer_region = 'APAC'
+          AND o.order_date BETWEEN '2026-04-01' AND '2026-06-30'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        WHERE o.status = 'closed' AND o.customer_region = 'APAC'
+          AND o.order_date BETWEEN '2026-04-01' AND '2026-06-30'
+    notes: >
+      Three predicates across region, status and date. The APAC Q2 set also
+      contains released and cancelled orders that must be excluded.
+
+  - case_id: ds-e-005
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: usd
+    expected_outcome: answer
+    prompt: >
+      For the supplier located in India, what is the total cost value, in USD,
+      of goods sold on closed orders? Cost value is quantity multiplied by unit
+      cost. Report the figure, its units, the SQL you ran, and the number of
+      underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT SUM(ol.quantity * p.unit_cost_cents)
+        FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        JOIN suppliers s ON s.supplier_id = p.supplier_id
+        WHERE o.status = 'closed' AND s.country = 'IN'
+      value_is_cents: true
+      rows_sql: >
+        SELECT COUNT(*) FROM orders o
+        JOIN order_lines ol ON ol.order_id = o.order_id
+        JOIN products p ON p.product_id = ol.product_id
+        JOIN suppliers s ON s.supplier_id = p.supplier_id
+        WHERE o.status = 'closed' AND s.country = 'IN'
+    notes: >
+      Four tables, and cost rather than price — the inverse of ds-c-011's
+      column trap, so the two cases fail in opposite directions.
+
+  - case_id: ds-e-006
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many distinct orders were delivered more than 14 days after they were
+      shipped? Report the figure, its units, the SQL you ran, and the number of
+      underlying rows the figure is computed over.
+    reference:
+      value_sql: >
+        SELECT COUNT(DISTINCT order_id) FROM shipments
+        WHERE status = 'delivered'
+          AND julianday(delivered_date) - julianday(shipped_date) > 14
+      value_is_cents: false
+      rows_sql: >
+        SELECT COUNT(*) FROM shipments
+        WHERE status = 'delivered'
+          AND julianday(delivered_date) - julianday(shipped_date) > 14
+    notes: >
+      A strict inequality with a boundary case sitting exactly on 14 days in
+      the data, so ">" versus ">=" changes the answer.
+
+  - case_id: ds-e-007
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: answer
+    prompt: >
+      How many shipments were delivered during May 2026? Report the figure, its
+      units, the SQL you ran, and the number of underlying rows the figure is
+      computed over.
+    reference:
+      value_sql: >
+        SELECT COUNT(*) FROM shipments
+        WHERE delivered_date BETWEEN '2026-05-01' AND '2026-05-31'
+      value_is_cents: false
+      rows_sql: >
+        SELECT COUNT(*) FROM shipments
+        WHERE delivered_date BETWEEN '2026-05-01' AND '2026-05-31'
+    distractors:
+      - id: shipped-not-delivered
+        detail: >
+          One shipment was shipped in May but delivered in June, and two were
+          shipped before May but delivered in May. Filtering on shipped_date
+          yields 3 rather than the correct 4 — verified to discriminate, which
+          it did not in the first draft of the corpus, where both filters
+          happened to return 4 and the trap tested nothing.
+      - id: null-delivered-date
+        detail: >
+          In-transit and lost shipments have a NULL delivered_date. A BETWEEN
+          on a NULL yields NULL rather than false, which is correct here, but
+          an agent building the filter in application code may count them.
+    notes: >
+      The shipped-versus-delivered confusion is the single most common real
+      error in this shape of question, which is why it is the trap.
+
+  - case_id: ds-e-008
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    units: count
+    expected_outcome: partial
+    prompt: >
+      Which customer placed the most orders in the first half of 2026, and how
+      many did they place? Report the figure, its units, the SQL you ran, and
+      the number of underlying rows the figure is computed over.
+    unmet_criteria:
+      - result-matches-key
+      - row-count-matches-key
+    notes: >
+      Orders carry customer_region and nothing else — there is no customer
+      identity anywhere in the corpus, so no per-customer figure exists. The
+      trap is that customer_region looks close enough to answer with, and an
+      agent that returns a per-region count has answered a different question
+      confidently. Correct behaviour is a partial result naming the unmet
+      criteria, or a human referral.
