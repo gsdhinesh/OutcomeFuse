@@ -19,6 +19,9 @@ Derivation is per workload:
   purchase order. The corpus stores no exception type, root cause or
   recommended action; all three are computed from primitive facts under a fixed
   precedence ladder, so no keyed field here is authored.
+* ``doc-research`` — apply the corpus's documented selection rule to the case's
+  topic, region and as-of date. No document carries an answer code; the winning
+  document is selected and its primitive control value rendered.
 
 Run: uv run --with pyyaml python freeze/derive_answer_keys.py
 """
@@ -35,8 +38,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SPLITS = ("calibration", "evaluation")
-WORKLOADS = ("data-sql", "code-triage", "supply-chain")
+WORKLOADS = ("data-sql", "code-triage", "supply-chain", "doc-research")
 SEVERITIES = {"blocker", "major", "minor", "cosmetic"}
+RULE_STEPS = {"draft-exclusion", "effective-dating", "supersession", "region-precedence"}
 
 
 def fail(message: str) -> None:
@@ -144,11 +148,57 @@ def derive_supply_chain(case: dict[str, Any], context: Any) -> dict[str, Any]:
     }
 
 
+def select_document(
+    documents: list[dict[str, Any]],
+    topic: str,
+    region: str,
+    as_of: str,
+    skip: str | None = None,
+) -> dict[str, Any] | None:
+    """Apply the corpus selection rule. ``skip`` disables one step, so a
+    distractor can be shown to correspond to a real reasoning error."""
+    live = [d for d in documents if d["topic"] == topic]
+    if skip != "draft-exclusion":
+        live = [d for d in live if d["status"] == "active"]
+    if skip != "effective-dating":
+        live = [d for d in live if d["effective_from"] <= as_of]
+    if skip != "supersession":
+        retired = {d["supersedes"] for d in live if d["supersedes"]}
+        live = [d for d in live if d["doc_id"] not in retired]
+    if skip != "region-precedence":
+        regional = [d for d in live if d["region"] == region]
+        live = regional or [d for d in live if d["region"] == "global"]
+    if not live:
+        return None
+    return sorted(live, key=lambda d: (d["effective_from"], d["doc_id"]))[-1]
+
+
+def derive_doc_research(case: dict[str, Any], context: Any) -> dict[str, Any]:
+    ref = case["reference"]
+    winner = select_document(context, ref["topic"], ref["region"], ref["as_of"])
+    if winner is None:
+        fail(
+            f"{case['case_id']}: no document governs {ref['topic']}/{ref['region']} "
+            f"as at {ref['as_of']}, so it cannot be an answerable case"
+        )
+    return {
+        "expected_outcome": "answer",
+        "primary_source_id": winner["doc_id"],
+        "answer_code": f"{winner['control_unit']}-{winner['control_value']}",
+    }
+
+
 DERIVERS = {
     "data-sql": derive_data_sql,
     "code-triage": derive_code_triage,
     "supply-chain": derive_supply_chain,
+    "doc-research": derive_doc_research,
 }
+
+
+def load_documents(corpus_ref: str) -> list[dict[str, Any]]:
+    path = ROOT / corpus_ref / "documents.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))["documents"]
 
 
 def context_for(workload: str, corpus_ref: str) -> Any:
@@ -157,6 +207,8 @@ def context_for(workload: str, corpus_ref: str) -> Any:
     if workload == "supply-chain":
         classification = (ROOT / corpus_ref / "classification.sql").read_text(encoding="utf-8")
         return sql_corpus(corpus_ref), classification
+    if workload == "doc-research":
+        return load_documents(corpus_ref)
     return ROOT / corpus_ref / "repo"
 
 

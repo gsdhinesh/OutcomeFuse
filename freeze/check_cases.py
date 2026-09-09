@@ -22,6 +22,10 @@ Workload-specific rules:
   value, which must differ from the derived one. The case's purchase order is
   checked to classify to something, since a clean order cannot be an
   answerable case.
+* ``doc-research`` — a distractor names the selection-rule step a wrong reading
+  skips. Selection is re-run with that step disabled and the result must
+  differ, which proves the trap corresponds to a real reasoning error rather
+  than an arbitrary wrong string.
 
 Run: uv run --with pyyaml python freeze/check_cases.py
 """
@@ -35,10 +39,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from derive_answer_keys import RULE_STEPS, load_documents, select_document
 
 ROOT = Path(__file__).resolve().parent.parent
 SPLITS = ("calibration", "evaluation")
-WORKLOADS = ("data-sql", "code-triage", "supply-chain")
+WORKLOADS = ("data-sql", "code-triage", "supply-chain", "doc-research")
 DIFFICULTIES = {"direct", "multi-hop", "distractor-heavy", "unanswerable"}
 SEVERITIES = {"blocker", "major", "minor", "cosmetic"}
 KEYED_FIELDS = {"exception_type", "root_cause_code", "recommended_action"}
@@ -135,10 +140,35 @@ def check_supply_chain(case: dict[str, Any], key: dict[str, Any], ctx: Any, out:
             )
 
 
+def check_doc_research(case: dict[str, Any], key: dict[str, Any], ctx: Any, out: list[str]) -> None:
+    cid = case["case_id"]
+    if case["expected_outcome"] != "answer":
+        return
+
+    ref = case["reference"]
+    for distractor in case.get("distractors") or []:
+        did = f"{cid}/{distractor['id']}"
+        if distractor.get("discriminates") is False:
+            if not distractor.get("detail"):
+                out.append(f"{did}: non-discriminating distractor needs a reason")
+            continue
+        step = distractor.get("skip_step")
+        if step not in RULE_STEPS:
+            out.append(f"{did}: needs skip_step from {sorted(RULE_STEPS)}")
+            continue
+        wrong = select_document(ctx, ref["topic"], ref["region"], ref["as_of"], skip=step)
+        if wrong is not None and wrong["doc_id"] == key["primary_source_id"]:
+            out.append(
+                f"{did}: does not discriminate — skipping {step} still selects "
+                f"{key['primary_source_id']}, so the trap tests nothing"
+            )
+
+
 CHECKERS = {
     "data-sql": check_data_sql,
     "code-triage": check_code_triage,
     "supply-chain": check_supply_chain,
+    "doc-research": check_doc_research,
 }
 
 
@@ -148,6 +178,8 @@ def context_for(workload: str, corpus_ref: str) -> Any:
     if workload == "supply-chain":
         classification = (ROOT / corpus_ref / "classification.sql").read_text(encoding="utf-8")
         return sql_corpus(corpus_ref), classification
+    if workload == "doc-research":
+        return load_documents(corpus_ref)
     return ROOT / corpus_ref / "repo"
 
 

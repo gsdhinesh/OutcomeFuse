@@ -1,0 +1,135 @@
+# Evaluation cases — doc-research workload.
+#
+# SEALED. Case definitions are authored and known; the RESULTS stay unseen
+# until preregistration completes. Only evaluation-set results may support a
+# headline claim.
+
+corpus_ref: cases/corpora/doc-research/v1
+workload: doc-research
+split: evaluation
+data_class: synthetic
+
+cases:
+  - case_id: dr-e-001
+    difficulty: direct
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What access review cycle applies in EMEA as at 15 March 2026? Give the
+      answer, name the document it rests on, and cite the sources you relied on.
+    reference: { topic: access-review, region: emea, as_of: '2026-03-15' }
+    notes: >
+      One regional standard, in force, unsuperseded. Region precedence is the
+      only step that does work.
+
+  - case_id: dr-e-002
+    difficulty: direct
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What backup frequency applies in AMER as at 1 July 2026? Give the
+      answer, name the document it rests on, and cite the sources you relied on.
+    reference: { topic: backup-frequency, region: amer, as_of: '2026-07-01' }
+    notes: >
+      Three regional backup standards exist and none is for AMER. Tests
+      whether a nearby regional standard is mistaken for an applicable one.
+
+  - case_id: dr-e-003
+    difficulty: multi-hop
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What access review cycle applies in AMER as at 15 March 2026? Give the
+      answer, name the document it rests on, and cite the sources you relied on.
+    reference: { topic: access-review, region: amer, as_of: '2026-03-15' }
+    notes: >
+      The AMER standard came into force earlier the same year. Its own body
+      text mentions the stricter EMEA cycle for shared systems, which is a
+      distraction from the question actually asked.
+
+  - case_id: dr-e-004
+    difficulty: multi-hop
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What vendor approval threshold applies in AMER as at 1 July 2026? Give
+      the answer, name the document it rests on, and cite the sources you
+      relied on.
+    reference: { topic: vendor-approval, region: amer, as_of: '2026-07-01' }
+    notes: >
+      A regional threshold lower than the global one. The direction of the
+      difference is the opposite of the EMEA case, so pattern-matching on
+      "regional means stricter" does not survive both.
+
+  - case_id: dr-e-005
+    difficulty: multi-hop
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What vendor approval threshold applies in EMEA as at 1 July 2026? Give
+      the answer, name the document it rests on, and cite the sources you
+      relied on.
+    reference: { topic: vendor-approval, region: emea, as_of: '2026-07-01' }
+    notes: >
+      Regional and higher than global, and only just in force at the as-of
+      date. Pairs with dr-e-004.
+
+  - case_id: dr-e-006
+    difficulty: multi-hop
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What records retention period applies in AMER as at 1 July 2026? Give
+      the answer, name the document it rests on, and cite the sources you
+      relied on.
+    reference: { topic: data-retention, region: amer, as_of: '2026-07-01' }
+    notes: >
+      The same query as dr-c-010 asked after the AMER standard takes effect.
+      The document that was the trap there is the answer here — which is the
+      point of the pair.
+
+  - case_id: dr-e-007
+    difficulty: distractor-heavy
+    guess_baseline: 0.06
+    expected_outcome: answer
+    prompt: >
+      What incident notification window applies in APAC as at 1 July 2026?
+      Give the answer, name the document it rests on, and cite the sources you
+      relied on.
+    reference: { topic: incident-notification, region: apac, as_of: '2026-07-01' }
+    distractors:
+      - id: ignore-draft-exclusion
+        detail: >
+          An APAC notification window exists, is region-specific, and is dated
+          well before the as-of date. Only its draft status disqualifies it,
+          and status is the one field a reader skims past.
+        skip_step: draft-exclusion
+      - id: ignore-region-precedence
+        detail: >
+          Dropping region precedence lets the revised EMEA window win on date
+          alone, which is both wrong and much stricter than the answer.
+        skip_step: region-precedence
+    notes: >
+      The only case in the set where draft exclusion does load-bearing work.
+      Replaced an earlier backup-frequency query here after the checker showed
+      that no rule step changed its answer — the trap looked rigorous and
+      tested nothing.
+
+  - case_id: dr-e-008
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    expected_outcome: partial
+    prompt: >
+      What encryption-at-rest standard applies in EMEA as at 15 March 2026?
+      Give the answer, name the document it rests on, and cite the sources you
+      relied on.
+    unmet_criteria:
+      - answer-matches-key
+      - primary-source-matches-key
+    notes: >
+      The corpus covers retention, access review, incident notification, vendor
+      approval and backup frequency. It has no encryption standard of any kind,
+      global or regional. The trap is that the corpus is plainly a security
+      standards library, so an encryption standard is exactly what a reader
+      expects to find — and the backup and retention standards are adjacent
+      enough to cite convincingly while answering nothing.
