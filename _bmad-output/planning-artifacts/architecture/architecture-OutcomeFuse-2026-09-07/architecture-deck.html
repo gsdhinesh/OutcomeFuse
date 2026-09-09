@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OutcomeFuse — Architecture Working Session</title>
+<style>
+:root{
+  --bg:#0b0f14;
+  --panel:#131b24;
+  --panel2:#0f1620;
+  --line:#22303d;
+  --fg:#e8f0f7;
+  --dim:#9db0c2;
+  --cyan:#4dd8e8;
+  --gold:#ffb454;
+  --red:#ff7a7a;
+  --green:#84e88f;
+  --purple:#bb90ff;
+  --mono:"Cascadia Mono","JetBrains Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+  --sans:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+  font-size:clamp(18px,1.45vh + 0.55vw,25px);line-height:1.45;
+  overflow:hidden;
+}
+#deck{position:absolute;inset:0 0 46px 0;}
+.slide{
+  display:none;position:absolute;inset:0;
+  padding:clamp(24px,3.2vh,54px) clamp(28px,3.6vw,72px) clamp(16px,2vh,30px);
+  overflow-y:auto;overflow-x:hidden;
+}
+.slide.active{display:block;animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.slide::-webkit-scrollbar{width:10px}
+.slide::-webkit-scrollbar-thumb{background:#24313f;border-radius:6px}
+
+.kicker{
+  font-family:var(--mono);font-size:.62em;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--cyan);margin:0 0 .35em;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+h1{font-size:clamp(34px,5.2vh,64px);line-height:1.05;margin:0 0 .35em;letter-spacing:-.015em}
+h2{font-size:clamp(28px,4.2vh,48px);line-height:1.08;margin:0 0 .45em;letter-spacing:-.012em}
+h3{font-size:1.02em;margin:0 0 .4em;color:var(--cyan);font-weight:650;letter-spacing:.01em}
+p{margin:0 0 .7em}
+ul{margin:0 0 .7em;padding-left:1.15em}
+li{margin-bottom:.4em}
+li::marker{color:var(--cyan)}
+strong{color:#fff;font-weight:680}
+em{color:var(--gold);font-style:normal;font-weight:600}
+code,.mono{font-family:var(--mono);font-size:.86em;color:var(--cyan);background:#0d151e;
+  border:1px solid var(--line);border-radius:5px;padding:.06em .34em}
+
+.lead{font-size:1.12em;color:var(--dim);max-width:58ch}
+.dim{color:var(--dim)}
+.tiny{font-size:.78em}
+
+.cols{display:grid;gap:clamp(14px,1.8vw,30px)}
+.c2{grid-template-columns:1fr 1fr}
+.c3{grid-template-columns:1fr 1fr 1fr}
+.c2a{grid-template-columns:1.25fr 1fr}
+.c2b{grid-template-columns:1fr 1.35fr}
+@media (max-width:1100px){.c2,.c3,.c2a,.c2b{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--cyan);
+  border-radius:10px;padding:.75em .95em}
+.card.gold{border-left-color:var(--gold)}
+.card.red{border-left-color:var(--red)}
+.card.green{border-left-color:var(--green)}
+.card.purple{border-left-color:var(--purple)}
+.card p:last-child,.card ul:last-child{margin-bottom:0}
+
+.ad{font-family:var(--mono);font-size:.72em;color:var(--gold);letter-spacing:.06em;
+  display:inline-block;margin-bottom:.25em;font-weight:700}
+.prevents{font-size:.9em}
+.prevents b{color:var(--red);font-family:var(--mono);font-size:.82em;letter-spacing:.09em;
+  text-transform:uppercase;display:block;margin-bottom:.1em;font-weight:700}
+
+.badge{font-family:var(--mono);font-size:.55em;letter-spacing:.14em;padding:.3em .7em;
+  border-radius:999px;border:1px solid;white-space:nowrap;font-weight:700}
+.badge-push{color:#1a0e00;background:var(--gold);border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(255,180,84,.16)}
+.badge-prot{color:var(--green);border-color:#2c5a35;background:#12200f}
+.badge-cut{color:var(--gold);border-color:#5a4520;background:#201a0f}
+
+.alt{background:linear-gradient(180deg,#1d1608,#151b23);border:1px solid #4a3a17;
+  border-radius:10px;padding:.7em .95em;margin-top:.55em}
+.alt h3{color:var(--gold);font-size:.8em;font-family:var(--mono);letter-spacing:.09em;
+  text-transform:uppercase}
+.alt p:last-child{margin-bottom:0}
+
+.notes{display:none;margin-top:1em;border-top:1px dashed #34465a;padding-top:.75em;
+  color:#b6c8d8;font-size:.82em;line-height:1.5;max-width:110ch}
+.notes h3{color:var(--purple);font-family:var(--mono);font-size:.82em;letter-spacing:.11em;
+  text-transform:uppercase;margin-bottom:.4em}
+body.notes-on .notes{display:block}
+.notes p{margin-bottom:.5em}
+
+svg{display:block;width:100%;height:auto;max-height:52vh;margin:.3em 0 .5em}
+svg.tall{max-height:60vh}
+svg.short{max-height:26vh}
+.s-box{fill:#16202b;stroke:#3a5266;stroke-width:1.5}
+.s-core{fill:#0f2a30;stroke:var(--cyan);stroke-width:2}
+.s-warn{fill:#2a2110;stroke:var(--gold);stroke-width:2}
+.s-bad{fill:#2a1414;stroke:var(--red);stroke-width:2}
+.s-good{fill:#122414;stroke:var(--green);stroke-width:2}
+.s-grp{fill:none;stroke:#3a5266;stroke-width:1.5;stroke-dasharray:7 6}
+.s-t{fill:#e8f0f7;font-family:"Segoe UI",system-ui,sans-serif;font-size:16px}
+.s-tb{fill:#fff;font-family:"Segoe UI",system-ui,sans-serif;font-size:18px;font-weight:650}
+.s-tm{fill:#9db0c2;font-family:"Segoe UI",system-ui,sans-serif;font-size:14px}
+.s-tc{fill:#4dd8e8;font-family:"Cascadia Mono",Consolas,monospace;font-size:14px}
+.s-tg{fill:#ffb454;font-family:"Cascadia Mono",Consolas,monospace;font-size:14px}
+.s-tr{fill:#ff7a7a;font-family:"Cascadia Mono",Consolas,monospace;font-size:14px}
+.ln{stroke:#7f9bb3;stroke-width:2;fill:none}
+.ln-c{stroke:var(--cyan);stroke-width:2.5;fill:none}
+.ln-g{stroke:var(--gold);stroke-width:2.5;fill:none}
+.ln-r{stroke:var(--red);stroke-width:2.5;fill:none}
+.ln-d{stroke:#7f9bb3;stroke-width:2;fill:none;stroke-dasharray:6 5}
+.life{stroke:#3a5266;stroke-width:1.5;stroke-dasharray:4 5}
+
+#chrome{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;
+  gap:16px;padding:0 18px;background:var(--panel2);border-top:1px solid var(--line);font-size:14px}
+#bartrack{flex:1;height:5px;background:#1d2833;border-radius:3px;overflow:hidden}
+#bar{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--purple));
+  transition:width .18s ease}
+#counter{font-family:var(--mono);color:var(--dim);letter-spacing:.06em;min-width:6.5em;text-align:right}
+#brand{font-family:var(--mono);color:var(--cyan);letter-spacing:.14em;font-size:13px}
+#hint{font-family:var(--mono);color:#63788b;font-size:12.5px;letter-spacing:.06em}
+#notesflag{font-family:var(--mono);font-size:12px;color:var(--purple);letter-spacing:.1em;display:none}
+body.notes-on #notesflag{display:inline}
+
+.overlay{position:absolute;inset:0;background:rgba(6,10,14,.94);z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:5vh}
+.overlay[hidden]{display:none}
+.helpbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:2em 2.4em;max-width:840px;width:100%}
+.helpbox h2{margin-bottom:.6em}
+kbd{font-family:var(--mono);background:#0d151e;border:1px solid #3a5266;border-bottom-width:3px;
+  border-radius:6px;padding:.1em .5em;color:var(--cyan);font-size:.85em;white-space:nowrap}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:.55em 1.2em;align-items:baseline;font-size:.9em}
+
+table{border-collapse:collapse;width:100%;font-size:.82em}
+th,td{text-align:left;padding:.4em .6em;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--cyan);font-family:var(--mono);font-size:.86em;letter-spacing:.06em;
+  text-transform:uppercase;font-weight:650}
+td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
+
+.title-rule{height:4px;width:120px;background:linear-gradient(90deg,var(--cyan),var(--purple));
+  border-radius:2px;margin:.9em 0 1.2em}
+.chips{display:flex;flex-wrap:wrap;gap:.45em;margin:.3em 0 .6em}
+.chip{font-family:var(--mono);font-size:.72em;padding:.22em .6em;border-radius:6px;
+  border:1px solid var(--line);background:#0f1720;color:var(--dim)}
+.chip.on{color:var(--gold);border-color:#54401d}
+.chip.c{color:var(--cyan);border-color:#1f4a52}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#7f9bb3"/></marker>
+  <marker id="ahc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#4dd8e8"/></marker>
+  <marker id="ahg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#ffb454"/></marker>
+  <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#ff7a7a"/></marker>
+</defs></svg>
+
+<main id="deck">
+
+<!-- 1 -->
+<section class="slide">
+  <p class="kicker">Architecture working session &middot; 2026-09-07</p>
+  <h1>OutcomeFuse<br><span style="color:var(--cyan)">Architecture Spine</span></h1>
+  <div class="title-rule"></div>
+  <p class="lead">Twenty-one decisions, one paradigm, one build order. This deck is not a summary &mdash; it is a place to argue. Eight slides are marked <span class="badge badge-push">PUSH BACK HERE</span> because the call could reasonably have gone the other way.</p>
+  <div class="cols c3" style="margin-top:1.2em">
+    <div class="card"><h3>What is fixed</h3><p class="tiny">Ports-and-adapters. Append-only decision log as system of record. Pure core.</p></div>
+    <div class="card gold"><h3>What is arguable</h3><p class="tiny">AD-1, AD-3, AD-7, AD-10, AD-14, AD-16, AD-19, and the third host adapter.</p></div>
+    <div class="card purple"><h3>How to use it</h3><p class="tiny">Press <kbd>?</kbd> for keys, <kbd>n</kbd> for speaker notes. Stop me on any marked slide.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Set the frame before slide 2: we are not reviewing code, we are reviewing the small set of rules that stop two competent engineers building two incompatible systems. Every AD in here exists because a divergence was identified &mdash; not because it is good practice.</p>
+    <p>Ask up front for one thing: if you think an invariant is wrong, say so now. After E7 the protected core is running and these become expensive.</p>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <p class="kicker">01 &middot; The tension</p>
+  <h2>Two requirements pull in opposite directions</h2>
+  <div class="cols c2">
+    <div class="card"><span class="ad">FR50 &middot; FR51 &middot; FR52</span>
+      <p><strong>Wrap an existing loop.</strong> No re-architecture. Drop OutcomeFuse into LangGraph, Agent Framework, an SDK loop &mdash; and take it out again to get a clean baseline arm.</p>
+      <p class="tiny dim">Implies: sit lightly on the side. Observe. Do not own control flow.</p></div>
+    <div class="card gold"><span class="ad">FR1 &middot; FR23 &middot; FR2</span>
+      <p><strong>Decide before every unit of work.</strong> Deny, substitute, gate, halt. Stop <em>immediately</em> on sufficiency &mdash; mid-loop, not at the next natural boundary.</p>
+      <p class="tiny dim">Implies: be on the critical path. Own the verdict. Own termination.</p></div>
+  </div>
+  <svg class="short" viewBox="0 0 1040 200" role="img" aria-label="Two requirements pulling the host loop apart">
+    <rect class="s-box" x="410" y="60" width="220" height="80" rx="10"/>
+    <text class="s-tb" x="520" y="95" text-anchor="middle">The host loop</text>
+    <text class="s-tm" x="520" y="120" text-anchor="middle">someone else&rsquo;s code</text>
+    <path class="ln" marker-end="url(#ah)" d="M400 100 L 250 100"/>
+    <path class="ln-g" marker-end="url(#ahg)" d="M640 100 L 790 100"/>
+    <text class="s-tm" x="240" y="94" text-anchor="end">observe, do not own</text>
+    <text class="s-tm" x="240" y="116" text-anchor="end">FR50 &mdash; wrap it</text>
+    <text class="s-tg" x="800" y="94">own the verdict</text>
+    <text class="s-tg" x="800" y="116">FR1/FR23 &mdash; stop it mid-loop</text>
+    <text class="s-tr" x="520" y="175" text-anchor="middle">Resolve this wrong and every host integration honours a deny differently.</text>
+  </svg>
+  <div class="notes"><h3>Notes</h3>
+    <p>The failure this slide is protecting against is concrete and it is in AD-1&rsquo;s Prevents clause: one integration honours <code>deny</code> by raising, another by returning a sentinel. Both &ldquo;work&rdquo;. The decision records are then not comparable across hosts, and FR51&rsquo;s two-dissimilar-frameworks claim quietly means nothing.</p>
+    <p>The worse variant: a host silently does not honour <code>stop-sufficient</code>. The run continues, burns budget, and files as <code>halt-exhausted</code>. That is the product&rsquo;s headline event being misreported by an integration bug.</p>
+    <p>Do not skip ahead to AD-1 &mdash; let the room feel both pulls first, otherwise the mediated boundary looks like ceremony.</p>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <p class="kicker">02 &middot; The resolution <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>AD-1 &mdash; Mediated control boundary</h2>
+  <div class="cols c2b">
+    <div>
+      <div class="card"><p><strong>The host adapter proposes a step and applies the returned verdict &mdash; including termination.</strong></p>
+        <p class="tiny">Interception and loop-driving are <em>adapter strategies</em>, not architectures. No host framework type may appear above the adapter layer.</p></div>
+      <div class="card red prevents" style="margin-top:.6em"><b>Prevents</b>
+        Two integrations honouring <code>deny</code> differently &mdash; and a host silently not honouring <code>stop-sufficient</code>, refiling the headline event as <code>halt-exhausted</code>.</div>
+      <div class="alt"><h3>The alternative we rejected &mdash; and what it would cost you</h3>
+        <p class="tiny"><strong>Pure interception</strong> (hook the framework, never call us): cheapest to adopt, but the governor cannot terminate &mdash; it can only decline the next call. FR23&rsquo;s immediate stop degrades to &ldquo;stop at the next natural boundary&rdquo;, and the sufficiency claim goes with it.</p>
+        <p class="tiny"><strong>Drive the loop ourselves</strong>: total control, exact enforcement &mdash; and FR50 is dead. Every adoption becomes a re-architecture, FR52&rsquo;s clean OFF arm becomes a fork, and we are competing with the frameworks instead of governing them.</p>
+        <p class="tiny"><strong>Cost of what we chose:</strong> enforcement is <em>cooperative</em>. An adapter that lies produces a plausible, internally consistent, entirely false audit trail. That debt is paid at AD-15 / FR107, not here.</p></div>
+    </div>
+    <div>
+      <svg viewBox="0 0 560 400" role="img" aria-label="Host adapter proposes, governor returns a verdict">
+        <rect class="s-box" x="30" y="30" width="220" height="86" rx="10"/>
+        <text class="s-tb" x="140" y="62" text-anchor="middle">Host agent loop</text>
+        <text class="s-tm" x="140" y="86" text-anchor="middle">LangGraph / AF / SDK</text>
+        <text class="s-tm" x="140" y="105" text-anchor="middle">unmodified</text>
+        <rect class="s-warn" x="30" y="160" width="220" height="80" rx="10"/>
+        <text class="s-tb" x="140" y="192" text-anchor="middle">Host adapter</text>
+        <text class="s-tg" x="140" y="216" text-anchor="middle">the only place types live</text>
+        <rect class="s-core" x="320" y="160" width="210" height="80" rx="10"/>
+        <text class="s-tb" x="425" y="192" text-anchor="middle">Governor core</text>
+        <text class="s-tc" x="425" y="216" text-anchor="middle">pure &middot; narrow port</text>
+        <path class="ln" marker-end="url(#ah)" d="M140 116 L 140 156"/>
+        <path class="ln-c" marker-end="url(#ahc)" d="M250 185 L 316 185"/>
+        <text class="s-tc" x="283" y="172" text-anchor="middle">propose</text>
+        <path class="ln-g" marker-end="url(#ahg)" d="M320 222 L 254 222"/>
+        <text class="s-tg" x="287" y="245" text-anchor="middle">verdict</text>
+        <line class="life" x1="285" y1="20" x2="285" y2="290"/>
+        <text class="s-tm" x="285" y="310" text-anchor="middle">no framework type crosses this line</text>
+        <rect class="s-bad" x="30" y="330" width="500" height="50" rx="8"/>
+        <text class="s-t" x="280" y="360" text-anchor="middle">Verdict application is cooperative &rarr; AD-15 must probe out-of-band</text>
+      </svg>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The word doing the work is <em>mediated</em>. We neither observe passively nor seize control: we define one narrow port and require the adapter to apply what comes back. That makes &ldquo;how do we hook LangGraph?&rdquo; an implementation question inside one directory instead of an architectural question with three answers.</p>
+    <p>Expect the objection &ldquo;this is just a callback&rdquo;. Yes &mdash; the architecture is in what is forbidden, not in the call. No framework type above the adapter layer means the core, the runtime, the harness and the record schema never learn which host produced a run, which is exactly what makes FR51&rsquo;s cross-framework comparison meaningful.</p>
+    <p>If someone argues for interception, make them say out loud what happens to FR23. That is where it dies.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <p class="kicker">03 &middot; The paradigm</p>
+  <h2>Ports and adapters. Every arrow points inward.</h2>
+  <svg viewBox="0 0 1060 470" role="img" aria-label="Dependency direction diagram: all layers depend inward on the core">
+    <rect class="s-core" x="390" y="180" width="280" height="100" rx="12"/>
+    <text class="s-tb" x="530" y="215" text-anchor="middle">Governor core + ports</text>
+    <text class="s-tc" x="530" y="240" text-anchor="middle">no I/O &middot; no clock &middot; no random</text>
+    <text class="s-tc" x="530" y="262" text-anchor="middle">depends on nothing here</text>
+
+    <rect class="s-box" x="390" y="60" width="280" height="64" rx="10"/>
+    <text class="s-tb" x="530" y="90" text-anchor="middle">Runtime drivers</text>
+    <text class="s-tm" x="530" y="112" text-anchor="middle">enforcing &middot; shadow</text>
+
+    <rect class="s-box" x="60" y="60" width="250" height="64" rx="10"/>
+    <text class="s-tb" x="185" y="90" text-anchor="middle">Host adapters</text>
+    <text class="s-tm" x="185" y="112" text-anchor="middle">reference &middot; langgraph &middot; af &middot; sdk</text>
+
+    <rect class="s-box" x="750" y="180" width="250" height="64" rx="10"/>
+    <text class="s-tb" x="875" y="210" text-anchor="middle">Port implementations</text>
+    <text class="s-tm" x="875" y="232" text-anchor="middle">model &middot; record &middot; approval &middot; metering</text>
+
+    <rect class="s-box" x="60" y="320" width="250" height="64" rx="10"/>
+    <text class="s-tb" x="185" y="350" text-anchor="middle">Benchmark harness</text>
+    <text class="s-tm" x="185" y="372" text-anchor="middle">runner &middot; ablation &middot; proof card</text>
+
+    <rect class="s-box" x="390" y="350" width="280" height="64" rx="10"/>
+    <text class="s-tb" x="530" y="380" text-anchor="middle">SQLite record store</text>
+    <text class="s-tm" x="530" y="402" text-anchor="middle">one workspace database &middot; many runs</text>
+
+    <rect class="s-box" x="750" y="350" width="250" height="64" rx="10"/>
+    <text class="s-tb" x="875" y="380" text-anchor="middle">Static viewer generator</text>
+    <text class="s-tm" x="875" y="402" text-anchor="middle">reads the store only</text>
+
+    <path class="ln-c" marker-end="url(#ahc)" d="M310 92 L 386 92"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M530 124 L 530 176"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M750 212 L 674 212"/>
+    <path class="ln" marker-end="url(#ah)" d="M670 92 L 875 92 L 875 176"/>
+    <path class="ln" marker-end="url(#ah)" d="M185 320 L 185 232 L 386 232"/>
+    <path class="ln" marker-end="url(#ah)" d="M185 384 L 386 384"/>
+    <path class="ln" marker-end="url(#ah)" d="M750 382 L 674 382"/>
+    <text class="s-tm" x="530" y="450" text-anchor="middle">Nothing the core depends on knows the world exists. The core is testable with no network and no model.</text>
+  </svg>
+  <div class="notes"><h3>Notes</h3>
+    <p>Read the table in the spine alongside this: <code>outcomefuse.core</code> and <code>outcomefuse.ports</code> may depend on <em>nothing in this project</em>. That is enforceable with an import-linter rule, and it should be, on day one &mdash; the rule is worth more than the diagram.</p>
+    <p>Note where the harness sits: it depends on everything, including the store. That is deliberate. The harness is allowed to be the messy top of the stack because it is the only component allowed to compute a reportable figure (AD-10).</p>
+    <p>The viewer reads the store only &mdash; not the runtime, not the evidence store. AD-17 and AD-19 both lean on that single arrow.</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <p class="kicker">04 &middot; The system of record</p>
+  <h2>AD-2 &mdash; The log <em>is</em> the truth. Run state is a fold.</h2>
+  <div class="cols c2b">
+    <div>
+      <div class="card"><p>Every decision is appended <strong>before it takes effect</strong>. Every state change is <strong>itself an appended event</strong> &mdash; budget reservation and settlement included.</p>
+        <p class="tiny">Ledger position, <code>quality_state</code>, iteration count, decision history: all derived by folding the log. Never a second mutable truth kept in sync.</p>
+        <p class="tiny"><strong>Anything not in the log did not happen and may not be claimed.</strong></p></div>
+      <div class="card red prevents" style="margin-top:.6em"><b>Prevents</b>
+        Mutable run state and a written log drifting apart, leaving no authority on what actually happened.</div>
+      <div class="card green" style="margin-top:.6em"><h3>What it buys</h3>
+        <p class="tiny">Replay, audit and the benchmark harness stop being three subsystems and become <strong>three readers of one thing</strong>. Build the log well once; the other three are queries.</p></div>
+    </div>
+    <div>
+      <svg viewBox="0 0 620 400" role="img" aria-label="The decision log with three readers and a derived run state">
+        <rect class="s-core" x="30" y="120" width="270" height="110" rx="10"/>
+        <text class="s-tb" x="165" y="158" text-anchor="middle">Decision log</text>
+        <text class="s-tc" x="165" y="182" text-anchor="middle">append-only &middot; chained per run</text>
+        <text class="s-tc" x="165" y="204" text-anchor="middle">one workspace DB &middot; many runs</text>
+
+        <rect class="s-box" x="380" y="20" width="220" height="64" rx="9"/>
+        <text class="s-tb" x="490" y="48" text-anchor="middle">Replay</text>
+        <text class="s-tm" x="490" y="70" text-anchor="middle">FR68 &middot; NFR3 oracle</text>
+
+        <rect class="s-box" x="380" y="143" width="220" height="64" rx="9"/>
+        <text class="s-tb" x="490" y="171" text-anchor="middle">Audit &amp; run seal</text>
+        <text class="s-tm" x="490" y="193" text-anchor="middle">AD-16 chain check</text>
+
+        <rect class="s-box" x="380" y="266" width="220" height="64" rx="9"/>
+        <text class="s-tb" x="490" y="294" text-anchor="middle">Benchmark harness</text>
+        <text class="s-tm" x="490" y="316" text-anchor="middle">AD-10 gates &middot; proof card</text>
+
+        <path class="ln-c" marker-end="url(#ahc)" d="M300 160 L 376 55"/>
+        <path class="ln-c" marker-end="url(#ahc)" d="M300 175 L 376 175"/>
+        <path class="ln-c" marker-end="url(#ahc)" d="M300 192 L 376 295"/>
+
+        <rect class="s-box" x="30" y="300" width="270" height="80" rx="9"/>
+        <text class="s-tb" x="165" y="332" text-anchor="middle">Run state</text>
+        <text class="s-tm" x="165" y="356" text-anchor="middle">= fold(log) &middot; never independent</text>
+        <path class="ln-g" marker-end="url(#ahg)" d="M165 230 L 165 296"/>
+        <text class="s-tg" x="178" y="270">fold</text>
+      </svg>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The clause people under-read is &ldquo;every state change is itself an appended event, budget reservation and settlement included&rdquo;. It is tempting to keep the ledger as an object and write summary rows. Do that and you have re-created the drift the AD exists to prevent, in the one place &mdash; money &mdash; where drift is a published-figure defect.</p>
+    <p>Replay equivalence is deliberately weaker than byte equality: identical decision sequence, identical reason codes, identical terminal reason, identical ledger totals. We never claim byte-identical model output and we should never let a slide imply we do.</p>
+    <p>Practical consequence for E2: the fold is production code with a test that folds a synthetic stream twice and gets the same state. It is not a debugging utility.</p>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <p class="kicker">05 &middot; The event order</p>
+  <h2>One decision emits a fixed sequence</h2>
+  <svg viewBox="0 0 1060 300" role="img" aria-label="The fixed per-decision event sequence">
+    <rect class="s-core" x="20" y="40" width="188" height="56" rx="8"/><text class="s-tc" x="114" y="74" text-anchor="middle">decision-proposed</text>
+    <rect class="s-warn" x="228" y="40" width="188" height="56" rx="8"/><text class="s-tg" x="322" y="66" text-anchor="middle">evidence cycle</text><text class="s-tm" x="322" y="86" text-anchor="middle">zero or more</text>
+    <rect class="s-core" x="436" y="40" width="188" height="56" rx="8"/><text class="s-tc" x="530" y="74" text-anchor="middle">budget-reserved</text>
+    <rect class="s-core" x="644" y="40" width="188" height="56" rx="8"/><text class="s-tc" x="738" y="74" text-anchor="middle">decision-recorded</text>
+    <rect class="s-core" x="852" y="40" width="188" height="56" rx="8"/><text class="s-tc" x="946" y="74" text-anchor="middle">verdict-applied</text>
+
+    <path class="ln" marker-end="url(#ah)" d="M208 68 L 224 68"/>
+    <path class="ln" marker-end="url(#ah)" d="M416 68 L 432 68"/>
+    <path class="ln" marker-end="url(#ah)" d="M624 68 L 640 68"/>
+    <path class="ln" marker-end="url(#ah)" d="M832 68 L 848 68"/>
+    <path class="ln" marker-end="url(#ah)" d="M946 96 L 946 130 L 114 130 L 114 166"/>
+
+    <rect class="s-core" x="20" y="170" width="188" height="56" rx="8"/><text class="s-tc" x="114" y="204" text-anchor="middle">outcome-observed</text>
+    <rect class="s-core" x="228" y="170" width="188" height="56" rx="8"/><text class="s-tc" x="322" y="204" text-anchor="middle">spend-settled</text>
+    <rect class="s-warn" x="436" y="170" width="188" height="56" rx="8"/><text class="s-tg" x="530" y="196" text-anchor="middle">evidence cycle</text><text class="s-tm" x="530" y="216" text-anchor="middle">gate&rsquo;s own spend</text>
+    <rect class="s-core" x="644" y="170" width="188" height="56" rx="8"/><text class="s-tc" x="738" y="198" text-anchor="middle">gate-verdict</text><text class="s-tm" x="738" y="217" text-anchor="middle">when the class can change the result</text>
+    <path class="ln" marker-end="url(#ah)" d="M208 198 L 224 198"/>
+    <path class="ln" marker-end="url(#ah)" d="M416 198 L 432 198"/>
+    <path class="ln" marker-end="url(#ah)" d="M624 198 L 640 198"/>
+    <text class="s-tm" x="530" y="270" text-anchor="middle">Fixed and core-owned. Two compliant implementations produce this same sequence for the same run.</text>
+  </svg>
+  <div class="cols c3">
+    <div class="card"><h3>Reserve before act</h3><p class="tiny">Every spend is held before it happens &mdash; governor overhead included.</p></div>
+    <div class="card"><h3>Cycles recur in place</h3><p class="tiny">An evidence cycle may appear wherever an advisor or the Gate needs one, including after <code>outcome-observed</code>.</p></div>
+    <div class="card"><h3>Gate cadence is core-declared</h3><p class="tiny">Which step classes can change the candidate result is declared by the core &mdash; not judged per driver.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The last card is the one to dwell on. If each driver decided when the Gate runs, the same run could end <code>halt-exhausted</code> under one driver and <code>stop-sufficient</code> under another &mdash; and both logs would look internally correct. FR98&rsquo;s cadence has to be a core constant for the terminal reason to mean anything.</p>
+    <p>Note the second evidence cycle: that is where the Quality Gate&rsquo;s own model executions land, and under FR98/AD-4 their cost is debited as governor overhead attributed to <code>quality-gate</code>. Teams routinely forget the Gate costs money, then publish a saving that excludes the cost of proving the saving.</p>
+    <p>This slide is also the review checklist for any adapter PR: does the log come out in this order, every time?</p>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <p class="kicker">06 &middot; Ordering <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>AD-3 &mdash; One decision lane per run</h2>
+  <div class="cols c2a">
+    <div>
+      <svg class="short" viewBox="0 0 620 260" role="img" aria-label="Many proposals, one serial decision lane, parallel execution">
+        <rect class="s-box" x="20" y="20" width="150" height="52" rx="8"/><text class="s-t" x="95" y="52" text-anchor="middle">proposed step</text>
+        <rect class="s-box" x="20" y="100" width="150" height="52" rx="8"/><text class="s-t" x="95" y="132" text-anchor="middle">proposed step</text>
+        <rect class="s-box" x="20" y="180" width="150" height="52" rx="8"/><text class="s-t" x="95" y="212" text-anchor="middle">proposed step</text>
+        <path class="ln" marker-end="url(#ah)" d="M170 46 L 236 110"/>
+        <path class="ln" marker-end="url(#ah)" d="M170 126 L 236 126"/>
+        <path class="ln" marker-end="url(#ah)" d="M170 206 L 236 142"/>
+        <rect class="s-core" x="240" y="86" width="160" height="84" rx="10"/>
+        <text class="s-tb" x="320" y="118" text-anchor="middle">one lane</text>
+        <text class="s-tc" x="320" y="142" text-anchor="middle">serial verdicts</text>
+        <path class="ln-c" marker-end="url(#ahc)" d="M400 128 L 456 128"/>
+        <rect class="s-good" x="460" y="86" width="140" height="84" rx="10"/>
+        <text class="s-t" x="530" y="118" text-anchor="middle">host executes</text>
+        <text class="s-t" x="530" y="142" text-anchor="middle">in parallel</text>
+      </svg>
+      <div class="card red prevents"><b>Prevents</b>
+        Two concurrently proposed steps each passing affordability against the same <code>remaining</code> and breaching the ceiling &mdash; with no individual rule violated &mdash; and a partially ordered log that cannot be replayed deterministically.</div>
+    </div>
+    <div>
+      <h3>The Ledger holds three quantities and never conflates them</h3>
+      <svg class="short" viewBox="0 0 620 150" role="img" aria-label="Ledger split into verification reserve, in flight, spent and remaining">
+        <rect x="20" y="20" width="130" height="48" rx="6" fill="#2a2110" stroke="#ffb454" stroke-width="2"/>
+        <rect x="150" y="20" width="150" height="48" fill="#1e1630" stroke="#bb90ff" stroke-width="2"/>
+        <rect x="300" y="20" width="200" height="48" fill="#0f2a30" stroke="#4dd8e8" stroke-width="2"/>
+        <rect x="500" y="20" width="100" height="48" rx="6" fill="#131b24" stroke="#3a5266" stroke-width="2"/>
+        <text class="s-tg" x="85" y="50" text-anchor="middle">reserve</text>
+        <text class="s-t" x="225" y="50" text-anchor="middle" fill="#bb90ff">in_flight</text>
+        <text class="s-tc" x="400" y="50" text-anchor="middle">spent</text>
+        <text class="s-tm" x="550" y="50" text-anchor="middle">remaining</text>
+        <text class="s-tm" x="85" y="92" text-anchor="middle">no step may spend it</text>
+        <text class="s-tm" x="225" y="92" text-anchor="middle">outstanding holds</text>
+        <text class="s-tm" x="400" y="92" text-anchor="middle">settled</text>
+        <text class="s-tm" x="310" y="126" text-anchor="middle">FR14 / FR101 verification reserve is carved out first, always.</text>
+      </svg>
+      <p class="tiny">A hold is released by exactly one of <code>spend-settled</code>, a denial, or run termination. Each settlement carries the id of the decision it settles, so host-side parallelism cannot make the fold ambiguous.</p>
+      <div class="alt"><h3>The alternative we rejected &mdash; and what it would cost you</h3>
+        <p class="tiny"><strong>Concurrent verdicts with an atomic ledger.</strong> Tempting: serial decisions put governor latency on the critical path of every step, and a wide batch waits on a queue. NFR1 is measured per decision but felt per batch.</p>
+        <p class="tiny">What it costs: the log becomes partially ordered, so &ldquo;identical decision sequence&rdquo; &mdash; the whole definition of replay equivalence &mdash; has no meaning. Determinism would then need a total order reconstructed after the fact, which is a distributed-log problem we have not budgeted for. <strong>Mitigation instead:</strong> latency is measured against batch width, not per step alone, and execution stays parallel.</p></div>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>This is the most likely genuine performance objection in the room, so give it air. The honest position: we traded throughput for a total order because the total order is what makes every §8 claim reproducible, and reproducibility is the deliverable.</p>
+    <p>If someone proposes batch verdicts &mdash; decide N steps in one call &mdash; that is compatible with AD-3 and worth capturing. It keeps one lane, one order, and amortises the decision cost across the batch. It is not in scope but it is not foreclosed.</p>
+    <p>The Deferred section already says a distributed ledger with the same properties is a different design and nothing here forecloses it. Say that; it defuses the &ldquo;this won&rsquo;t scale&rdquo; framing without conceding the MVP.</p>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <p class="kicker">07 &middot; Purity</p>
+  <h2>AD-4 &mdash; Four single writers</h2>
+  <svg viewBox="0 0 1040 380" role="img" aria-label="Advisors propose, policy decides, ledger writes spend, driver performs IO">
+    <rect class="s-core" x="40" y="40" width="250" height="96" rx="10"/>
+    <text class="s-tb" x="165" y="74" text-anchor="middle">Advisors</text>
+    <text class="s-tc" x="165" y="98" text-anchor="middle">pure &middot; read-only state</text>
+    <text class="s-tm" x="165" y="120" text-anchor="middle">propose &mdash; never act</text>
+
+    <rect class="s-core" x="390" y="40" width="260" height="96" rx="10"/>
+    <text class="s-tb" x="520" y="74" text-anchor="middle">Policy</text>
+    <text class="s-tc" x="520" y="98" text-anchor="middle">the only converter of</text>
+    <text class="s-tc" x="520" y="118" text-anchor="middle">proposals into a decision</text>
+
+    <rect class="s-core" x="750" y="40" width="250" height="96" rx="10"/>
+    <text class="s-tb" x="875" y="74" text-anchor="middle">Ledger</text>
+    <text class="s-tc" x="875" y="98" text-anchor="middle">the only writer of spend</text>
+    <text class="s-tm" x="875" y="120" text-anchor="middle">never a self-report</text>
+
+    <rect class="s-warn" x="390" y="240" width="260" height="96" rx="10"/>
+    <text class="s-tb" x="520" y="274" text-anchor="middle">Driver</text>
+    <text class="s-tg" x="520" y="298" text-anchor="middle">the only caller of ports</text>
+    <text class="s-tm" x="520" y="320" text-anchor="middle">enforcing &middot; shadow</text>
+
+    <rect class="s-box" x="750" y="240" width="250" height="96" rx="10"/>
+    <text class="s-tb" x="875" y="280" text-anchor="middle">Ports</text>
+    <text class="s-tm" x="875" y="304" text-anchor="middle">model &middot; record &middot; approval &middot; clock</text>
+
+    <path class="ln-c" marker-end="url(#ahc)" d="M290 88 L 386 88"/>
+    <text class="s-tc" x="338" y="76" text-anchor="middle">proposal</text>
+    <path class="ln-c" marker-end="url(#ahc)" d="M650 88 L 746 88"/>
+    <text class="s-tc" x="698" y="76" text-anchor="middle">hold</text>
+    <path class="ln-g" marker-end="url(#ahg)" d="M520 236 L 520 140"/>
+    <text class="s-tg" x="536" y="192">re-enter</text>
+    <path class="ln-g" marker-end="url(#ahg)" d="M650 288 L 746 288"/>
+    <path class="ln" marker-end="url(#ah)" d="M875 336 L 875 360 L 165 360 L 165 140"/>
+    <text class="s-tm" x="520" y="376" text-anchor="middle">recorded outcome fed back &mdash; never a raw payload, never a self-report</text>
+  </svg>
+  <div class="notes"><h3>Notes</h3>
+    <p>The divergence being prevented is subtle and expensive: one mechanism debits its own spend, another lets the caller debit. Both satisfy FR4. But FR15&rsquo;s per-mechanism attribution now has two meanings, and FR62&rsquo;s ablation compares numbers computed differently. Nothing fails; the evidence quietly stops being evidence.</p>
+    <p>&ldquo;An advisor never performs I/O and never mutates run state&rdquo; is testable: the advisor test suite runs with no network and no model, full stop. If a mechanism cannot be written that way it is telling you it wants an <code>EvidenceRequest</code>.</p>
+    <p>Watch for the request to let the Quality Gate call the model directly &ldquo;because it is protected&rdquo;. No &mdash; FR98 gate executions go through the same request/fulfil path and get debited as overhead against <code>quality-gate</code>. That registry entry exists for exactly this.</p>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <p class="kicker">08 &middot; The subtlest idea in the deck</p>
+  <h2>The <code>EvidenceRequest</code> cycle</h2>
+  <svg class="tall" viewBox="0 0 1040 420" role="img" aria-label="Sequence diagram of the evidence request cycle">
+    <text class="s-tb" x="95" y="30" text-anchor="middle">Advisor</text><text class="s-tm" x="95" y="50" text-anchor="middle">pure</text>
+    <text class="s-tb" x="300" y="30" text-anchor="middle">Policy</text>
+    <text class="s-tb" x="520" y="30" text-anchor="middle">Driver</text><text class="s-tm" x="520" y="50" text-anchor="middle">the only I/O</text>
+    <text class="s-tb" x="750" y="30" text-anchor="middle">Port</text>
+    <text class="s-tb" x="950" y="30" text-anchor="middle">Log</text>
+    <line class="life" x1="95" y1="62" x2="95" y2="360"/>
+    <line class="life" x1="300" y1="62" x2="300" y2="360"/>
+    <line class="life" x1="520" y1="62" x2="520" y2="360"/>
+    <line class="life" x1="750" y1="62" x2="750" y2="360"/>
+    <line class="life" x1="950" y1="62" x2="950" y2="360"/>
+
+    <path class="ln" marker-end="url(#ah)" d="M298 92 L 100 92"/>
+    <text class="s-tm" x="196" y="82" text-anchor="middle">ask (read-only state)</text>
+
+    <path class="ln-g" marker-end="url(#ahg)" d="M97 132 L 296 132"/>
+    <text class="s-tg" x="196" y="122" text-anchor="middle">EvidenceRequest</text>
+
+    <path class="ln-g" marker-end="url(#ahg)" d="M302 172 L 516 172"/>
+    <text class="s-tg" x="409" y="162" text-anchor="middle">surfaces to the driver</text>
+
+    <path class="ln-c" marker-end="url(#ahc)" d="M522 206 L 946 206"/>
+    <text class="s-tc" x="734" y="196" text-anchor="middle">append evidence-requested</text>
+
+    <path class="ln" marker-end="url(#ah)" d="M522 246 L 746 246"/>
+    <text class="s-tm" x="634" y="236" text-anchor="middle">fulfil &mdash; raw payload, transient</text>
+
+    <path class="ln-d" marker-end="url(#ah)" d="M748 280 L 524 280"/>
+    <text class="s-tm" x="636" y="270" text-anchor="middle">outcome (derived values)</text>
+
+    <path class="ln-c" marker-end="url(#ahc)" d="M522 312 L 946 312"/>
+    <text class="s-tc" x="734" y="302" text-anchor="middle">append evidence-observed</text>
+
+    <path class="ln-g" marker-end="url(#ahg)" d="M518 350 L 99 350"/>
+    <text class="s-tg" x="300" y="340" text-anchor="middle">re-invoke advisor with the recorded outcome</text>
+
+    <rect class="s-good" x="180" y="374" width="680" height="38" rx="8"/>
+    <text class="s-t" x="520" y="399" text-anchor="middle">Replay = feeding recorded outcomes back into a pure advisor. Nothing else needs to be replayable.</text>
+  </svg>
+  <p class="tiny dim"><code>EvidenceRequest</code> is a <strong>closed, core-owned sum type</strong> with a declared outcome schema per kind &mdash; rubric judgement, compression pass, complexity estimate, confidence estimate, planner envelope. Re-invocations per decision are bounded and the bound is recorded in the manifest.</p>
+  <div class="notes"><h3>Notes</h3>
+    <p>This is the mechanism that makes &ldquo;pure advisors&rdquo; survive contact with reality. An advisor that needs a model call does not get one &mdash; it returns a request describing what it needs, the driver fulfils it, appends the outcome, and calls the advisor again with the result in hand.</p>
+    <p>Three consequences worth stating explicitly: (1) replay is free, because the advisor is a function of recorded outcomes; (2) every piece of evidence has a cost that is recorded and attributed before it is used; (3) an advisor cannot smuggle in a side effect, because it has no way to perform one.</p>
+    <p>Why <em>closed</em> sum type: an open one means an advisor could invent a request kind whose outcome schema is unknown to the core, and replay would have nothing to validate against. The bound on re-invocations is the loop fuse for this cycle &mdash; without it a badly written advisor can spin the driver.</p>
+    <p>Shadow mode (AD-11) hangs off this: the shadow driver fulfils no request that would spend against the observed path.</p>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+  <p class="kicker">09 &middot; Attribution</p>
+  <h2>A decomposition, not a winner</h2>
+  <div class="cols c2">
+    <div class="card"><h3>No tie-break elects a causer</h3>
+      <p class="tiny">Where several mechanisms contribute to one step&rsquo;s overhead or avoided spend, the Ledger records an <strong>explicit decomposition over every contributor, summing to the total</strong>.</p>
+      <p class="tiny">Elect a single winner and FR62&rsquo;s breakdown becomes a function of the tie-break rule rather than of the mechanisms.</p></div>
+    <div class="card"><h3>Composition order is core-owned and versioned</h3>
+      <p class="tiny">Proposals compose in a <strong>fixed order, recorded with the decision</strong> &mdash; never per-implementation. Two orders yield different total savings for the same run.</p></div>
+    <div class="card gold"><h3>Disabled means <em>not registered</em></h3>
+      <p class="tiny">No mechanism carries an <code>if enabled</code> branch. An FR62 ablation is a registry change and is <strong>byte-identical to having cut the mechanism</strong>.</p></div>
+    <div class="card purple"><h3>Degraded is not disabled</h3>
+      <p class="tiny">A mechanism that raised is <em>deregistered mid-run</em> and the run is marked degraded (AD-20). That is a different thing from never having been enabled, and the record says which.</p></div>
+  </div>
+  <p class="tiny dim" style="margin-top:.4em">Gate executions are attributed to <code>quality-gate</code> &mdash; a named registry entry that exists for attribution and FR62 ablation even though the Gate itself is protected and never cut.</p>
+  <div class="notes"><h3>Notes</h3>
+    <p>&ldquo;Disabled means not registered&rdquo; is the single highest-leverage line in AD-4 for the ablation claim. If mechanisms carry enable-flags, an ablation measures &ldquo;the mechanism with its branch not taken&rdquo;, which is not the same system as one without the mechanism &mdash; and the difference is unbounded once the flag sits in a hot path.</p>
+    <p>The attribution decomposition matters most in the outcome the cut order makes likeliest: if the schedule collapses to the protected core, the ablation will show how much of the saving is exact tool deduplication alone. A tie-break rule would let us hide that. A decomposition cannot.</p>
+    <p>The composition-order point is easy to lose in review. Ordering advisors differently is not a refactor &mdash; it changes the published number. It is versioned and stamped on the decision for that reason.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+  <p class="kicker">10 &middot; The invariant map</p>
+  <h2>Twenty-one decisions, six jobs</h2>
+  <p class="lead tiny">Grouped by what they stop, not by number. Each AD&rsquo;s <em>Prevents</em> clause is the reason it exists &mdash; if you cannot state the divergence, the rule is ceremony.</p>
+  <div class="cols c3">
+    <div class="card"><h3>Ordering &amp; state</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-2 &middot; AD-3</p><p class="tiny">The log is the truth; one decision lane. Stops drift and stops an unreplayable partial order.</p></div>
+    <div class="card"><h3>Purity &amp; boundaries</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-4 &middot; AD-5 &middot; AD-19</p><p class="tiny">Four writers; redaction at the port; evidence store split from the log, with a declared lifetime and an access matrix. Stops incomparable attribution, leaked content and an undying raw tier.</p></div>
+    <div class="card"><h3>Identity &amp; hashing</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-6 &middot; AD-8</p><p class="tiny">One canonicaliser; project-owned schema and reason registry. Stops silent hash disagreement and borrowed promises.</p></div>
+    <div class="card red"><h3>Safety</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-7 &middot; AD-12 &middot; AD-18 &middot; AD-20 &middot; AD-21</p><p class="tiny">Contracts execute nothing and the registry is breadth-gated before the freeze; approval separates a timeout from an outage; the floor lives in Policy; failure posture is placed; non-synthetic data is refused, never inherited.</p></div>
+    <div class="card green"><h3>Evidence &amp; honesty</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-9 &middot; AD-10 &middot; AD-16</p><p class="tiny">Manifest opens every run; one reportability predicate; one workspace database, hash-chained per run. Stops unciteable figures and undetectable tampering.</p></div>
+    <div class="card purple"><h3>Modes &amp; surfaces</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-11 &middot; AD-13 &middot; AD-14 &middot; AD-15 &middot; AD-17</p><p class="tiny">Shadow is a driver; the model seam is owned; the cache is run-scoped; adapters pass conformance; the viewer is generated. Stops flags in safety paths and cut-first dependencies.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Use this slide as the navigation contract for the next five. Ask the room which group they want opened first &mdash; if they pick Safety or Evidence, that tells you where their scepticism is, and those are the slides worth spending time on.</p>
+    <p>If time is short, the two groups you cannot skip are Purity &amp; boundaries and Evidence &amp; honesty. Everything §8 promises rests on those seven ADs.</p>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="slide">
+  <p class="kicker">11 &middot; Group 1</p>
+  <h2>Ordering &amp; state</h2>
+  <div class="cols c2">
+    <div class="card"><span class="ad">AD-2 &mdash; The decision log is the system of record</span>
+      <div class="prevents"><b>Prevents</b> Mutable run state and a written log drifting apart, leaving no authority on what actually happened.</div>
+      <ul class="tiny"><li>Appended <strong>before</strong> it takes effect.</li><li>Every state change is an event &mdash; reservation and settlement included.</li><li>Run state is <code>fold(log)</code>.</li><li>Replay equivalence: same sequence, same reason codes, same terminal reason, same ledger totals.</li></ul></div>
+    <div class="card"><span class="ad">AD-3 &mdash; One decision lane per run</span>
+      <div class="prevents"><b>Prevents</b> Two concurrent proposals each passing affordability against the same <code>remaining</code> and breaching the ceiling, with no individual rule violated.</div>
+      <ul class="tiny"><li>Verdicts serial; execution parallel.</li><li><code>verification_reserve</code> / <code>in_flight</code> / <code>spent</code> never conflated.</li><li>Hold released by exactly one of: settle, deny, terminate.</li><li>Latency measured against batch width.</li></ul></div>
+  </div>
+  <div class="card gold" style="margin-top:.7em"><h3>The through-line</h3>
+    <p class="tiny">These two exist to make one sentence true: <strong>&ldquo;the same run, replayed, produces the same decisions.&rdquo;</strong> Drop either and FR68, NFR3 and every comparison in §8 lose their oracle.</p></div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Worth naming the class of bug AD-3 catches, because it is the kind that survives code review: no rule is violated, each check passes, and the ceiling is breached anyway. Concurrency bugs in a budget system do not look like bugs, they look like arithmetic.</p>
+    <p>&ldquo;Byte equality of model output is not required and is never claimed&rdquo; &mdash; keep repeating this. It is the difference between a defensible replay claim and one a reviewer can break in thirty seconds with a temperature setting.</p>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+  <p class="kicker">12 &middot; Group 2</p>
+  <h2>Purity &amp; boundaries</h2>
+  <div class="cols c3">
+    <div class="card"><span class="ad">AD-4 &mdash; Four single writers</span>
+      <div class="prevents"><b>Prevents</b> One mechanism debiting its own spend while another lets the caller debit &mdash; both obeying FR4, yet giving FR15 two meanings.</div></div>
+    <div class="card"><span class="ad">AD-5 &mdash; Redaction at the port</span>
+      <div class="prevents"><b>Prevents</b> Sensitive payloads reaching the durable record, where a stack trace or rendered artifact leaks what the sink was supposed to strip.</div>
+      <p class="tiny">Raw prompts, tool args and results are a <strong>transient working set</strong>. Only three declared core operations may see them: canonicalise-to-key, compress-to-capsule, verify-criterion. What crosses into the record is derived: scores, envelopes, keys, hashes, references.</p></div>
+    <div class="card"><span class="ad">AD-19 &mdash; Evidence store separate from the log</span>
+      <div class="prevents"><b>Prevents</b> The blind-review packet being rendered from the same store that carries the gate verdict &mdash; silently invalidating false-sufficiency rate, the counter-metric the headline rests on.</div>
+      <p class="tiny"><strong>Driver is sole writer. Harness is sole reader.</strong> Verifiers never touch it. The FR69 packet renderer is <em>structurally denied</em> the verdict, the decision record and the manifest.</p>
+      <p class="tiny dim">Lifetime and access matrix on slide 20.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>AD-5 and AD-19 look like two privacy rules. They are not. AD-5 is about what may enter the durable record at all; AD-19 is about keeping the one artifact a human blind-reviews contaminated-free. Different failure, different fix, both structural rather than procedural.</p>
+    <p>&ldquo;Structurally denied&rdquo; means the renderer is not given a handle to the verdict &mdash; not that it is asked not to look. If the blind-review packet can see the gate verdict, false-sufficiency rate measures our agreement with ourselves.</p>
+    <p>The one legitimate raw-content exception: an evidence capsule preserves attributable facts verbatim (FR38), so it is raw and lives in the evidence store; the log carries its reference and hash, never its body.</p>
+  </div>
+</section>
+
+<!-- 14 -->
+<section class="slide">
+  <p class="kicker">13 &middot; Group 3</p>
+  <h2>Identity &amp; hashing</h2>
+  <div class="cols c2">
+    <div class="card"><span class="ad">AD-6 &mdash; One canonicaliser</span>
+      <div class="prevents"><b>Prevents</b> The Tool Governor and the harness canonicalising differently &mdash; which fails <em>silently</em>, as cache misses that should have been hits, or a spurious rubric-drift refusal on a rubric that never changed.</div>
+      <p class="tiny">One core-owned function serves every hash: contract identity (FR10), tool-call keys (FR29), progress fingerprint (FR27), result digests, rubric and answer-key freeze (FR65), baseline freeze (FR64).</p>
+      <p class="tiny">Typed model &rarr; canonical JSON &rarr; SHA-256. Normalisation is <strong>specified and versioned</strong>: sorted keys, no insignificant whitespace, one numeric form so <code>1.0</code> and <code>1</code> cannot hash differently.</p>
+      <p class="tiny">Artifacts that are <em>source rather than structure</em> &mdash; the verifier tests, the baseline definition script &mdash; take the one other admissible route: a <strong>file-digest manifest</strong> of sorted relative path plus SHA-256 of file bytes, itself canonicalised and hashed by the same function. Nothing else may hash by any other means.</p>
+      <p class="tiny"><strong>Every hashed artifact declares its route id</strong>, so two freeze tools cannot silently pick different routes for the same artifact. Within the file-digest route: <strong>POSIX separators, NFC normalisation, byte-sorted order, LF line endings</strong> &mdash; a Windows freeze and a Linux freeze that disagree would fire exactly the drift refusal this decision exists to prevent.</p></div>
+    <div class="card"><span class="ad">AD-8 &mdash; Record schema and reason registry are owned here</span>
+      <div class="prevents"><b>Prevents</b> FR104&rsquo;s promise &mdash; that a published code still means what it meant &mdash; being delegated to an external specification that can revoke it.</div>
+      <p class="tiny">OpenTelemetry GenAI attribute <em>names</em> may be borrowed as convention. The schema <strong>shall not depend</strong> on a spec that is still Development-status with no published releases.</p>
+      <p class="tiny">Published reason codes are never redefined, repurposed or removed. Every decision row carries the governor&rsquo;s own wall-clock decision cost, so NFR1 is measured <em>from the record</em>.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The <code>1.0</code> versus <code>1</code> example is not pedantry &mdash; it is the actual bug. The freeze tool runs before the governor exists, probably in a script, probably with a different serialiser default. Two hashes, one rubric, and FR65 fires a drift refusal on something nobody changed.</p>
+    <p>The second route exists because AD-7 requires the verifier <em>tests</em> to be frozen with the rubric, and a test file is not a structure a typed model can validate. With only the typed-model route that clause was literally unsatisfiable. Two routes, both ending in the same function &mdash; and the door closes there, because every artifact <em>names</em> the route it takes rather than leaving a freeze tool to choose one. Path separators, Unicode form, ordering and line endings are pinned inside the file-digest route for the same reason: the drift refusal cannot tell a rubric that changed from a rubric hashed on a different operating system.</p>
+    <p>AD-8 is a scope-discipline decision as much as a technical one. Borrowing OTel names costs nothing and buys familiarity; depending on OTel means our stability promise inherits someone else&rsquo;s. Deferred says we adopt the export later as an additive mapping, which is the right shape.</p>
+    <p>The decision-cost-on-every-row detail is quietly excellent: no separate instrumentation to keep honest, and NFR1 becomes a query over the log.</p>
+  </div>
+</section>
+
+<!-- 15 -->
+<section class="slide">
+  <p class="kicker">14 &middot; Group 4 <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>Safety</h2>
+  <div class="cols c2">
+    <div>
+      <div class="card red"><span class="ad">AD-7 &mdash; A contract executes no code</span>
+        <div class="prevents"><b>Prevents</b> Remote code execution driven by a data file &mdash; in a product whose position is that platform teams hand contracts to agent owners.</div>
+        <p class="tiny">FR8&rsquo;s &ldquo;executable deterministic verification method&rdquo; is a <strong>selection from a closed, project-owned registry</strong>, parameterised declaratively. No import path, expression or callable crosses the contract boundary. Safe loader only, bounded size and depth. <strong>A verifier is a pure function of its declared arguments</strong> &mdash; <code>citation-resolves</code> is <em>handed</em> the run&rsquo;s derived citable index by its caller and never fetches it, never touches the evidence store.</p>
+        <p class="tiny">That index is pinned too, because an unshaped argument moves the divergence rather than closing it: a <strong>core-owned typed model built by the driver</strong>, canonicalised and hashed under AD-6, its hash <strong>appended before any verifier is invoked</strong>. Two implementations deriving it differently would reach different verdicts &mdash; and different terminal reasons &mdash; on the same run.</p>
+        <p class="tiny dim">Purity is what makes the freeze buildable: every verifier is testable against fixtures alone, needing neither the record spine nor a live run.</p></div>
+      <table style="margin-top:.5em">
+        <tr><th>Verifier type</th><th>Mode</th></tr>
+        <tr><td class="m">field-present, type-is, numeric-range,<br>set-membership, regex-match</td><td>constraint-backed</td></tr>
+        <tr><td class="m">exact-match-against-answer-key,<br>citation-resolves</td><td>reference-backed</td></tr>
+      </table>
+      <p class="tiny dim">Mode is a property of the <em>type</em>, not a per-contract assertion. That is what stops <code>reference-backed</code> being claimed for a pass that never touched a known-correct value.</p>
+      <div class="card green" style="margin-top:.5em"><h3>FR108 &mdash; breadth is settled before the freeze, not guessed at</h3>
+        <ul class="tiny"><li>One real Outcome Contract authored <strong>per committed workload</strong> first.</li>
+          <li>Every intended criterion classified <code>E</code> expressible &middot; <code>N</code> new deterministic type needed &middot; <code>A</code> advisory &mdash; explicitly covering the semantic ones that are easiest to miss: root-cause, query-result and code-location correctness, evidence completeness, and whether a conclusion is <em>supported</em> rather than merely present.</li>
+          <li><strong>At most three</strong> further deterministic types admitted, each reusable, declarative, I/O-free, mode-fixed by the registry and covered by positive, negative, boundary, malformed-input and replay tests.</li>
+          <li>A per-workload <strong>coverage report</strong> &mdash; reference-backed versus constraint-backed mandatory counts &mdash; published with the freeze. Predominantly constraint-backed must be reported as such.</li>
+          <li><strong>The registry, its tests and the report are hashed in the same operation as the rubric and answer keys.</strong> A rubric whose criteria take their meaning from an unfrozen registry is not frozen. The tests hash through AD-6&rsquo;s file-digest manifest &mdash; they are source, not structure.</li></ul>
+        <p class="tiny dim"><code>semantic-match</code>, <code>llm-judge</code>, <code>root-cause-quality</code> and <code>citation-supports-claim</code> stay barred unless reducible to deterministic comparison against frozen structured reference data.</p></div>
+    </div>
+    <div>
+      <div class="card"><span class="ad">AD-12 &mdash; Approval is a port with a scripted decider</span>
+        <div class="prevents"><b>Prevents</b> FR89&rsquo;s fail-closed-on-unavailable being asserted rather than exercised, FR100&rsquo;s timeout cases needing a human in front of a reproducibility harness, and &mdash; the sharper one &mdash; a plain timeout being misrouted as an unavailability.</div>
+        <p class="tiny"><code>channel-unavailable</code> and <code>no-response</code> are <strong>distinct states and shall not be merged</strong>. This one was a genuine defect in the previous draft &mdash; <em>next slide</em>.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-18 &mdash; The quality floor is protected by the Policy</span>
+        <div class="prevents"><b>Prevents</b> The floor carve-out living inside a pluggable estimator, so swapping the estimator silently removes the one rule the PRD calls non-negotiable.</div>
+        <p class="tiny">The estimator may only ever <em>propose</em> <code>low-value</code>. The Policy rejects any such proposal against an unmet mandatory criterion, and the attempt is <strong>recorded as a violation, not a saving</strong> (FR99).</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-20 &mdash; Failure posture is placed, not chosen per site</span>
+        <p class="tiny"><strong>Fail-open is a property of the advisor registry</strong> &mdash; an advisor that raises is deregistered for the run and a <code>degraded</code> event is appended. <strong>Fail-closed is a property of the driver</strong> &mdash; gate unavailability, ledger loss and approval-<em>channel</em> unavailability terminate through the FR2 ladder; an approval <em>timeout</em> does not. The registry is run-scoped, so a transient failure cannot degrade every later repeat in the same process.</p></div>
+      <div class="card red" style="margin-top:.5em"><span class="ad">AD-21 &mdash; Non-synthetic data is refused, never inherited</span>
+        <div class="prevents"><b>Prevents</b> Production, confidential or customer traffic silently inheriting a retention profile designed for data the builder authored.</div>
+        <p class="tiny"><code>mvp-synthetic-v1</code> is admissible for <strong><code>synthetic</code> only</strong>, and <code>replayed</code> <strong>inherits the class of the run it replays</strong>. Until a production-data governance profile is approved, the runtime <strong>refuses to persist evidence and decision log alike</strong> rather than falling back. Detail on slide 20.</p></div>
+    </div>
+  </div>
+  <div class="alt"><h3>AD-7 &mdash; the alternative we rejected, and what it would cost you</h3>
+    <p class="tiny"><strong>An open verifier registry, or a sandboxed expression language.</strong> It would let a contract express anything a criterion needs, today, without a registry PR. The closed set is genuinely limiting: seven types, and only two of them <code>reference-backed</code>.</p>
+    <p class="tiny">What it would cost: the contract is a <em>data file handed between teams</em>. Any callable reference is an RCE vector and any network-capable verifier is an exfiltration channel straight through AD-5 &mdash; while also breaking core purity and FR68 replay. A sandbox is not a small project, and its escape hatches are the whole risk. <strong>Q-B is now closed:</strong> breadth is no longer guessed at, because FR108 forces four real contracts and a classified criterion review <em>before</em> the freeze, admits at most three demonstrated additions, and publishes a coverage report that makes a predominantly constraint-backed workload say so.</p></div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Q-B used to be the honest hole in this slide. It closed on 2026-09-09 by turning the question into a gate: write the contracts, classify every criterion <code>E</code>&thinsp;/&thinsp;<code>N</code>&thinsp;/&thinsp;<code>A</code>, allow three additions at most, publish the coverage report, and hash the registry with the rubric. The risk did not disappear &mdash; it acquired a place in the schedule and a number attached to it, which is the most you can do with an unknown before you know it.</p>
+    <p>The coverage report is the part to defend. FR21&rsquo;s run-level qualifier hides how much of a floor is substantive: a workload can pass every mandatory criterion on <code>field-present</code> and <code>type-is</code> alone. Reporting the split is what stops that reading as independently established semantic correctness &mdash; and AD-10 refuses to publish a workload result without it.</p>
+    <p>AD-18 is the one to defend hardest if anyone proposes &ldquo;just make the estimator smarter&rdquo;. Pluggability is fine; where the veto lives is not. The veto is in the Policy so that swapping estimators cannot remove it, and the rejected proposal is recorded so FR99 can report attempted floor breaches as violations.</p>
+    <p>AD-20&rsquo;s run-scoped registry catches a nasty one: without it, a transient advisor failure in repeat 3 degrades repeats 4 through 20 in the same process, and FR58&rsquo;s repeated runs quietly stop being repeats.</p>
+  </div>
+</section>
+
+<!-- 16 -->
+<section class="slide">
+  <p class="kicker">15 &middot; A defect this review found</p>
+  <h2>AD-12 &mdash; a timeout is not an outage</h2>
+  <div class="cols c2b">
+    <div>
+      <div class="card red"><h3>What the rule said before 2026-09-09</h3>
+        <p class="tiny">AD-12 named <em>one</em> failure state. Approval-channel unavailability and approval timeout were carried by the same clause &mdash; so an adapter author reading it had no way to tell that FR89 and FR95 are different requirements with different outcomes.</p></div>
+      <div class="card green" style="margin-top:.5em"><h3>What it says now</h3>
+        <p class="tiny">Two states, <strong>distinct and never merged</strong>, because FR2 ranks them differently. The MVP <code>ApprovalPort</code> implementation is unchanged &mdash; a scripted decider driven by the case definition (approve &middot; deny &middot; never respond) &mdash; so FR100&rsquo;s timeout cases run in a harness with no human sitting in front of it.</p></div>
+      <div class="card red prevents" style="margin-top:.5em"><b>Prevents</b>
+        A plain timeout being misrouted as an unavailability &mdash; changing the run&rsquo;s terminal reason <em>and</em> what the caller receives.</div>
+    </div>
+    <div>
+      <table>
+        <tr><th>State</th><th>Meaning</th><th>Outcome</th></tr>
+        <tr><td class="m">channel-<br>unavailable</td><td>The adapter cannot accept or create the approval request, or loses the decision channel of a request it had accepted</td><td><strong>FR89</strong> &mdash; fail-closed; the gated call is not made</td></tr>
+        <tr><td class="m">no-response</td><td>The request was accepted, the channel stayed available, and no decision arrived within <code>approval_timeout</code></td><td><strong>FR95</strong> &mdash; the contract&rsquo;s <code>on_timeout</code>, defaulting to the <code>approval-timeout</code> triple</td></tr>
+      </table>
+      <svg class="short" viewBox="0 0 620 200" role="img" aria-label="Fail-closed sits above the approval gate in the FR2 ladder">
+        <rect class="s-bad" x="50" y="16" width="520" height="46" rx="8"/>
+        <text class="s-t" x="310" y="45" text-anchor="middle">fail-closed &mdash; terminates the run</text>
+        <rect class="s-warn" x="50" y="94" width="520" height="46" rx="8"/>
+        <text class="s-t" x="310" y="123" text-anchor="middle">approval gate &mdash; pause, then apply on_timeout</text>
+        <path class="ln-r" marker-end="url(#ahr)" d="M310 92 L 310 66"/>
+        <text class="s-tr" x="310" y="168" text-anchor="middle">Collapse the two states and an ordinary timeout is</text>
+        <text class="s-tr" x="310" y="190" text-anchor="middle">promoted one rung up the FR2 ladder, silently.</text>
+      </svg>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Show this one deliberately rather than skipping past it. It is the clearest evidence that the <em>Prevents</em> discipline earns its keep: the rule was already written and already reviewed, and it still carried a conflation that would have shipped as an adapter behaviour nobody could see in the log &mdash; because the log would have said <code>fail-closed</code> and been internally consistent about it.</p>
+    <p>The asymmetry is what makes it dangerous rather than merely wrong. Fail-closed sits <em>above</em> the approval gate in FR2&rsquo;s ladder, so the misroute always lands on the more severe terminal reason. A run that should have applied its contract&rsquo;s <code>on_timeout</code> halts instead, and the defect reads as conservatism.</p>
+    <p>AD-20 carries the matching half and now says so explicitly: gate-verdict unavailability, ledger-state loss and approval-<em>channel</em> unavailability go through the ladder &mdash; an approval <em>timeout</em> does not, and is governed here.</p>
+    <p>Concrete ask for the room: this is exactly the class of thing the conformance battery should catch. &ldquo;Approval pause observed&rdquo; is one scenario today; it wants to be two.</p>
+  </div>
+</section>
+
+<!-- 17 -->
+<section class="slide">
+  <p class="kicker">16 &middot; Group 5</p>
+  <h2>Evidence &amp; honesty</h2>
+  <div class="cols c3">
+    <div class="card"><span class="ad">AD-9 &mdash; Every run opens with a manifest</span>
+      <div class="prevents"><b>Prevents</b> Harness, adapter and viewer each deciding independently what a run&rsquo;s configuration was &mdash; surfacing later as an unexplainable difference between two runs believed identical.</div>
+      <p class="tiny">Run id, mode, <code>data_class</code> &mdash; from the <strong>frozen case-set attestation</strong>, <strong>no default</strong>, an absent class <em>refuses the run</em> &mdash; and the retention profile it selects, contract hash, rubric hash, verifier-registry version and hash, coverage-report hash, frozen baseline hash, case-set identity, model ids and provider versions, pinned cost-table version, route, streaming disabled, enabled-mechanism registry, adapter version, code version, <code>sqlite3</code> library version, seed.</p>
+      <p class="tiny"><strong>No comparison may be published from a run without a manifest.</strong></p></div>
+    <div class="card"><span class="ad">Preregistration is content-anchored</span>
+      <p class="tiny">Targets, counter-metric thresholds, minimum case counts and blind-review sample size are written as their own hashed, timestamped artifact. <strong>Every evaluation-set run&rsquo;s manifest carries that record&rsquo;s hash.</strong></p>
+      <p class="tiny">FR102&rsquo;s ordering guarantee is anchored to content, not to a timestamp asserted by the interested party. The harness refuses any comparison where evaluation execution precedes preregistration.</p></div>
+    <div class="card"><span class="ad">AD-16 &mdash; One workspace database, sealed per run</span>
+      <div class="prevents"><b>Prevents</b> Four consumers disagreeing about where the record lives or whether it can be edited after the fact.</div>
+      <p class="tiny">SQLite: <strong>one canonical database per benchmark workspace, holding many runs</strong>, on a writer discipline that is imposed rather than assumed &mdash; library <code>&ge; 3.51.3</code>, <strong>one writer per database file under an OS advisory lock</strong> and a second writer <em>refused, not retried</em>, <code>BEGIN IMMEDIATE</code>, explicit busy timeout, <code>synchronous=FULL</code>, local storage only. The writer exposes append only. Each row holds the hash of its predecessor <em>within its own run</em>; that run&rsquo;s terminal hash is the <strong>run seal</strong>, cited by every proof card.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The preregistration-hash detail is the strongest anti-self-deception device in the architecture and it is easy to skate past. A timestamp proves nothing when the party asserting it is the party with the incentive. A hash carried inside every evaluation-run manifest proves the targets existed in that exact form before the run.</p>
+    <p>&ldquo;No comparison may be published from a run without a manifest&rdquo; is enforced in one place &mdash; the harness &mdash; and that is deliberate under AD-10: no other component re-derives reportability.</p>
+  </div>
+</section>
+
+<!-- 18 -->
+<section class="slide">
+  <p class="kicker">17 &middot; Reportability <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>AD-10 &mdash; Three gates, and only the harness evaluates them</h2>
+  <svg class="short" viewBox="0 0 1040 300" role="img" aria-label="Three reportability gates: admissibility, independence, accompaniment">
+    <rect class="s-box" x="20" y="105" width="150" height="80" rx="9"/>
+    <text class="s-tb" x="95" y="140" text-anchor="middle">A run</text><text class="s-tm" x="95" y="162" text-anchor="middle">+ manifest</text>
+    <rect class="s-bad" x="230" y="85" width="190" height="120" rx="10"/>
+    <text class="s-tb" x="325" y="120" text-anchor="middle">Admissibility</text><text class="s-tr" x="325" y="146" text-anchor="middle">HARD</text>
+    <text class="s-tm" x="325" y="170" text-anchor="middle">non-streaming, conformant,</text><text class="s-tm" x="325" y="188" text-anchor="middle">manifest-identical arms</text>
+    <rect class="s-warn" x="460" y="85" width="190" height="120" rx="10"/>
+    <text class="s-tb" x="555" y="120" text-anchor="middle">Independence</text><text class="s-tg" x="555" y="146" text-anchor="middle">GRADED</text>
+    <text class="s-tm" x="555" y="170" text-anchor="middle">metered vs self-reported,</text><text class="s-tm" x="555" y="188" text-anchor="middle">projected, degraded</text>
+    <rect class="s-bad" x="690" y="85" width="190" height="120" rx="10"/>
+    <text class="s-tb" x="785" y="120" text-anchor="middle">Accompaniment</text><text class="s-tr" x="785" y="146" text-anchor="middle">HARD</text>
+    <text class="s-tm" x="785" y="170" text-anchor="middle">breakdown, counter-metrics,</text><text class="s-tm" x="785" y="188" text-anchor="middle">failures, counts, coverage</text>
+    <rect class="s-good" x="920" y="105" width="105" height="80" rx="9"/>
+    <text class="s-tb" x="972" y="140" text-anchor="middle">may be</text><text class="s-tb" x="972" y="164" text-anchor="middle">published</text>
+    <path class="ln" marker-end="url(#ah)" d="M170 145 L 226 145"/>
+    <path class="ln" marker-end="url(#ah)" d="M420 145 L 456 145"/>
+    <path class="ln" marker-end="url(#ah)" d="M650 145 L 686 145"/>
+    <path class="ln" marker-end="url(#ah)" d="M880 145 L 916 145"/>
+    <path class="ln-r" marker-end="url(#ahr)" d="M325 205 L 325 245"/>
+    <text class="s-tr" x="325" y="266" text-anchor="middle">REFUSED &mdash; not labelled</text>
+    <path class="ln-g" marker-end="url(#ahg)" d="M555 205 L 555 245"/>
+    <text class="s-tg" x="555" y="266" text-anchor="middle">label degraded, run kept</text>
+    <path class="ln-r" marker-end="url(#ahr)" d="M785 205 L 785 245"/>
+    <text class="s-tr" x="785" y="266" text-anchor="middle">REFUSED &mdash; figure withheld</text>
+  </svg>
+  <div class="cols c2">
+    <div class="card green"><h3>The baseline arm is built by nobody</h3>
+      <p class="tiny">FR52&rsquo;s OFF is an <strong>adapter state, not a driver</strong>. With the governor out of the call path entirely, the baseline arm shares no governor code with the governed arm &mdash; so its latency is not governor-inflated and §8.1&rsquo;s fairness commitment is <em>structural</em>, not a promise.</p></div>
+    <div class="alt" style="margin-top:0"><h3>The alternative we rejected &mdash; and what it would cost you</h3>
+      <p class="tiny"><strong>Label everything, refuse nothing.</strong> Softer, keeps every run, lets the team see partial results early. And it is how measurement integrity dies: a demo-convenience label becomes a footnote, the footnote becomes small print, and the headline is quoted without it.</p>
+      <p class="tiny">The split is deliberate. <em>Refuse</em> where a defect makes the number meaningless (streaming, non-conformant adapter, mismatched manifests, missing counter-metric). <em>Label</em> where the number is real but weaker than claimed (metering unavailable &rarr; self-reported, shadow &rarr; projected, degraded run &rarr; degraded). Cost of our choice: some runs are simply thrown away, and that will be annoying at 2am.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Streaming is barred on the evidence path for a specific reason worth saying out loud: APIM <em>estimates</em> both prompt and completion tokens when <code>stream: true</code>. FR79 would then be a reconciliation between two guesses, and F15 &mdash; the whole gateway-metering feature &mdash; would buy nothing.</p>
+    <p>&ldquo;Manifest-identical except for the run id and the fields the comparison exists to vary&rdquo; is the sharpest tool in the whole document. Field-by-field comparison, refuse on any other difference &mdash; route, model version, cost-table version, seed, adapter version. Most published agent-cost comparisons in the wild would fail that check.</p>
+    <p>Also note who evaluates: the harness alone. No other component re-derives any gate. If the viewer or an adapter starts computing reportability, we have three answers again.</p>
+    <p>The accompaniment list is exhaustive and worth reading out: no headline without its per-mechanism breakdown, no tool-call reduction without suppression accuracy, nothing below its minimum case count, no gross figure as headline, no successes without the failures, no counter-metric without its preregistered threshold &mdash; and no workload result without its verification-mode coverage report, carrying the <em>predominantly constraint-backed</em> label where AD-7&rsquo;s condition holds.</p>
+  </div>
+</section>
+
+<!-- 19 -->
+<section class="slide">
+  <p class="kicker">18 &middot; Integrity <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>AD-16 &mdash; Append-only is discipline. The seal on the proof card is the mechanism.</h2>
+  <svg class="short" viewBox="0 0 1040 270" role="img" aria-label="Hash-chained decision rows for one run inside a shared workspace database, terminating in a run seal">
+    <rect class="s-grp" x="14" y="24" width="1012" height="140" rx="12"/>
+    <text class="s-tm" x="28" y="17">one workspace database &mdash; many runs &middot; WAL &middot; one advisory-locked writer per file &middot; sqlite &ge; 3.51.3</text>
+    <rect class="s-core" x="30" y="52" width="210" height="90" rx="9"/>
+    <text class="s-tb" x="135" y="84" text-anchor="middle">manifest</text><text class="s-tc" x="135" y="110" text-anchor="middle">hash h0</text>
+    <rect class="s-core" x="270" y="52" width="210" height="90" rx="9"/>
+    <text class="s-tb" x="375" y="84" text-anchor="middle">decision n</text><text class="s-tc" x="375" y="110" text-anchor="middle">prev = h0 &rarr; h1</text>
+    <rect class="s-core" x="510" y="52" width="210" height="90" rx="9"/>
+    <text class="s-tb" x="615" y="84" text-anchor="middle">decision n+1</text><text class="s-tc" x="615" y="110" text-anchor="middle">prev = h1 &rarr; h2</text>
+    <rect class="s-good" x="750" y="52" width="210" height="90" rx="9"/>
+    <text class="s-tb" x="855" y="84" text-anchor="middle">terminal row</text><text class="s-tc" x="855" y="110" text-anchor="middle">prev = h2 &rarr; SEAL</text>
+    <path class="ln-c" marker-end="url(#ahc)" d="M240 97 L 266 97"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M480 97 L 506 97"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M720 97 L 746 97"/>
+    <path class="ln-g" marker-end="url(#ahg)" d="M855 164 L 855 194"/>
+    <text class="s-tg" x="855" y="217" text-anchor="middle">every proof card cites the seals it compares &mdash; outside the database</text>
+    <text class="s-tr" x="330" y="194" text-anchor="middle">edit any row &rarr; every downstream hash in that run disagrees</text>
+    <text class="s-tm" x="330" y="217" text-anchor="middle">one chain per run &mdash; runs do not chain into each other</text>
+    <text class="s-tm" x="520" y="252" text-anchor="middle">AD-3&rsquo;s decision lane is per <tspan font-style="italic">run</tspan>; the harness may execute runs concurrently, so the shared file needs its own writer discipline.</text>
+  </svg>
+  <div class="cols c2">
+    <div class="card"><p class="tiny">One SQLite database per benchmark workspace, holding many runs. The writer exposes append only &mdash; no <code>UPDATE</code>, no <code>DELETE</code> against the decision table &mdash; and the concurrency discipline is <strong>imposed, not assumed</strong>, because WAL surfaces contention as <code>SQLITE_BUSY</code> rather than queueing: library <code>&ge; 3.51.3</code> asserted at open, <strong>one writer per database file under an OS advisory lock taken at store open, a second writer refused rather than retried</strong> &mdash; an in-process lock is void the moment the harness forks a subprocess per case, which is a legal implementation &mdash; <code>BEGIN IMMEDIATE</code> so a transaction cannot upgrade mid-flight and lose its busy retry, an explicit busy timeout, <code>synchronous=FULL</code>, and <strong>local storage only</strong> &mdash; the wal-index does not work over a network filesystem.</p>
+      <p class="tiny"><strong>What the chain proves, bounded honestly:</strong> <code>VACUUM</code> and checkpointing rewrite pages but never row values, so neither breaks it &mdash; but a seal living only in the same file proves nothing against a rewrite-and-recompute. Tamper-evidence is load-bearing <em>only because proof cards carry the seals outside the database</em>. It establishes neither authorship nor time.</p>
+      <p class="tiny">Retention (NFR12) follows <strong>sensitivity, not file layout</strong>: the redacted log is the long-lived tier, archived or deleted <em>per workspace</em>; raw evidence is the short-lived tier, deleted <em>per run</em>. Next slide.</p></div>
+    <div class="alt" style="margin-top:0"><h3>The alternative we rejected &mdash; and what it would cost you</h3>
+      <p class="tiny"><strong>&ldquo;It&rsquo;s append-only because we don&rsquo;t write UPDATE.&rdquo;</strong> That is a code-review convention, not a property. Anyone with the file has <code>sqlite3</code>, and the party asserting the timestamps is the party §8.1 names as <em>interested</em>.</p>
+      <p class="tiny"><strong>A real append-only store</strong> (ledger DB, WORM object storage, external notary) would give a stronger guarantee &mdash; and adds an operational dependency, a service to run, and a second place a run can fail, for an MVP with two environments and no staging tier. The chain is the cheap 80%: <em>tampering does not become impossible, it becomes detectable.</em> Push back if you think detectable is not enough for what §8 claims.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Be precise about the limit, because a reviewer will find it: a hash chain we compute ourselves does not stop us regenerating the whole chain, and it says nothing about who wrote a row or when. It stops selective edits, and the seal only becomes a citation once it has left the file &mdash; which is why every proof card carries the seals of the runs it compares. External notarisation is the answer if we ever need a third party to trust the log without trusting us &mdash; a post-MVP conversation, worth flagging as such.</p>
+    <p>This changed on 2026-09-09 and the change is worth naming rather than quietly restating. One database <em>per run</em> made retention a filesystem operation and removed every locking question &mdash; but it scattered the record across hundreds of files for a benchmark whose whole job is cross-run comparison, and it tied the retention story to the file layout rather than to what the rows contain. One workspace database with a per-run chain keeps the seal exactly as strong, because the chain never depended on the file boundary.</p>
+    <p>The concurrency point is the one to say slowly. AD-3 serialises decisions <em>within</em> a run; it says nothing about two runs. The harness will execute runs in parallel, and WAL by itself only reports the contention &mdash; so the store owns a real writer discipline: one advisory-locked writer per file, <code>BEGIN IMMEDIATE</code>, a busy timeout, <code>synchronous=FULL</code>. The lock is an <em>OS</em> lock rather than an in-process one, because a harness that forks a subprocess per case gets N writers and N in-process locks that know nothing about each other. The version floor is not housekeeping either: the WAL-reset corruption bug runs from 3.7.0 to 3.51.2 and triggers on precisely this workload.</p>
+  </div>
+</section>
+
+<!-- 20 -->
+<section class="slide">
+  <p class="kicker">19 &middot; Lifetime <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>AD-19 &amp; AD-21 &mdash; a declared expiry, and a profile that may not be inherited</h2>
+  <div class="cols c2b">
+    <div>
+      <div class="card"><h3>Retention profile <code>mvp-synthetic-v1</code></h3>
+        <ul class="tiny">
+          <li><strong>Raw evidence:</strong> expires at <code>run_closed_at + 60 days</code>, deleted as a <em>whole</em> <code>evidence/&lt;run_id&gt;/</code> directory &mdash; deliverables, capsules, raw tool outputs, suppression and fidelity artifacts, generated blind-review packets, temporaries.</li>
+          <li><strong>Redacted records and proof artifacts:</strong> 180 days from campaign seal &mdash; and <strong>a campaign is a workspace</strong>, one thing under two words. <strong>Seal is a harness command, executed once</strong>, refused while any run is unsealed; after it the store refuses to open a writer, so nothing can join a sealed workspace. <code>max(run_closed_at) &le; campaign_sealed_at</code> is asserted at seal, which is what makes the redacted tier outlive the raw tier.</li>
+          <li>Run closure is an <strong>appended event, never an update</strong> &mdash; AD-16 forbids <code>UPDATE</code>, and an unsealed run has no terminal row to stamp anyway. The driver appends <code>run-closed</code>, which <em>is</em> the run&rsquo;s terminal row and therefore its seal; the sweep appends <code>run-abandoned</code> to whatever is left, which both seals it and gives it an expiry. No column is ever mutated, and never a filesystem modification, access or copy time.</li>
+          <li><strong>No per-run extension.</strong> Evidence that expires before an FR69 / FR70 / FR71 assessment completes is regenerated by re-running the frozen case.</li>
+          <li>Deletion writes a <strong>content-free receipt</strong> &mdash; run id, evidence-manifest hash, profile, scheduled expiry, deleted-at, result &mdash; into a separate append-only campaign retention manifest, and <em>never</em> into any run&rsquo;s hash chain, so no act of retention can alter a seal.</li>
+        </ul>
+        <p class="tiny dim">Logical deletion appropriate to synthetic data. It is not cryptographic erasure and shall not be described as such.</p></div>
+      <div class="card red" style="margin-top:.5em"><span class="ad">AD-21 &mdash; Non-synthetic data is refused, never inherited</span>
+        <div class="prevents"><b>Prevents</b> Production, confidential or customer traffic silently inheriting a profile designed for data the builder authored &mdash; the most likely way this system acquires a compliance problem, precisely because it requires nobody to decide anything.</div>
+        <p class="tiny">Every run declares a <code>data_class</code>, supplied by the <strong>frozen case-set attestation</strong> with <strong>no default</strong> &mdash; an absent class refuses the run. <code>mvp-synthetic-v1</code> is admissible for <strong><code>synthetic</code> only</strong>, and <code>replayed</code> <strong>inherits the class of the run it replays</strong>: replaying captured production traffic does not launder it. Where the class is <em>anything other than</em> <code>synthetic</code> and no approved production profile exists, the runtime <strong>refuses to persist &mdash; evidence and decision log alike</strong>. Refusing only the evidence would leave the record with no permitted profile, which is NFR12 unmet by a narrower route; keying the refusal on a <code>non-synthetic</code> label would let <code>replayed</code> walk straight past. FR106 stands until that profile exists.</p></div>
+    </div>
+    <div>
+      <h3>Access is a matrix, not a convention</h3>
+      <table>
+        <tr><th>Actor</th><th>Access to the evidence store</th></tr>
+        <tr><td class="m">Runtime driver</td><td>Write &mdash; its own run only</td></tr>
+        <tr><td class="m">Benchmark harness</td><td>Read; sole reader. Generates the FR69&ndash;FR71 artifacts</td></tr>
+        <tr><td class="m">Retention command</td><td>Delete, plus manifest status &mdash; nothing else</td></tr>
+        <tr><td class="m">Blind-review renderer</td><td>Evidence + contract. <strong>No</strong> verdict, decision record or manifest</td></tr>
+        <tr><td class="m">Verifiers, host adapters,<br>static viewer, submission<br>generator, model and<br>approval adapters</td><td><strong>None</strong></td></tr>
+      </table>
+      <p class="tiny dim">Verifiers are <em>handed</em> the run&rsquo;s derived citable index by their caller (AD-7) &mdash; a core-owned typed model the driver builds and hashes before any verifier runs; they never read the store, and never fetch anything. The evidence root stays gitignored and out of generated HTML, the submission archive, test snapshots and application logs.</p>
+      <div class="alt"><h3>The alternative we rejected &mdash; and what it would cost you</h3>
+        <p class="tiny"><strong>An extension request per run.</strong> Humane &mdash; and it is how every retention policy dies. The extension gets granted at exactly the moment someone wants the evidence, which is exactly the moment the rule was written for. We chose regeneration from the frozen case instead: more compute, no discretion.</p>
+        <p class="tiny"><strong>Sixty and one hundred and eighty days are judgements, not derivations.</strong> They are declared so they can be argued with &mdash; an undeclared lifetime cannot be wrong, which is precisely what was wrong with the previous draft. Push back if the assessment cycle runs longer than sixty days in practice.</p></div>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>This slide closes Q-C, which was open at the last session with exactly the framing &ldquo;AD-19 requires retention-bounded under NFR12 and names no period&rdquo;. The fix is not really the number. It is that expiry now derives from a <em>recorded event with an owner</em> &mdash; the driver appends <code>run-closed</code>, which <em>is</em> the terminal row, and the sweep appends <code>run-abandoned</code> to whatever is still unsealed when the campaign seals &mdash; rather than from the filesystem; that deletion is a whole directory rather than a selective sweep; and that the receipt is content-free and lands outside every run&rsquo;s chain so it cannot alter a seal.</p>
+    <p>Two details are worth saying explicitly because they were nearly left implicit. Closure is an <em>append</em>, not a column write: AD-16 forbids <code>UPDATE</code>, so anything that stamps a timestamp onto an existing row is already out of spec, and an unsealed run has no terminal row to stamp in the first place. And seal is a <em>command someone runs</em>, once, refused while any run is unsealed. Left unowned, one harness would seal when its case set finished and another lazily at the first sweep &mdash; and either could then admit a new run whose raw evidence outlived the redacted tier describing it, inverting the two tiers this slide calls safe by definition.</p>
+    <p>The access matrix is where the blind-review guarantee actually lives. &ldquo;Structurally denied&rdquo; back on the purity slide is this one row: the renderer gets evidence and the contract, and no handle to the verdict, the decision record or the manifest. If it could see any of the three, false-sufficiency rate measures our agreement with ourselves &mdash; and that is the counter-metric the headline claim rests on.</p>
+    <p>AD-21 is the one to say out loud even though it changes nothing today. Refusing is deliberately more annoying than inheriting; the annoyance <em>is</em> the mechanism. Note where the refusal is keyed: on the class being anything other than <code>synthetic</code>, not on a <code>non-synthetic</code> label &mdash; because <code>replayed</code> inherits the class of the run it replays, and a label-keyed check would wave replayed production straight through. The profile it demands has to settle tenant and use-case partitioning, storage location, encryption in transit and at rest, workload and operator identities, role-based read/write/delete, legal classification, retention by data class, deletion SLA and verification, backup and replica deletion, incident handling, audit access and export restrictions &mdash; before a single non-synthetic run persists anything.</p>
+    <p>Anticipate &ldquo;this is premature for an MVP&rdquo;. The counter is that the rule costs one refusal path now and prevents the one failure that arrives silently: nobody <em>decides</em> to use production data, someone just points a shadow run at it.</p>
+  </div>
+</section>
+
+<!-- 21 -->
+<section class="slide">
+  <p class="kicker">20 &middot; Group 6 <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>Modes &amp; surfaces</h2>
+  <div class="cols c2">
+    <div>
+      <div class="card"><span class="ad">AD-11 &mdash; Shadow is a driver, not a flag</span>
+        <div class="prevents"><b>Prevents</b> A shadow branch inside the Policy, inside every mechanism, and &mdash; because FR91 exempts shadow from fail-closed &mdash; inside the fail-closed paths. A conditional in the most safety-critical code, on the branch least exercised by tests.</div>
+        <p class="tiny">Policy is unchanged and always decides as if enforcing. The shadow driver records and declines to apply. It fulfils no spending <code>EvidenceRequest</code>, never calls the <code>ApprovalPort</code>, and its counterfactual ledger is structurally barred from admissibility.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-15 &mdash; Adapters pass conformance or produce nothing</span>
+        <p class="tiny">Deny honoured &middot; substitution applied &middot; approval pause observed &middot; sufficiency stop terminates &middot; fail-closed halts &middot; shadow not applied &mdash; asserted <strong>against the decision log</strong>, never adapter internals. Plus <strong>FR107&rsquo;s out-of-band side-effect probe</strong>: scripted tools assert for themselves whether they were invoked, because a falsified log cannot detect its own falsification.</p></div>
+    </div>
+    <div>
+      <div class="card"><span class="ad">AD-13 &mdash; The model seam is owned</span>
+        <p class="tiny">LiteLLM sits <strong>behind</strong> a project-owned <code>ModelPort</code>. No LiteLLM type, exception or cost table appears above it. The cost table is <em>pinned and recorded in the manifest</em> &mdash; a pricing change between calibration and evaluation would silently move the cost figure.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-17 &mdash; The side-by-side view is generated, not served</span>
+        <p class="tiny">One self-contained static HTML file per comparison. Reads the <strong>decision log and proof card only, never the evidence store</strong>. Computes no proof figures. Autoescaping enabled <em>explicitly</em> at environment construction &mdash; it is opt-in, and record content is untrusted. There is no running viewer process, so FR77&rsquo;s &ldquo;no path to influence execution&rdquo; is structural.</p></div>
+      <div class="alt"><h3>AD-14 &mdash; the alternative we rejected, and what it would cost you</h3>
+        <p class="tiny"><strong>A persistent, cross-run tool cache.</strong> It looks like a free win and it is a real post-MVP lever. What it costs today: FR68 re-executability starts depending on <em>cache warmth</em>, two supposedly identical runs differ, FR64&rsquo;s frozen baseline is no longer a fixed thing, and NFR6 tenant partitioning lands on the hot path. Run-scoped discharges NFR6 structurally &mdash; a run belongs to one tenant and one use case, so cross-user reuse is impossible by construction.</p></div>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>AD-11 is the cleanest example of the deck&rsquo;s recurring move: a behavioural difference becomes a <em>different component</em>, not a flag. Same for FR52&rsquo;s OFF being an adapter state and for &ldquo;disabled means not registered&rdquo;. If someone proposes a boolean, ask what the boolean&rsquo;s false branch is tested by.</p>
+    <p>FR96&rsquo;s first divergence is observed by the driver, not computed by a mechanism &mdash; the driver knows which decision it declined to apply, and no advisor has to infer it.</p>
+    <p>On AD-14: the persistent cache is in Deferred with two conditions attached &mdash; a tenant-partitioned key, and an answer for how FR64 and FR68 stay honest when warmth varies. Anyone arguing for it now needs to bring those two answers.</p>
+  </div>
+</section>
+
+<!-- 22 -->
+<section class="slide">
+  <p class="kicker">21 &middot; The operational envelope</p>
+  <h2>Two environments. Three gateway constraints that bite.</h2>
+  <div class="cols c2b">
+    <div>
+      <div class="card red"><h3>APIM tier must support <code>llm-token-limit</code></h3>
+        <p class="tiny">Unavailable on Consumption. Its absence silently downgrades <em>every</em> run to FR80 self-reported. A working APIM instance is a <strong>critical-path dependency</strong> before any evaluation-set run.</p></div>
+      <div class="card gold" style="margin-top:.5em"><h3>The count is combined</h3>
+        <p class="tiny"><code>llm-token-limit</code> returns prompt+completion as one number, so FR79 reconciles on the <em>total</em>. The directional split stays governor-side and is labelled as such.</p></div>
+      <div class="card gold" style="margin-top:.5em"><h3>Metrics silently drop</h3>
+        <p class="tiny"><code>llm-emit-token-metric</code> discards data past its dimension and time-series limits. Metric-backed figures are cross-checked against the response-header count, never trusted alone.</p></div>
+      <div class="card red" style="margin-top:.5em"><h3>Streaming is banned on the evidence path</h3>
+        <p class="tiny">With <code>stream: true</code> APIM <em>estimates</em> both token counts. FR79 becomes a reconciliation between two guesses and F15 buys nothing. This is an admissibility refusal, not a warning.</p></div>
+    </div>
+    <div>
+      <svg class="tall" viewBox="0 0 620 420" role="img" aria-label="Deployment: developer workstation and one Azure subscription">
+        <rect class="s-grp" x="15" y="30" width="270" height="330" rx="12"/>
+        <text class="s-tm" x="30" y="22">Developer workstation</text>
+        <rect class="s-core" x="35" y="55" width="230" height="62" rx="8"/>
+        <text class="s-t" x="150" y="82" text-anchor="middle">Governor + host</text><text class="s-tm" x="150" y="103" text-anchor="middle">single OS process</text>
+        <rect class="s-box" x="35" y="140" width="110" height="62" rx="8"/>
+        <text class="s-tm" x="90" y="167" text-anchor="middle">workspace DB</text><text class="s-tm" x="90" y="186" text-anchor="middle">many runs</text>
+        <rect class="s-box" x="155" y="140" width="110" height="62" rx="8"/>
+        <text class="s-tm" x="210" y="167" text-anchor="middle">evidence</text><text class="s-tm" x="210" y="186" text-anchor="middle">access-ctl</text>
+        <rect class="s-box" x="35" y="225" width="230" height="56" rx="8"/>
+        <text class="s-tm" x="150" y="258" text-anchor="middle">generated comparison HTML</text>
+        <rect class="s-good" x="35" y="295" width="230" height="50" rx="8"/>
+        <text class="s-t" x="150" y="325" text-anchor="middle">submission artifact</text>
+
+        <rect class="s-grp" x="335" y="30" width="270" height="330" rx="12"/>
+        <text class="s-tm" x="350" y="22">Azure subscription &mdash; one, no staging</text>
+        <rect class="s-warn" x="355" y="55" width="230" height="62" rx="8"/>
+        <text class="s-t" x="470" y="82" text-anchor="middle">API Management</text><text class="s-tg" x="470" y="103" text-anchor="middle">llm-token-limit</text>
+        <rect class="s-box" x="355" y="150" width="230" height="62" rx="8"/>
+        <text class="s-t" x="470" y="187" text-anchor="middle">Model endpoints</text>
+        <rect class="s-box" x="355" y="245" width="230" height="62" rx="8"/>
+        <text class="s-t" x="470" y="282" text-anchor="middle">Application Insights</text>
+
+        <path class="ln-c" marker-end="url(#ahc)" d="M265 76 L 351 76"/>
+        <text class="s-tc" x="308" y="66" text-anchor="middle" style="font-size:12px">reportable only</text>
+        <path class="ln" marker-end="url(#ah)" d="M470 117 L 470 146"/>
+        <path class="ln" marker-end="url(#ah)" d="M470 212 L 470 241"/>
+        <path class="ln-d" marker-end="url(#ah)" d="M265 105 L 305 105 L 305 181 L 351 181"/>
+        <text class="s-tm" x="310" y="400" text-anchor="middle" style="font-size:12px">dashed = dev/demo direct path; every figure it yields is labelled self-reported (FR80)</text>
+      </svg>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>The tier constraint is a procurement action, not an engineering one, and it blocks E13 and every evaluation-set run. If nobody in this room owns getting an APIM instance on a supporting tier, that is the action item to leave with.</p>
+    <p>The failure mode to fear is the quiet one: metering unavailable, everything still runs, every figure comes out self-reported, and nobody notices until the submission is being assembled. Make the harness shout about it, not just label it.</p>
+    <p>No staging tier is a deliberate call &mdash; §4.2 makes the MVP in-process by design, and Deferred says managed-service deployment is revisited when a hosted governor is the deliverable.</p>
+  </div>
+</section>
+
+<!-- 23 -->
+<section class="slide">
+  <p class="kicker">22 &middot; Build order</p>
+  <h2>The order the architecture forces &mdash; not the order the numbers suggest</h2>
+  <svg viewBox="0 0 1060 330" role="img" aria-label="Build order: E0, E1a, E3, E1b, E2, then E4 through E15">
+    <g>
+      <rect class="s-core" x="30" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="74" y="68" text-anchor="middle">E0</text><text class="s-tm" x="74" y="90" text-anchor="middle">canonical</text>
+      <rect class="s-core" x="130" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="174" y="68" text-anchor="middle">E1a</text><text class="s-tm" x="174" y="90" text-anchor="middle">draft</text>
+      <rect class="s-core" x="230" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="274" y="68" text-anchor="middle">E3</text><text class="s-tm" x="274" y="90" text-anchor="middle">registry</text>
+      <rect class="s-core" x="330" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="374" y="68" text-anchor="middle">E1b</text><text class="s-tm" x="374" y="90" text-anchor="middle">freeze</text>
+      <rect class="s-core" x="430" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="474" y="68" text-anchor="middle">E2</text><text class="s-tm" x="474" y="90" text-anchor="middle">record</text>
+      <rect class="s-core" x="530" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="574" y="68" text-anchor="middle">E4</text><text class="s-tm" x="574" y="90" text-anchor="middle">ledger</text>
+      <rect class="s-core" x="630" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="674" y="68" text-anchor="middle">E5</text><text class="s-tm" x="674" y="90" text-anchor="middle">gate</text>
+      <rect class="s-core" x="730" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="774" y="68" text-anchor="middle">E6</text><text class="s-tm" x="774" y="90" text-anchor="middle">ports</text>
+      <rect class="s-core" x="830" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="874" y="68" text-anchor="middle">E7</text><text class="s-tm" x="874" y="90" text-anchor="middle">driver</text>
+      <rect class="s-core" x="930" y="40" width="88" height="62" rx="8"/><text class="s-tb" x="974" y="68" text-anchor="middle">E8</text><text class="s-tm" x="974" y="90" text-anchor="middle">harness</text>
+    </g>
+    <path class="ln-c" marker-end="url(#ahc)" d="M118 71 L 126 71"/><path class="ln-c" marker-end="url(#ahc)" d="M218 71 L 226 71"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M318 71 L 326 71"/><path class="ln-c" marker-end="url(#ahc)" d="M418 71 L 426 71"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M518 71 L 526 71"/><path class="ln-c" marker-end="url(#ahc)" d="M618 71 L 626 71"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M718 71 L 726 71"/><path class="ln-c" marker-end="url(#ahc)" d="M818 71 L 826 71"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M918 71 L 926 71"/>
+    <path class="ln" d="M974 102 L 974 130 L 100 130 L 100 158"/>
+    <g>
+      <rect class="s-core" x="30" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="95" y="188" text-anchor="middle">E9</text><text class="s-tm" x="95" y="210" text-anchor="middle">evidence</text>
+      <rect class="s-warn" x="175" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="240" y="188" text-anchor="middle">E10</text><text class="s-tm" x="240" y="210" text-anchor="middle">host adapters</text>
+      <rect class="s-core" x="320" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="385" y="188" text-anchor="middle">E11</text><text class="s-tm" x="385" y="210" text-anchor="middle">shadow</text>
+      <rect class="s-warn" x="465" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="530" y="188" text-anchor="middle">E12</text><text class="s-tm" x="530" y="210" text-anchor="middle">mechanisms</text>
+      <rect class="s-warn" x="610" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="675" y="188" text-anchor="middle">E13</text><text class="s-tm" x="675" y="210" text-anchor="middle">metering</text>
+      <rect class="s-warn" x="755" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="820" y="188" text-anchor="middle">E14</text><text class="s-tm" x="820" y="210" text-anchor="middle">viewer</text>
+      <rect class="s-good" x="900" y="160" width="130" height="62" rx="8"/><text class="s-tb" x="965" y="188" text-anchor="middle">E15</text><text class="s-tm" x="965" y="210" text-anchor="middle">submission</text>
+    </g>
+    <rect class="s-core" x="30" y="252" width="18" height="14" rx="3"/><text class="s-tm" x="58" y="264">protected</text>
+    <rect class="s-warn" x="180" y="252" width="18" height="14" rx="3"/><text class="s-tm" x="208" y="264">carries a cut position (§4.3)</text>
+    <text class="s-tm" x="640" y="264">E10&rsquo;s first two adapters are protected; the third is cut position 2.</text>
+    <text class="s-tg" x="530" y="298" text-anchor="middle">Numbering is traceability, not sequence: the real order is E0 &rarr; E1a &rarr; E3 &rarr; E1b &rarr; E2.</text>
+    <text class="s-tm" x="530" y="320" text-anchor="middle">The verifier registry is built between drafting and freeze &mdash; FR108&rsquo;s coverage review needs real contracts, and the freeze needs a frozen registry.</text>
+  </svg>
+  <div class="cols c3">
+    <div class="card green"><h3>At the end of E7 the protected core runs.</h3><p class="tiny">Everything after is evidence, surfaces, or optimisation.</p></div>
+    <div class="card gold"><h3>E3 moved, and it moved for a reason.</h3><p class="tiny">Registry breadth cannot be reviewed against contracts that do not exist yet, and a rubric cannot freeze over a registry that is still moving. So: draft (E1a), build and review the registry (E3), then freeze both together (E1b).</p></div>
+    <div class="card red"><h3>E9 is what makes the headline falsifiable.</h3><p class="tiny">Without it the savings number is unfalsifiable and §8.3 forbids publishing it. The evidence apparatus is as protected as the runtime.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Four ordering rules and what each costs if broken. <strong>E0 before E1a:</strong> freeze hashes and runtime hashes disagree, and FR65&rsquo;s drift refusal fires on an unchanged rubric. <strong>E1a before E3:</strong> there are no real contracts to run the FR108 coverage review against, so registry breadth is guessed &mdash; which is the thing Q-B was open about. <strong>E3 before E1b:</strong> the rubric freezes over a registry that is still moving, so the criteria are not actually frozen. <strong>E1b before E2&ndash;E7:</strong> the rubric was written by someone who had seen the optimizer, and §8.2&rsquo;s whole defence evaporates.</p>
+    <p>Two more that people try to break. <strong>E6 before E10:</strong> written after the adapters, the conformance battery becomes a description of whatever they already do instead of a specification they were written against. <strong>E8 before any published number:</strong> no manifest, no preregistration, no admissibility check &mdash; the figure is unciteable under §8.4.</p>
+    <p>The uncomfortable reading from BUILD-ORDER is worth reading aloud: if the schedule collapses to the protected core, we ship exact tool deduplication, a sufficiency stop and a loop fuse &mdash; and E8&rsquo;s ablation will show precisely how much of the saving came from deduplication alone. §11.2&rsquo;s attribution risk is made <em>more</em> likely by the cut order, not less.</p>
+    <p>What the cut order cannot remove: E0, E1a, E3, E1b, E2, E8 and E9. §8 makes the claim itself a deliverable, so the evidence apparatus is as protected as the runtime.</p>
+  </div>
+</section>
+
+<!-- 24 -->
+<section class="slide">
+  <p class="kicker">23 &middot; The least obvious thing in the architecture</p>
+  <h2>E0 &rarr; E1a &rarr; E3 &rarr; E1b. Then, and only then, the governor.</h2>
+  <svg class="short" viewBox="0 0 1040 270" role="img" aria-label="Canonicaliser, drafting, verifier registry and freeze, all before governor implementation begins">
+    <rect class="s-core" x="20" y="34" width="150" height="104" rx="10"/>
+    <text class="s-tb" x="95" y="66" text-anchor="middle">E0</text>
+    <text class="s-tc" x="95" y="92" text-anchor="middle">canonicaliser</text>
+    <text class="s-tm" x="95" y="112" text-anchor="middle">one hash function</text>
+    <rect class="s-core" x="200" y="34" width="150" height="104" rx="10"/>
+    <text class="s-tb" x="275" y="66" text-anchor="middle">E1a</text>
+    <text class="s-tc" x="275" y="92" text-anchor="middle">draft</text>
+    <text class="s-tm" x="275" y="112" text-anchor="middle">cases, keys, rubric,</text>
+    <text class="s-tm" x="275" y="130" text-anchor="middle">four real contracts</text>
+    <rect class="s-core" x="380" y="34" width="150" height="104" rx="10"/>
+    <text class="s-tb" x="455" y="66" text-anchor="middle">E3</text>
+    <text class="s-tc" x="455" y="92" text-anchor="middle">registry</text>
+    <text class="s-tm" x="455" y="112" text-anchor="middle">verifiers + FR108</text>
+    <text class="s-tm" x="455" y="130" text-anchor="middle">coverage review</text>
+    <rect class="s-core" x="560" y="34" width="150" height="104" rx="10"/>
+    <text class="s-tb" x="635" y="66" text-anchor="middle">E1b</text>
+    <text class="s-tc" x="635" y="92" text-anchor="middle">freeze</text>
+    <text class="s-tm" x="635" y="112" text-anchor="middle">rubric, keys, baseline,</text>
+    <text class="s-tm" x="635" y="130" text-anchor="middle">registry included</text>
+    <path class="ln-c" marker-end="url(#ahc)" d="M170 86 L 196 86"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M350 86 L 376 86"/>
+    <path class="ln-c" marker-end="url(#ahc)" d="M530 86 L 556 86"/>
+    <line class="life" x1="740" y1="14" x2="740" y2="200" stroke="#ffb454" stroke-width="2" stroke-dasharray="8 6"/>
+    <text class="s-tg" x="752" y="26">governor implementation begins</text>
+    <rect class="s-box" x="770" y="34" width="250" height="104" rx="10"/>
+    <text class="s-tb" x="895" y="72" text-anchor="middle">E2 &hellip; E15</text>
+    <text class="s-tm" x="895" y="98" text-anchor="middle">record, ledger, gate,</text>
+    <text class="s-tm" x="895" y="118" text-anchor="middle">ports, drivers, harness&hellip;</text>
+    <path class="ln" marker-end="url(#ah)" d="M710 86 L 766 86"/>
+    <text class="s-tr" x="480" y="184" text-anchor="middle">Freeze after this line and §8.2&rsquo;s entire defence evaporates:</text>
+    <text class="s-tr" x="480" y="208" text-anchor="middle">the rubric was written by someone who had already seen the optimizer.</text>
+    <text class="s-tm" x="520" y="244" text-anchor="middle">E3 sits between drafting and freeze: the coverage review needs real contracts, and a rubric cannot freeze over a registry that is still moving.</text>
+  </svg>
+  <div class="cols c3">
+    <div class="card"><h3>Why the canonicaliser is first</h3>
+      <p class="tiny">The freeze tool runs <strong>before the governor exists</strong>. Two processes &mdash; a freeze script and a runtime import &mdash; must produce identical hashes for the same structure, including for <code>1.0</code> versus <code>1</code>.</p>
+      <p class="tiny">Build it second and the rubric you froze cannot be verified against the rubric the harness later reads. FR65&rsquo;s drift refusal fires on a rubric nobody changed, and the only fix is re-freezing <em>after</em> seeing the governor &mdash; precisely what §8.2 exists to prevent.</p></div>
+    <div class="card gold"><h3>E1 is the cheapest epic to defer and the most expensive to have deferred</h3>
+      <p class="tiny">Nothing in it needs the governor to exist. All of it becomes untrustworthy once the governor does. Author the four workloads&rsquo; cases, write the answer keys and rubric, hash them, freeze the baseline definition, and split calibration from the <strong>sealed evaluation set</strong> as separate artifacts.</p></div>
+    <div class="card purple"><h3>Why E1 split into E1a and E1b</h3>
+      <p class="tiny">FR108 put a review between them. Breadth cannot be reviewed without real contracts, and the freeze must include the registry, its tests and the coverage report &mdash; hashed in the <em>same operation</em> as the rubric. Anything less is a rubric frozen over a moving target.</p></div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>This is the slide to make someone repeat back. It is not a preference and it is not a testing convention &mdash; it is the only ordering under which the headline claim is defensible, and it is invisible from the PRD alone. It falls out of §8.2 plus FR65 plus AD-6, and now FR108, together.</p>
+    <p>Sealed means sealed: no governed result may be executed against the evaluation set or inspected before preregistration. The case definitions are authored and known; it is the <em>results</em> that must remain unseen.</p>
+    <p>The E1a/E1b split is new and it is the practical consequence of closing Q-B. Before, &ldquo;E1 freeze&rdquo; was one block and the registry was assumed adequate. Now the freeze has a prerequisite that produces evidence &mdash; four contracts, a classification of every criterion, at most three additions, a published coverage report &mdash; and only then does anything get hashed.</p>
+    <p>If the team pushes to start on the governor because it is the interesting part, the counter is cheap: E0, E1a, E3 and E1b are days, and they are the epics that cannot be recovered later at any price.</p>
+  </div>
+</section>
+
+<!-- 25 -->
+<section class="slide">
+  <p class="kicker">24 &middot; Scope <span class="badge badge-push">PUSH BACK HERE</span></p>
+  <h2>Three host adapters, where FR51 needs two</h2>
+  <div class="cols c2">
+    <div>
+      <div class="card"><h3>What is committed</h3>
+        <div class="chips">
+          <span class="chip c">langgraph 1.2.11 <span class="dim">&mdash; classifiers only to 3.13</span></span>
+          <span class="chip c">agent-framework 1.17.0</span>
+          <span class="chip on">openai-agents 0.22.0 &mdash; pre-1.0, pin exactly</span>
+        </div>
+        <p class="tiny">FR51 requires <strong>two dissimilar frameworks</strong>. Three were committed with no declared way to drop one &mdash; which is exactly the failure mode a cut order exists to prevent. The PRD was amended on 2026-09-07: the third adapter is now <strong>cut position 2</strong>.</p></div>
+      <div class="alt"><h3>The alternative &mdash; and what the third adapter costs you</h3>
+        <p class="tiny"><strong>Keep all three regardless.</strong> A third framework is real evidence of portability and it is the demo that convinces a sceptic. But it does not add an argument FR51 does not already have at two &mdash; and it multiplies the benchmark matrix: a wrapper, a conformance passage, four workloads of tools rebound, a share of the frozen FR64 baseline, and a share of FR100&rsquo;s failure cases.</p>
+        <p class="tiny">It is also the riskiest of the three: pre-1.0, pinned exactly, no compatibility promise. Push back if you think two dissimilar frameworks will read as a narrow claim &mdash; that is a legitimate position, and the answer is to pick the two <em>most</em> dissimilar, not to add a third.</p></div>
+    </div>
+    <div>
+      <div class="card"><h3>Every adapter is admitted the same way</h3>
+        <p class="tiny">By passing E6&rsquo;s conformance battery &mdash; never by its own unit tests. A hand-rolled ReAct <strong>reference adapter</strong> is built first and is the conformance reference.</p></div>
+      <div class="card red" style="margin-top:.5em"><h3>FR107 &mdash; the probe that made the battery honest</h3>
+        <p class="tiny">Enforcement is cooperative by AD-1&rsquo;s construction. An adapter that executes a gated or denied call while recording a clean pause produces a <em>plausible, internally consistent and entirely false</em> audit trail &mdash; and every claim in §8 then rests on it.</p>
+        <p class="tiny"><strong>A decision record cannot detect the one failure it is the evidence for.</strong> So the battery asserts against the decision record <em>and</em> carries an out-of-band side-effect probe: scripted tools assert for themselves whether they were invoked.</p></div>
+      <div class="card gold" style="margin-top:.5em"><h3>Cut order, top of the list</h3>
+        <p class="tiny">Position 1: the static viewer (E14). Position 2: the third adapter. Neither touches anything the claim rests on. E0, E1, E2, E8 and E9 cannot be cut &mdash; §8 makes the claim itself a deliverable.</p></div>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Tell the story of how FR107 came to exist: the spine and the PRD diverged, and closing the divergence surfaced work that was in no feature and no estimate. That is the argument for doing this reconciliation at all &mdash; it found a hole in the evidence chain, not just a documentation mismatch.</p>
+    <p>The line to land: a log cannot be its own integrity check when the component under test is the one writing the events. Everything else in the battery is assertion-against-the-record, which is right; this one case needs a witness outside it.</p>
+    <p>Also flag the langgraph 3.14 validation item &mdash; it declares classifiers only to 3.13 and we are pinning Python 3.14. Validate before committing the adapter, not during E10.</p>
+  </div>
+</section>
+
+<!-- 26 -->
+<section class="slide">
+  <p class="kicker">25 &middot; Close</p>
+  <h2>Where to push back</h2>
+  <div class="cols c2">
+    <div>
+      <h3>The contestable calls</h3>
+      <table>
+        <tr><th>Decision</th><th>The argument against it</th></tr>
+        <tr><td class="m">AD-1</td><td>Interception is cheaper to adopt; driving the loop enforces harder. We chose mediation and pay for it with cooperative enforcement.</td></tr>
+        <tr><td class="m">AD-3</td><td>Serial verdicts put governor latency on every step. We bought a total order with throughput.</td></tr>
+        <tr><td class="m">AD-7</td><td>A closed registry limits what a contract can express. Now gated rather than guessed: four real contracts, a classified review, at most three additions, a published coverage report.</td></tr>
+        <tr><td class="m">AD-10</td><td>Refuse versus label. We refuse where a defect makes the number meaningless, and throw runs away to do it.</td></tr>
+        <tr><td class="m">AD-14</td><td>Run-scoped cache leaves a real saving on the table to keep FR64/FR68 honest.</td></tr>
+        <tr><td class="m">AD-16</td><td>One workspace database, chained per run, on a hardened writer discipline. Append-only is discipline plus a chain &mdash; and the chain only bites because the seals travel out on the proof card.</td></tr>
+        <tr><td class="m">AD-19</td><td>Sixty days with no per-run extension. Regeneration from the frozen case instead of discretion &mdash; more compute, no negotiation.</td></tr>
+        <tr><td class="m">E10</td><td>Three host adapters where FR51 needs two. Now cut position 2.</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Open questions &mdash; all three now closed</h3>
+      <div class="card green"><span class="ad">Q-A &mdash; closed 2026-09-07</span>
+        <p class="tiny"><strong>Third adapter and conformance battery diverged from the PRD.</strong> Closed by amending the PRD: third adapter to cut position 2; the battery is FR107 inside F11, carrying the out-of-band side-effect probe. Spine and PRD aligned.</p></div>
+      <div class="card green" style="margin-top:.5em"><span class="ad">Q-B &mdash; closed 2026-09-09</span>
+        <p class="tiny"><strong>Verifier registry breadth.</strong> Closed by <code>FR108</code> &mdash; a pre-freeze gate rather than an answer. Seven types stay default; one real contract per workload; every criterion classified <code>E</code>&thinsp;/&thinsp;<code>N</code>&thinsp;/&thinsp;<code>A</code>; at most three deterministic additions; a per-workload coverage report of reference-backed versus constraint-backed mandatory counts; the registry freezes with the rubric. It also reordered the build: <strong>E1a &rarr; E3 &rarr; E1b</strong>.</p></div>
+      <div class="card green" style="margin-top:.5em"><span class="ad">Q-C &mdash; closed 2026-09-09</span>
+        <p class="tiny"><strong>Evidence-store retention was undeclared.</strong> Closed by AD-19&rsquo;s <code>mvp-synthetic-v1</code> &mdash; 60 days raw from an appended <code>run-closed</code> event that <em>is</em> the run&rsquo;s terminal row, <code>run-abandoned</code> appended by the sweep at a campaign seal that is itself a one-shot harness command refused while any run is unsealed, 180 days redacted from that seal, whole-directory deletion, content-free receipts outside every chain, no per-run extension, and an explicit access matrix. And by <strong>AD-21</strong>, which admits the profile for <code>synthetic</code> only &mdash; <code>replayed</code> inherits what it replays &mdash; and refuses evidence <em>and log</em> outright rather than letting either inherit.</p></div>
+      <div class="card purple" style="margin-top:.5em"><h3>Deliberately deferred, not forgotten</h3>
+        <p class="tiny">Production-data governance profile &middot; managed-service deployment &middot; persistent cross-run cache &middot; distributed governor &middot; contract authoring surface &middot; learned marginal-value estimation &middot; live traffic shadowing &middot; OTel export &middot; production ground truth without hand-authored keys.</p></div>
+    </div>
+  </div>
+  <div class="notes"><h3>Notes</h3>
+    <p>Close on the fact that nothing is left open &mdash; and then immediately say what that does and does not mean. Q-B did not close by someone deciding seven types are enough; it closed by making the decision impossible to skip and impossible to fudge, with a coverage report that will say so if the answer is uncomfortable. Q-C did not close by picking sixty days; it closed by making the lifetime declared, so it can be argued with here rather than discovered later.</p>
+    <p>Do invite new objections. The three that closed all started as somebody saying &ldquo;this reads settled and it is not&rdquo;. The AD-12 conflation on slide 16 is the same species and was caught by the same reading.</p>
+    <p>If the room only takes one thing away, make it the E0 &rarr; E1a &rarr; E3 &rarr; E1b &rarr; governor ordering. Everything else can be relitigated during the build; that one cannot.</p>
+    <p>Action to leave with: someone owns getting an APIM instance on a tier that supports <code>llm-token-limit</code>. It blocks E13 and every evaluation-set run.</p>
+  </div>
+</section>
+
+</main>
+
+<div id="chrome">
+  <span id="brand">OUTCOMEFUSE</span>
+  <span id="hint">&larr; &rarr; move &middot; n notes &middot; ? help</span>
+  <span id="notesflag">NOTES ON</span>
+  <div id="bartrack"><div id="bar"></div></div>
+  <span id="counter">1 / 1</span>
+</div>
+
+<div id="help" class="overlay" hidden>
+  <div class="helpbox">
+    <h2>Keyboard</h2>
+    <div class="keys">
+      <span><kbd>&rarr;</kbd> <kbd>Space</kbd> <kbd>PgDn</kbd></span><span>Next slide</span>
+      <span><kbd>&larr;</kbd> <kbd>PgUp</kbd></span><span>Previous slide</span>
+      <span><kbd>Home</kbd> / <kbd>End</kbd></span><span>First / last slide</span>
+      <span><kbd>n</kbd></span><span>Toggle speaker notes on every slide</span>
+      <span><kbd>?</kbd></span><span>Toggle this overlay</span>
+      <span><kbd>Esc</kbd></span><span>Close this overlay</span>
+      <span><kbd>1</kbd>&hellip;<kbd>9</kbd></span><span>Jump to slide 1&ndash;9</span>
+    </div>
+    <p class="tiny dim" style="margin-top:1.2em">Slides marked <span class="badge badge-push">PUSH BACK HERE</span> carry a decision that could reasonably have gone the other way. Each one shows the alternative that was rejected and what choosing it would have cost. Stop the session on those.</p>
+    <p class="tiny dim">Self-contained, offline. No network requests are made by this file.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var slides = [].slice.call(document.querySelectorAll(".slide"));
+  var bar = document.getElementById("bar");
+  var counter = document.getElementById("counter");
+  var help = document.getElementById("help");
+  var idx = 0;
+
+  function clamp(n) {
+    if (n < 0) return 0;
+    if (n > slides.length - 1) return slides.length - 1;
+    return n;
+  }
+
+  function show(n, updateHash) {
+    idx = clamp(n);
+    for (var i = 0; i < slides.length; i++) {
+      if (i === idx) {
+        slides[i].classList.add("active");
+        slides[i].scrollTop = 0;
+      } else {
+        slides[i].classList.remove("active");
+      }
+    }
+    counter.textContent = (idx + 1) + " / " + slides.length;
+    bar.style.width = (slides.length > 1 ? (idx / (slides.length - 1)) * 100 : 100) + "%";
+    if (updateHash !== false) {
+      try { history.replaceState(null, "", "#s" + (idx + 1)); } catch (e) { /* file:// */ }
+    }
+  }
+
+  function toggleHelp() {
+    help.hidden = !help.hidden;
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    var k = e.key;
+
+    if (k === "?" || (k === "/" && e.shiftKey)) { toggleHelp(); e.preventDefault(); return; }
+    if (k === "Escape") { if (!help.hidden) { help.hidden = true; e.preventDefault(); } return; }
+    if (!help.hidden && (k === " " || k === "Enter")) { help.hidden = true; e.preventDefault(); return; }
+
+    if (k === "ArrowRight" || k === " " || k === "Spacebar" || k === "PageDown") {
+      show(idx + 1); e.preventDefault(); return;
+    }
+    if (k === "ArrowLeft" || k === "PageUp") { show(idx - 1); e.preventDefault(); return; }
+    if (k === "Home") { show(0); e.preventDefault(); return; }
+    if (k === "End") { show(slides.length - 1); e.preventDefault(); return; }
+    if (k === "n" || k === "N") {
+      document.body.classList.toggle("notes-on"); e.preventDefault(); return;
+    }
+    if (k >= "1" && k <= "9") { show(parseInt(k, 10) - 1); e.preventDefault(); return; }
+    if (k === "ArrowDown") { slides[idx].scrollTop += 80; e.preventDefault(); return; }
+    if (k === "ArrowUp") { slides[idx].scrollTop -= 80; e.preventDefault(); return; }
+  });
+
+  help.addEventListener("click", function () { help.hidden = true; });
+
+  var start = 0;
+  var m = /^#s(\d+)$/.exec(location.hash || "");
+  if (m) start = parseInt(m[1], 10) - 1;
+  show(start, false);
+})();
+</script>
+</body>
+</html>
