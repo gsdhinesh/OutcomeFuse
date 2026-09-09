@@ -15,6 +15,10 @@ Derivation is per workload:
   the span from it. ``severity`` is the one authored field: impact is a
   judgement and cannot be asked of the source. It is copied through, and should
   be read as authored rather than derived.
+* ``supply-chain`` — run the corpus's ``classification.sql`` for the case's
+  purchase order. The corpus stores no exception type, root cause or
+  recommended action; all three are computed from primitive facts under a fixed
+  precedence ladder, so no keyed field here is authored.
 
 Run: uv run --with pyyaml python freeze/derive_answer_keys.py
 """
@@ -31,7 +35,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SPLITS = ("calibration", "evaluation")
-WORKLOADS = ("data-sql", "code-triage")
+WORKLOADS = ("data-sql", "code-triage", "supply-chain")
 SEVERITIES = {"blocker", "major", "minor", "cosmetic"}
 
 
@@ -116,12 +120,43 @@ def derive_code_triage(case: dict[str, Any], context: Any) -> dict[str, Any]:
     }
 
 
-DERIVERS = {"data-sql": derive_data_sql, "code-triage": derive_code_triage}
+def derive_supply_chain(case: dict[str, Any], context: Any) -> dict[str, Any]:
+    db, classification = context
+    case_id = case["case_id"]
+    po_id = case["reference"]["po_id"]
+
+    rows = db.execute(classification, {"po_id": po_id}).fetchall()
+    if len(rows) != 1:
+        fail(f"{case_id}: classification returned {len(rows)} rows for PO {po_id}, expected 1")
+
+    exception_type, root_cause_code, recommended_action = rows[0]
+    if exception_type is None:
+        fail(
+            f"{case_id}: PO {po_id} classifies to nothing — it is a clean order, "
+            "so it cannot be an answerable case"
+        )
+
+    return {
+        "expected_outcome": "answer",
+        "exception_type": exception_type,
+        "root_cause_code": root_cause_code,
+        "recommended_action": recommended_action,
+    }
+
+
+DERIVERS = {
+    "data-sql": derive_data_sql,
+    "code-triage": derive_code_triage,
+    "supply-chain": derive_supply_chain,
+}
 
 
 def context_for(workload: str, corpus_ref: str) -> Any:
     if workload == "data-sql":
         return sql_corpus(corpus_ref)
+    if workload == "supply-chain":
+        classification = (ROOT / corpus_ref / "classification.sql").read_text(encoding="utf-8")
+        return sql_corpus(corpus_ref), classification
     return ROOT / corpus_ref / "repo"
 
 

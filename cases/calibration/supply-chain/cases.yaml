@@ -1,0 +1,225 @@
+# Calibration cases — supply-chain workload.
+#
+# The three keyed fields (exception_type, root_cause_code, recommended_action)
+# are DERIVED, not authored: the corpus stores none of them, and
+# classification.sql computes each from primitive facts under a fixed
+# precedence ladder. A case's `reference` is just the purchase order id.
+#
+# That matters more here than elsewhere. If any of the three were a column, the
+# workload would collapse into a single SELECT and would prove nothing about
+# investigation.
+#
+# Prompts are written as an operations engineer would receive them: a flagged
+# PO and nothing else. The exception record deliberately says only "needs
+# review".
+
+corpus_ref: cases/corpora/supply-chain/v1
+workload: supply-chain
+split: calibration
+data_class: synthetic
+
+cases:
+  - case_id: sc-c-001
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5004 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5004
+    notes: >
+      Incoming inspection failed. Quality sits at the top of the precedence
+      ladder, so nothing else about this order can change the disposition.
+
+  - case_id: sc-c-002
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5013 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5013
+    notes: A second quality hold, on a different part and supplier.
+
+  - case_id: sc-c-003
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5006 has been flagged for review by finance. Classify the
+      exception, identify its root cause, recommend a disposition, and cite the
+      supplier policy clauses your recommendation rests on.
+    reference:
+      po_id: 5006
+    notes: >
+      Invoiced unit cost exceeds the agreed price. Requires joining the invoice
+      to the price agreement — the invoice alone looks unremarkable.
+
+  - case_id: sc-c-004
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5016 has been flagged for review by finance. Classify the
+      exception, identify its root cause, recommend a disposition, and cite the
+      supplier policy clauses your recommendation rests on.
+    reference:
+      po_id: 5016
+    notes: A second price variance, with a larger uplift on a higher-value part.
+
+  - case_id: sc-c-005
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5002 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5002
+    notes: >
+      Late arrival. Separating carrier delay from supplier late dispatch needs
+      the dispatch date compared against the promised date, and the disposition
+      needs the lateness measured against the fourteen-day threshold.
+
+  - case_id: sc-c-006
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5003 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5003
+    notes: >
+      Short shipment. The root cause turns on the supplier's committed weekly
+      capacity, which lives two joins away from the receipt.
+
+  - case_id: sc-c-007
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5012 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5012
+    notes: >
+      Late, but dispatched so close to the promised date that no carrier could
+      have made it — which moves the root cause from the carrier to the
+      supplier and changes who gets the conversation.
+
+  - case_id: sc-c-008
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5017 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5017
+    notes: >
+      The hardest case in the set. The shortfall is inside the supplier's
+      committed capacity, and a sibling order for the same part was filled
+      completely a week earlier — so the supplier had the stock and allocated
+      it elsewhere. Distinguishing that from an ordinary short shipment
+      requires looking outside the order under investigation.
+
+  - case_id: sc-c-009
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5019 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5019
+    notes: >
+      A short shipment small enough to fall under the ten percent threshold,
+      which flips the disposition from alternate sourcing to partial release.
+      Same exception type as sc-c-006, different answer.
+
+  - case_id: sc-c-010
+    difficulty: distractor-heavy
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5001 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5001
+    distractors:
+      - id: expedite-because-late
+        detail: >
+          The order is late, and expediting is the reflexive response. It
+          arrived nine days after the promise, inside the fourteen-day
+          threshold, so the policy calls for rescheduling.
+        wrong_sql: SELECT 'expedite'
+        wrong_field: recommended_action
+      - id: blame-the-supplier
+        detail: >
+          Supplier 1 is the obvious party to chase. Dispatch was a week ahead
+          of the promised date, so the delay accrued in transit.
+        wrong_sql: SELECT 'rc-supplier-late-dispatch'
+        wrong_field: root_cause_code
+    notes: >
+      Both traps are the operationally tempting answer rather than the one the
+      evidence supports.
+
+  - case_id: sc-c-011
+    difficulty: distractor-heavy
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5010 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5010
+    distractors:
+      - id: allocation-not-capacity
+        detail: >
+          A shortfall reads as an allocation decision. Here the order exceeds
+          the supplier's committed weekly capacity outright, so the supplier
+          was never contractually able to fill it.
+        wrong_sql: SELECT 'rc-partial-allocation'
+        wrong_field: root_cause_code
+      - id: partial-release
+        detail: >
+          Releasing what arrived is the path of least resistance. The shortfall
+          is well above ten percent, so policy requires alternate sourcing to
+          be considered first.
+        wrong_sql: SELECT 'partial-release'
+        wrong_field: recommended_action
+    notes: >
+      Distinguishes "could not" from "chose not to" — the pair that decides
+      whether this becomes a supplier conversation or a capacity re-plan.
+
+  - case_id: sc-c-012
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    expected_outcome: partial
+    prompt: >
+      Purchase order 5009 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    unmet_criteria:
+      - exception-type-matches-key
+      - root-cause-matches-key
+      - recommended-action-matches-key
+    notes: >
+      Nothing is wrong with this order. It arrived on time, in full, at the
+      agreed price, and passed inspection — the flag was raised in error. No
+      value in the exception taxonomy applies, so a confident classification is
+      a fabrication, and this is the single most valuable false-sufficiency
+      trap in the workload: an agent that always finds something will always
+      find something here.

@@ -18,6 +18,10 @@ Workload-specific rules:
   executable form, so distractors are declared non-discriminating and carry a
   reason. The anchor is checked to match exactly one line, and the derived span
   is checked to contain it.
+* ``supply-chain`` — a distractor names the field it targets and the wrong
+  value, which must differ from the derived one. The case's purchase order is
+  checked to classify to something, since a clean order cannot be an
+  answerable case.
 
 Run: uv run --with pyyaml python freeze/check_cases.py
 """
@@ -34,9 +38,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 SPLITS = ("calibration", "evaluation")
-WORKLOADS = ("data-sql", "code-triage")
+WORKLOADS = ("data-sql", "code-triage", "supply-chain")
 DIFFICULTIES = {"direct", "multi-hop", "distractor-heavy", "unanswerable"}
 SEVERITIES = {"blocker", "major", "minor", "cosmetic"}
+KEYED_FIELDS = {"exception_type", "root_cause_code", "recommended_action"}
 
 
 def sql_corpus(corpus_ref: str) -> sqlite3.Connection:
@@ -107,12 +112,42 @@ def check_code_triage(case: dict[str, Any], key: dict[str, Any], repo: Any, out:
             out.append(f"{cid}/{distractor['id']}: non-discriminating distractor needs a reason")
 
 
-CHECKERS = {"data-sql": check_data_sql, "code-triage": check_code_triage}
+def check_supply_chain(case: dict[str, Any], key: dict[str, Any], ctx: Any, out: list[str]) -> None:
+    cid = case["case_id"]
+    if case["expected_outcome"] != "answer":
+        return
+
+    db, _ = ctx
+    for distractor in case.get("distractors") or []:
+        did = f"{cid}/{distractor['id']}"
+        if distractor.get("discriminates") is False:
+            if not distractor.get("detail"):
+                out.append(f"{did}: non-discriminating distractor needs a reason")
+            continue
+        field = distractor.get("wrong_field")
+        if field not in KEYED_FIELDS or "wrong_sql" not in distractor:
+            out.append(f"{did}: needs wrong_sql plus a wrong_field from {sorted(KEYED_FIELDS)}")
+            continue
+        if scalar(db, distractor["wrong_sql"]) == key[field]:
+            out.append(
+                f"{did}: does not discriminate — the wrong reading of {field} equals "
+                "the derived value, so the trap tests nothing"
+            )
+
+
+CHECKERS = {
+    "data-sql": check_data_sql,
+    "code-triage": check_code_triage,
+    "supply-chain": check_supply_chain,
+}
 
 
 def context_for(workload: str, corpus_ref: str) -> Any:
     if workload == "data-sql":
         return sql_corpus(corpus_ref)
+    if workload == "supply-chain":
+        classification = (ROOT / corpus_ref / "classification.sql").read_text(encoding="utf-8")
+        return sql_corpus(corpus_ref), classification
     return ROOT / corpus_ref / "repo"
 
 

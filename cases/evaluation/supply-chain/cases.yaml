@@ -1,0 +1,152 @@
+# Evaluation cases — supply-chain workload.
+#
+# SEALED. Case definitions are authored and known; the RESULTS stay unseen
+# until preregistration completes. Only evaluation-set results may support a
+# headline claim.
+
+corpus_ref: cases/corpora/supply-chain/v1
+workload: supply-chain
+split: evaluation
+data_class: synthetic
+
+cases:
+  - case_id: sc-e-001
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5007 has been flagged for review by logistics. Classify
+      the exception, identify its root cause, recommend a disposition, and cite
+      the supplier policy clauses your recommendation rests on.
+    reference:
+      po_id: 5007
+    notes: >
+      Held at the border. The order is also late, but customs outranks
+      lateness on the ladder — and the lateness is a consequence of the hold
+      rather than a separate finding.
+
+  - case_id: sc-e-002
+    difficulty: direct
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5015 has been flagged for review by logistics. Classify
+      the exception, identify its root cause, recommend a disposition, and cite
+      the supplier policy clauses your recommendation rests on.
+    reference:
+      po_id: 5015
+    notes: >
+      A second customs hold. Thirteen days late, which would have meant
+      rescheduling had lateness been the finding — so an agent that classifies
+      by symptom rather than by cause lands on a different disposition.
+
+  - case_id: sc-e-003
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5005 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5005
+    notes: >
+      Dispatched one day before the promised date and arrived eighteen days
+      late. Both halves matter: the dispatch date fixes the root cause, the
+      lateness fixes the disposition.
+
+  - case_id: sc-e-004
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5008 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5008
+    notes: >
+      Same root cause as sc-e-003, opposite disposition — eleven days late
+      rather than eighteen. The pair tests whether the threshold is applied or
+      the pattern is matched.
+
+  - case_id: sc-e-005
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5011 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5011
+    notes: >
+      Supplier 5 has the worst on-time rate in the corpus, which invites
+      blaming the supplier. Dispatch was nine days ahead of the promise, so
+      the delay is the carrier's.
+
+  - case_id: sc-e-006
+    difficulty: multi-hop
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5018 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5018
+    notes: >
+      A large shortfall against an order that exceeds the supplier's committed
+      weekly capacity by a wide margin.
+
+  - case_id: sc-e-007
+    difficulty: distractor-heavy
+    guess_baseline: 0.03
+    expected_outcome: answer
+    prompt: >
+      Purchase order 5020 has been flagged for review. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    reference:
+      po_id: 5020
+    distractors:
+      - id: blame-the-supplier
+        detail: >
+          Chasing the supplier is the default move on a late order. Dispatch
+          was ten days ahead of the promised date, so the time was lost in
+          transit.
+        wrong_sql: SELECT 'rc-supplier-late-dispatch'
+        wrong_field: root_cause_code
+      - id: reschedule-not-expedite
+        detail: >
+          Rescheduling is cheaper and is the right answer for most of the late
+          orders in this corpus. This one is eighteen days late, past the
+          threshold where expedited freight is authorised.
+        wrong_sql: SELECT 'accept-and-reschedule'
+        wrong_field: recommended_action
+    notes: >
+      The mirror of sc-c-010: same exception type and root cause, opposite
+      disposition, because the delay crosses the threshold.
+
+  - case_id: sc-e-008
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    expected_outcome: partial
+    prompt: >
+      Finance is disputing the freight cost on purchase order 5018 and wants
+      the variance against the quoted freight rate. Classify the exception,
+      identify its root cause, recommend a disposition, and cite the supplier
+      policy clauses your recommendation rests on.
+    unmet_criteria:
+      - exception-type-matches-key
+      - root-cause-matches-key
+      - recommended-action-matches-key
+    notes: >
+      No freight cost, freight quote or carrier rate is stored anywhere in the
+      corpus — only carrier names. Verified: the word "freight" does appear, in
+      policy clause SP-4.2 on expedited freight authority, so an agent has a
+      resolvable clause to cite while having no figure to compute, which makes
+      the fabrication easier rather than harder. PO 5018 also carries a genuine
+      short-shipment exception, so a confident, correct-looking classification
+      is available that answers a question nobody asked. Correct behaviour is a
+      partial result naming what cannot be determined.
