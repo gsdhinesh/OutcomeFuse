@@ -1,0 +1,266 @@
+# Calibration cases — code-triage workload.
+#
+# `reference.anchor` is the exact stripped source line the defect sits on. The
+# deriver locates it and COMPUTES the line span; nothing here hard-codes a line
+# number, so editing the corpus can never silently invalidate a key.
+#
+# `severity` is the one authored field. Impact is a judgement, not something the
+# source can be asked. Stated plainly rather than dressed up as derived.
+#
+# Prompts are bug reports, written the way a user would file them: symptom
+# first, no file names, no line numbers.
+
+corpus_ref: cases/corpora/code-triage/v1
+workload: code-triage
+split: calibration
+data_class: synthetic
+
+cases:
+  - case_id: ct-c-001
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Catalogue prices shown to customers never update. We changed a price six
+      hours ago and the old one is still being served, even though the cache is
+      configured with a five-minute TTL. Restarting the service fixes it until
+      the next change. Identify where the defect is.
+    reference:
+      file: orderflow/cache.py
+      anchor: 'stored_at, value = entry'
+      span_before: 1
+      span_after: 1
+      severity: blocker
+    notes: >
+      The TTL is stored and then never consulted — the unpacked timestamp is
+      unused. A cache that never expires is indistinguishable from a correct one
+      until the underlying data changes.
+
+  - case_id: ct-c-002
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Orders containing a line with quantity zero are being accepted and sent to
+      the warehouse, where they fail to pick. Validation is supposed to reject
+      them. Identify where the defect is.
+    reference:
+      file: orderflow/validation.py
+      anchor: 'if line["quantity"] < 0:'
+      span_before: 1
+      span_after: 1
+      severity: major
+    notes: The docstring says positive; the comparison admits zero.
+
+  - case_id: ct-c-003
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Our cache-invalidation endpoint returns a 500 when asked to invalidate a
+      key that is not currently cached. It should be a no-op. Identify where the
+      defect is.
+    reference:
+      file: orderflow/cache.py
+      anchor: 'self._entries.pop(key)'
+      span_before: 0
+      span_after: 0
+      severity: minor
+    notes: A one-argument pop raises on a missing key.
+
+  - case_id: ct-c-004
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      A warehouse report is showing negative reserved counts for some SKUs. It
+      seems to happen when a cancellation is retried. Identify where the defect
+      is.
+    reference:
+      file: orderflow/inventory.py
+      anchor: 'stock[sku]["reserved"] -= quantity'
+      span_before: 1
+      span_after: 1
+      severity: minor
+    notes: >
+      Release has no floor, so a duplicate release drives the count below zero.
+      The retry is the trigger, not the cause.
+
+  - case_id: ct-c-005
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Parcels weighing exactly 500 grams are sometimes quoted as economy and
+      sometimes as standard, for the same parcel. Lighter and heavier parcels
+      are consistent. Identify where the defect is.
+    reference:
+      file: orderflow/shipping.py
+      anchor: 'if low <= grams <= high:'
+      span_before: 2
+      span_after: 1
+      severity: major
+    notes: >
+      Requires reading the band table and the comparison together — neither is
+      wrong alone. Both ends inclusive makes adjacent bands overlap at their
+      shared boundary.
+
+  - case_id: ct-c-006
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Quoting a delivery date for a very heavy parcel raises a KeyError instead
+      of returning an estimate. Ordinary parcels quote fine. Identify where the
+      defect is.
+    reference:
+      file: orderflow/shipping.py
+      anchor: 'days = TRANSIT_DAYS[band]'
+      span_before: 1
+      span_after: 1
+      severity: major
+    notes: >
+      Three hops: the weight falls past the band table, the fallback band is
+      returned, and the transit-days table has no entry for it. The defect is at
+      the lookup that assumes every band is known.
+
+  - case_id: ct-c-007
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Orders with a malformed contact address are passing validation. Worse, we
+      have no idea why any order fails validation — the logs show only a boolean.
+      Identify where the defect is.
+    reference:
+      file: orderflow/validation.py
+      anchor: 'except Exception:'
+      span_before: 1
+      span_after: 2
+      severity: blocker
+    notes: >
+      Two symptoms, one cause. The email check returns a boolean that is
+      discarded rather than raising, and the blanket except erases the reason
+      for every other failure.
+
+  - case_id: ct-c-008
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Discounted subtotals are coming back as values like 9499.999999999998
+      instead of whole cents, and downstream ledger writes are rejecting them.
+      Undiscounted subtotals are fine. Identify where the defect is.
+    reference:
+      file: orderflow/pricing.py
+      anchor: 'return subtotal_cents - (subtotal_cents * percent / 100)'
+      span_before: 1
+      span_after: 0
+      severity: major
+    notes: >
+      True division produces a float from integer cents. The symptom surfaces
+      downstream, so the report points away from the cause.
+
+  - case_id: ct-c-009
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      When the carrier API has a long outage our workers sit idle for many
+      minutes between attempts. We configured a maximum delay but it does not
+      appear to take effect. Identify where the defect is.
+    reference:
+      file: orderflow/retry.py
+      anchor: 'return BASE_DELAY_SECONDS * (2**attempt)'
+      span_before: 1
+      span_after: 0
+      severity: major
+    notes: >
+      The cap constant is declared and never referenced. Finding it means
+      noticing an absence rather than spotting a wrong line.
+
+  - case_id: ct-c-010
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Bundle pricing returns a total that includes SKUs from a completely
+      different customer's earlier bundle. It only happens on a long-running
+      worker; a fresh process prices correctly. Identify where the defect is.
+    reference:
+      file: orderflow/pricing.py
+      anchor: 'def bundle_prices(items, resolved={}):'
+      span_before: 0
+      span_after: 2
+      severity: blocker
+    distractors:
+      - id: blame-line-total
+        detail: >
+          line_total sits in the same module, does similar arithmetic, and is
+          correct. It is the obvious place to look for a pricing bug.
+        discriminates: false
+      - id: blame-the-loop
+        detail: >
+          The loop body reads like a cache-population bug, and the parameter is
+          even named `resolved`. The defect is in the signature, not the body —
+          the shared mutable default is evaluated once at definition time.
+        discriminates: false
+    notes: >
+      Cross-customer contamination on a long-lived process is the classic
+      mutable-default signature. Both distractors are declared
+      non-discriminating: for this workload a wrong answer is a wrong file or
+      line, and neither can be expressed as an executable alternative reading
+      the way a SQL distractor can.
+
+  - case_id: ct-c-011
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Warehouse selection reports "no warehouse available" for an order whose
+      quantity exactly equals the stock on hand at one of our sites. One unit
+      fewer and it selects that site fine. Identify where the defect is.
+    reference:
+      file: orderflow/inventory.py
+      anchor: 'if available(stock, sku) > quantity:'
+      span_before: 1
+      span_after: 1
+      severity: major
+    distractors:
+      - id: blame-low-stock-skus
+        detail: >
+          low_stock_skus uses a similar comparison against a threshold and also
+          looks like an off-by-one. It is a genuine but different defect, and
+          it is not what this report describes.
+        discriminates: false
+      - id: blame-available
+        detail: >
+          `available` is called on the suspect line and has its own defect on
+          unknown SKUs. That defect cannot produce this symptom, since the SKU
+          plainly exists.
+        discriminates: false
+    notes: >
+      Two nearby real defects, neither of which explains the reported symptom.
+      Tests whether the triage follows the evidence or the first thing that
+      looks wrong.
+
+  - case_id: ct-c-012
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    expected_outcome: partial
+    prompt: >
+      Since release 4.2 we are seeing intermittent 502s from the payment
+      gateway during checkout, roughly one in fifty attempts. Identify where the
+      defect is.
+    unmet_criteria:
+      - root-cause-file-correct
+      - root-cause-line-in-span
+      - severity-matches-key
+    notes: >
+      There is no payment, gateway, checkout or release-metadata code anywhere
+      in the corpus. The word "payment" does appear once — in the retry module's
+      docstring, which also retries 5xx responses — so retry.py reads as a
+      plausible answer to an agent pattern-matching on the report. Verified: the
+      corpus contains no occurrence of "gateway", "502" or any deployment
+      version. Correct behaviour is a partial result naming the unmet criteria,
+      or a human referral.

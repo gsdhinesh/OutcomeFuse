@@ -1,0 +1,166 @@
+# Evaluation cases — code-triage workload.
+#
+# SEALED. Case definitions are authored and known; the RESULTS stay unseen until
+# preregistration completes. Only evaluation-set results may support a headline
+# claim.
+
+corpus_ref: cases/corpora/code-triage/v1
+workload: code-triage
+split: evaluation
+data_class: synthetic
+
+cases:
+  - case_id: ct-e-001
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      An order submitted with no lines at all is accepted and creates an empty
+      pick list in the warehouse. Validation is meant to reject empty orders.
+      Identify where the defect is.
+    reference:
+      file: orderflow/validation.py
+      anchor: 'if len(lines) > MAX_LINES:'
+      span_before: 2
+      span_after: 1
+      severity: major
+    notes: >
+      The upper bound is checked and the lower bound is not, despite the
+      docstring promising both.
+
+  - case_id: ct-e-002
+    difficulty: direct
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Our dashboards show six calls to the carrier API for a single failing
+      operation, but the retry policy is configured for a maximum of five
+      attempts. Identify where the defect is.
+    reference:
+      file: orderflow/retry.py
+      anchor: 'if attempt > MAX_ATTEMPTS:'
+      span_before: 1
+      span_after: 1
+      severity: minor
+    notes: >
+      A strict comparison against a zero-based attempt counter yields one more
+      attempt than configured.
+
+  - case_id: ct-e-003
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Checking availability for a SKU that has been discontinued and removed
+      from the stock table raises a TypeError about NoneType subscripting,
+      rather than reporting zero available. Identify where the defect is.
+    reference:
+      file: orderflow/inventory.py
+      anchor: 'record = stock.get(sku)'
+      span_before: 1
+      span_after: 2
+      severity: major
+    notes: >
+      The traceback surfaces on the next line, so the reported location and the
+      defect location differ by one. `.get` returning None is the cause.
+
+  - case_id: ct-e-004
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      A customer record carrying a legacy tier name crashes the tier comparison
+      with a ValueError. The documented behaviour is that unrecognised tiers
+      rank lowest. Identify where the defect is.
+    reference:
+      file: orderflow/pricing.py
+      anchor: 'return TIER_ORDER.index(tier)'
+      span_before: 2
+      span_after: 0
+      severity: major
+    notes: >
+      The docstring states the intended contract and the implementation
+      contradicts it. Requires reading both to be sure which one is wrong.
+
+  - case_id: ct-e-005
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Orders submitted through the partner API, which does not send a contact
+      address, fail validation with a TypeError instead of a clear validation
+      message. Identify where the defect is.
+    reference:
+      file: orderflow/validation.py
+      anchor: 'return "@" in email'
+      span_before: 2
+      span_after: 0
+      severity: minor
+    notes: >
+      The optional lookup returns None and the membership test then raises. The
+      blanket except upstream converts it into a bare False, so the report has
+      to be traced back two hops.
+
+  - case_id: ct-e-006
+    difficulty: multi-hop
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      Since the carrier began sending full timestamps rather than plain dates,
+      every shipment import fails with a ValueError about unconverted data.
+      Identify where the defect is.
+    reference:
+      file: orderflow/shipping.py
+      anchor: 'return datetime.strptime(raw, "%Y-%m-%d")'
+      span_before: 1
+      span_after: 0
+      severity: minor
+    notes: The format string admits only the old shape.
+
+  - case_id: ct-e-007
+    difficulty: distractor-heavy
+    guess_baseline: 0.0
+    expected_outcome: answer
+    prompt: >
+      The catalogue cache is configured to hold at most 128 entries, but memory
+      profiling consistently shows 129 live entries. Identify where the defect
+      is.
+    reference:
+      file: orderflow/cache.py
+      anchor: 'if len(self._entries) > self.max_entries:'
+      span_before: 1
+      span_after: 3
+      severity: minor
+    distractors:
+      - id: blame-size
+        detail: >
+          `size` returns the raw entry count including expired entries, which
+          looks like the source of an inflated number. Its docstring says
+          exactly that, so it is documented behaviour rather than a defect.
+        discriminates: false
+      - id: blame-eviction-choice
+        detail: >
+          The eviction picks the oldest by insertion time, which is a policy
+          decision rather than the off-by-one being reported.
+        discriminates: false
+    notes: >
+      Eviction runs only once the cache is already over its limit, so the
+      steady state is one entry too many. Exactly-one-over is the tell.
+
+  - case_id: ct-e-008
+    difficulty: unanswerable
+    guess_baseline: 0.0
+    expected_outcome: partial
+    prompt: >
+      Our nightly CSV export writes the columns in the wrong order, so the
+      finance import maps amounts onto the wrong fields. Identify where the
+      defect is.
+    unmet_criteria:
+      - root-cause-file-correct
+      - root-cause-line-in-span
+      - severity-matches-key
+    notes: >
+      No export, serialisation or CSV code exists anywhere in the corpus. The
+      pricing module handles amounts and is the nearest plausible target, which
+      is the trap. Correct behaviour is a partial result naming the unmet
+      criteria, or a human referral.
