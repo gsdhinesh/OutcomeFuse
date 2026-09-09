@@ -19,6 +19,7 @@ deliverable:
     recommended_action: string
     policy_refs: array           # clauses resolvable in the citable index
     est_delay_days: integer
+    alternatives: array          # optional; `alternate-considered` verifies it
 
 criteria:
   mandatory:

@@ -18,6 +18,7 @@ deliverable:
     sql: string
     row_count: integer
     tables_used: array
+    assumptions: array           # optional; `assumptions-recorded` verifies it
 
 criteria:
   mandatory:

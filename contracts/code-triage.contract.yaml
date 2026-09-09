@@ -18,6 +18,7 @@ deliverable:
     severity: string
     fix_summary: string
     evidence_refs: array         # symbols or files inspected, resolvable
+    suggested_test: string       # optional; `regression-test-named` verifies it
 
 criteria:
   mandatory:

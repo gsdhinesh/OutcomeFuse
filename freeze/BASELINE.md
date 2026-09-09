@@ -53,7 +53,11 @@ available here.
 | Cost table | pinned version recorded in the manifest |
 | Seed / sampling | recorded in the manifest |
 
-The prompt template per workload is held alongside this file and hashed with it.
+The prompt template per workload is held in [baseline-prompts/](baseline-prompts/)
+and hashed with this file. Each is the **shared task block** — the bytes both
+arms send. The governed arm appends mechanism output beneath it; the baseline
+arm sends it alone. No template names a criterion, a threshold or an answer key,
+so the quality floor stays where BASELINE.md says it is.
 
 ## OFF is an adapter state, not a driver
 
