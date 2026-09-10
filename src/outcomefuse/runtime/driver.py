@@ -35,7 +35,14 @@ from pydantic import BaseModel, ConfigDict
 from ..core.canon import Digest
 from ..core.contract import Contract
 from ..core.gate import GateUnavailable, QualityGate, should_evaluate
-from ..core.policy import Ledger, LedgerError, Policy, Situation
+from ..core.policy import (
+    AdvisorRegistry,
+    Ledger,
+    LedgerError,
+    LoopFuse,
+    Policy,
+    Situation,
+)
 from ..core.record import Event, RecordStore
 from ..core.verify import CitableIndex
 from ..ports import ProbedToolPort, ToolCall
@@ -74,6 +81,8 @@ class Driver:
         tools: ProbedToolPort,
         policy: Policy | None = None,
         gate: QualityGate | None = None,
+        fuse: LoopFuse | None = None,
+        advisors: AdvisorRegistry | None = None,
     ) -> None:
         self.run_id = run_id
         self.contract = contract
@@ -83,7 +92,10 @@ class Driver:
         self.tools = tools
         self.policy = policy or Policy()
         self.gate = gate or QualityGate()
+        self.fuse = fuse
+        self.advisors = advisors
         self._seq = 0
+        self._iterations = 0
         self._citable_index: CitableIndex | None = None
         self._index_digest: Digest | None = None
         self.quality_state = "not-evaluated"
@@ -140,6 +152,21 @@ class Driver:
             raise RuntimeError(f"run already terminated: {self.terminated}")
 
         self._append("decision-proposed", step_id=call.step_id)
+
+        # AD-3: affordability is a *query*, asked before deciding, so
+        # `unaffordable` reaches the Policy as a decision input and exhausts the
+        # run under FR92. A rejected reservation further down is fail-closed
+        # under FR88 — a different cause, a different terminal reason, and the
+        # product's central cost event filed as a system fault if merged.
+        if not self.ledger.can_afford(estimated_tokens, estimated_cost):
+            return self._resolve(
+                Situation(
+                    budget_remains=False,
+                    affordable_step_advances_floor=False,
+                    quality_state=self.quality_state,
+                ),
+                step_id=call.step_id,
+            )
 
         try:
             disposition = self.governor.assess(
@@ -214,6 +241,76 @@ class Driver:
 
     # ------------------------------------------------------------ internals
 
+    def _resolve(
+        self,
+        situation: Situation,
+        *,
+        step_id: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> StepVerdict:
+        """Put a situation to the Policy and record what comes back.
+
+        Every terminating condition routes through here, so the FR2 ladder is
+        applied in one place rather than re-derived per path.
+        """
+        outcome = self.policy.resolve(situation)
+        self._append(
+            "decision-recorded",
+            step_id=step_id,
+            policy_action=outcome.policy_action,
+            decision_reason=outcome.decision_reason,
+            terminal_reason=outcome.terminal_reason,
+            payload=detail or {},
+        )
+        if outcome.terminal_reason is not None:
+            self._close(outcome.terminal_reason)
+        return StepVerdict(
+            action=outcome.policy_action,
+            decision_reason=outcome.decision_reason,
+            terminal_reason=outcome.terminal_reason,
+        )
+
+    def observe_progress(self, *, task_state: Any, evidence_count: int) -> StepVerdict | None:
+        """FR27, FR28. The host says what changed; the driver decides what it means.
+
+        Returns a verdict only where the fuse fired. Budget exhaustion is
+        deliberately not a fuse condition — it terminates under FR92, and
+        conflating the two files the product's central cost event as a stall.
+        """
+        if self.fuse is None:
+            return None
+        halt = self.fuse.observe(
+            self.fuse.fingerprint(
+                iteration=self._iterations,
+                task_state=task_state,
+                evidence_count=evidence_count,
+                quality_state=self.quality_state,
+            )
+        )
+        self._iterations += 1
+        if halt is None:
+            return None
+        return self._resolve(
+            Situation(no_progress=True, quality_state=self.quality_state),
+            detail={"fuse": halt},
+        )
+
+    def consult_advisors(self, state: Any) -> list[Any]:
+        """AD-20: fail-open belongs to the registry, never to this control flow.
+
+        An advisor that raises is deregistered for the rest of the run and a
+        `degraded` event names it. Degraded is not disabled — the manifest
+        records what was enabled at the start, the log records what dropped.
+        """
+        if self.advisors is None:
+            return []
+        return self.advisors.compose(
+            state,
+            on_degraded=lambda name, exc: self._append(
+                "degraded", payload={"mechanism": name, "error": str(exc)}
+            ),
+        )
+
     def _execute(self, call: ToolCall) -> Any:
         result = self.tools.invoke(call)
         self.governor.observe(call, result.output)
@@ -266,20 +363,8 @@ class Driver:
             quality_state=verdict.verdict,
         )
         if verdict.passed:
-            outcome = self.policy.resolve(
+            return self._resolve(
                 Situation(floor_met=True, quality_state=self.quality_state)
-            )
-            self._append(
-                "decision-recorded",
-                policy_action=outcome.policy_action,
-                decision_reason=outcome.decision_reason,
-                terminal_reason=outcome.terminal_reason,
-            )
-            self._close(outcome.terminal_reason or "stop-sufficient")
-            return StepVerdict(
-                action=outcome.policy_action,
-                decision_reason=outcome.decision_reason,
-                terminal_reason=outcome.terminal_reason,
             )
         return None
 

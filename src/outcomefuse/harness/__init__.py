@@ -9,6 +9,13 @@ from .comparison import (
     diff_manifests,
     require_comparable,
 )
+from .failure_paths import (
+    CASES_BY_NAME,
+    FR100_CASES,
+    TERMINATING_ACTIONS,
+    FailureCase,
+    check_case,
+)
 from .preregistration import (
     COUNTER_METRICS,
     Preregistration,
@@ -35,11 +42,15 @@ from .reportability import (
 )
 
 __all__ = [
+    "CASES_BY_NAME",
     "COUNTER_METRICS",
+    "FR100_CASES",
     "MAY_DIFFER",
+    "TERMINATING_ACTIONS",
     "Accompaniment",
     "ArmTotals",
     "ComparisonRefused",
+    "FailureCase",
     "Independence",
     "ManifestMismatch",
     "PairedCase",
@@ -54,6 +65,7 @@ __all__ = [
     "build_proof_card",
     "check_accompaniment",
     "check_admissibility",
+    "check_case",
     "diff_manifests",
     "grade_independence",
     "headline",
