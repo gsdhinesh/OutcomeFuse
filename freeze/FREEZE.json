@@ -165,7 +165,7 @@
       "reference_backed_percent": 66.7
     }
   },
-  "freeze_sha256": "3ac83cdab77d199cf07bd7d6647d4f4344c30a1d9377073e1c78922819a5e159",
+  "freeze_sha256": "823b4910ecfbe4bc89d329bfd31217070ad691f46efa051624b7520b6e0aa8a1",
   "freeze_version": "v1",
   "normalisation": "v1",
   "routes": {
@@ -196,7 +196,7 @@
     "derivation_scripts": {
       "files": 3,
       "route": "file-digest/v1",
-      "sha256": "e946ff683ee833276ee37051f5d94cbb48577bca6d0471a6a4f36ea4ef4e7176"
+      "sha256": "45fa07760d391956edd7113da6356ace7627a3be2d23f4cb840c1e399fd161ee"
     },
     "rubric": {
       "files": 1,

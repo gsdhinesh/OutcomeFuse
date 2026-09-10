@@ -2,7 +2,7 @@
 
 **Generated** by `freeze/freeze.py`. Do not edit by hand.
 
-**Freeze digest** `3ac83cdab77d199cf07bd7d6647d4f4344c30a1d9377073e1c78922819a5e159`
+**Freeze digest** `823b4910ecfbe4bc89d329bfd31217070ad691f46efa051624b7520b6e0aa8a1`
 
 This is the point of no return. §8.2's defence is that the rubric and answer
 keys were fixed before the governor existed; re-freezing after seeing it is
@@ -62,7 +62,7 @@ in the same operation.
 | case_construction_rules | 1 | `3c9e83abd10d7722…` |
 | corpora | 14 | `6333cf6d71ad8e2b…` |
 | coverage_report | 1 | `25eb7f5812b84d08…` |
-| derivation_scripts | 3 | `e946ff683ee83327…` |
+| derivation_scripts | 3 | `45fa07760d391956…` |
 | rubric | 1 | `728a02b34048fb22…` |
 | verifier_registry_source | 4 | `3d267f1be1c8a550…` |
 | verifier_registry_tests | 2 | `4e3a9bce092d7c44…` |

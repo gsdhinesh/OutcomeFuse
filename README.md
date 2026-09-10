@@ -40,6 +40,11 @@ uv run pytest -q
 uv run ruff check src tests freeze
 ```
 
+The library supports Python 3.12 and later, but the pinned development
+interpreter is **3.14.6** because the record spine asserts **SQLite ≥ 3.51.3**
+at store open and 3.12 bundles 3.49.1. A conforming store cannot be opened on
+an older SQLite; that refusal is the designed behaviour, not a bug.
+
 Two scripts guard the case set and must pass before the freeze:
 
 ```pwsh
@@ -49,6 +54,21 @@ uv run python freeze/derive_answer_keys.py # regenerate all 80 answer keys
 
 Answer keys are **derived, never hand-asserted**. Editing a corpus without
 regenerating its keys is caught by the test suite.
+
+## The freeze
+
+The evidence apparatus is content-hashed and frozen (FR65):
+
+```pwsh
+uv run python freeze/freeze.py --check     # verify nothing has drifted
+```
+
+The freeze is reproducible across platforms and SQLite versions, which is what
+makes drift detection meaningful rather than noisy. Verify it yourself:
+
+```pwsh
+docker run --rm -v "${PWD}:/w" -w /w python:3.12-slim sh /w/freeze/verify-linux.sh
+```
 
 ## Two rules worth knowing before contributing
 

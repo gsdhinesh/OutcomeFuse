@@ -40,7 +40,7 @@ from typing import Any
 
 import yaml
 
-from derive_answer_keys import RULE_STEPS, load_documents, select_document
+from derive_answer_keys import RULE_STEPS, load_documents, select_document, sql_corpus
 
 ROOT = Path(__file__).resolve().parent.parent
 SPLITS = ("calibration", "evaluation")
@@ -48,14 +48,6 @@ WORKLOADS = ("data-sql", "code-triage", "supply-chain", "doc-research")
 DIFFICULTIES = {"direct", "multi-hop", "distractor-heavy", "unanswerable"}
 SEVERITIES = {"blocker", "major", "minor", "cosmetic"}
 KEYED_FIELDS = {"exception_type", "root_cause_code", "recommended_action"}
-
-
-def sql_corpus(corpus_ref: str) -> sqlite3.Connection:
-    corpus = ROOT / corpus_ref
-    db = sqlite3.connect(":memory:")
-    db.executescript((corpus / "schema.sql").read_text(encoding="utf-8"))
-    db.executescript((corpus / "seed.sql").read_text(encoding="utf-8"))
-    return db
 
 
 def scalar(db: sqlite3.Connection, sql: str) -> Any:

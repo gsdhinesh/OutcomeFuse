@@ -28,6 +28,7 @@ Run: uv run --with pyyaml python freeze/derive_answer_keys.py
 
 from __future__ import annotations
 
+import atexit
 import sqlite3
 import sys
 from decimal import Decimal
@@ -47,15 +48,39 @@ def fail(message: str) -> None:
     raise SystemExit(message)
 
 
+#: One connection per corpus, reused. Rebuilding an identical in-memory database
+#: per call is wasted work, and an uncollected one is a ResourceWarning.
+_CORPORA: dict[str, sqlite3.Connection] = {}
+
+
 def sql_corpus(corpus_ref: str) -> sqlite3.Connection:
+    cached = _CORPORA.get(corpus_ref)
+    if cached is not None:
+        return cached
     corpus = ROOT / corpus_ref
     db = sqlite3.connect(":memory:")
     db.executescript((corpus / "schema.sql").read_text(encoding="utf-8"))
     db.executescript((corpus / "seed.sql").read_text(encoding="utf-8"))
     violations = db.execute("PRAGMA foreign_key_check").fetchall()
     if violations:
+        db.close()
         fail(f"corpus {corpus_ref} has foreign-key violations: {violations}")
+    _CORPORA[corpus_ref] = db
     return db
+
+
+def close_corpora() -> None:
+    """Release the in-memory corpora.
+
+    Python 3.14 raises ResourceWarning for a connection collected unclosed, and
+    the suite treats warnings as errors. Callers need not do this themselves.
+    """
+    while _CORPORA:
+        _, db = _CORPORA.popitem()
+        db.close()
+
+
+atexit.register(close_corpora)
 
 
 def scalar(db: sqlite3.Connection, sql: str) -> Any:
