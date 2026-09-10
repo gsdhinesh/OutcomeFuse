@@ -150,10 +150,8 @@ class TestTheAccessMatrixIsEnforced:
 
 
 class TestNonSyntheticIsRefused:
-    @pytest.mark.parametrize("data_class", ["non-synthetic", "replayed", "production"])
-    def test_persistence_is_refused_for_any_other_class(self, tmp_path, data_class):
-        # AD-21: replayed inherits the class of the run it replays, so keying
-        # the refusal on non-synthetic alone would let it walk straight past.
+    @pytest.mark.parametrize("data_class", ["non-synthetic", "production", ""])
+    def test_persistence_is_refused_for_any_unapproved_class(self, tmp_path, data_class):
         with pytest.raises(EvidenceRefused, match="persistence is refused"):
             EvidenceStore(tmp_path / "e", data_class=data_class)
 
@@ -161,14 +159,64 @@ class TestNonSyntheticIsRefused:
         # Refusing only evidence would leave the record with no permitted
         # retention profile, which is NFR12 unmet by a narrower route.
         with pytest.raises(EvidenceRefused, match="evidence and decision log alike"):
-            EvidenceStore(tmp_path / "e", data_class="replayed")
+            EvidenceStore(tmp_path / "e", data_class="non-synthetic")
 
     def test_only_synthetic_is_admissible(self):
         assert ADMISSIBLE_DATA_CLASS == "synthetic"
 
-    def test_a_non_synthetic_manifest_is_refused_by_the_record_too(self):
-        payload = manifest("run-1").model_dump() | {"data_class": "replayed"}
+    def test_an_unapproved_manifest_is_refused_by_the_record_too(self):
+        payload = manifest("run-1").model_dump() | {"data_class": "non-synthetic"}
         with pytest.raises(ValidationError, match="governance profile"):
+            RunManifest.model_validate(payload)
+
+
+class TestReplayedInheritsRatherThanAsserts:
+    """AD-21 and FR106. Shadow runs on replayed workloads, so a blanket refusal
+    of `replayed` would make the one protected feature undemonstrable — and
+    letting it assert its own class would let production traffic in as
+    synthetic. It inherits instead, and must name what it inherits."""
+
+    def test_a_replay_of_a_synthetic_run_is_admitted(self, tmp_path):
+        store = EvidenceStore(
+            tmp_path / "e", data_class="replayed", replayed_from_data_class="synthetic"
+        )
+        assert store.retention_profile == "mvp-synthetic-v1"
+
+    def test_a_replay_that_names_nothing_is_refused(self, tmp_path):
+        with pytest.raises(EvidenceRefused, match="must name the data_class"):
+            EvidenceStore(tmp_path / "e", data_class="replayed")
+
+    def test_replayed_production_traffic_is_refused(self, tmp_path):
+        # The point of the whole rule: this is the case it exists to catch.
+        with pytest.raises(EvidenceRefused, match="inherits data_class 'non-synthetic'"):
+            EvidenceStore(
+                tmp_path / "e",
+                data_class="replayed",
+                replayed_from_data_class="non-synthetic",
+            )
+
+    def test_a_replay_of_a_replay_is_refused(self, tmp_path):
+        # The class it ultimately inherits is not stated, so it is not decidable.
+        with pytest.raises(EvidenceRefused, match="inherits data_class 'replayed'"):
+            EvidenceStore(
+                tmp_path / "e", data_class="replayed", replayed_from_data_class="replayed"
+            )
+
+    def test_the_record_applies_the_same_rule(self):
+        payload = manifest("run-1").model_dump() | {"data_class": "replayed"}
+        with pytest.raises(ValidationError, match="must name the data_class"):
+            RunManifest.model_validate(payload)
+
+        admitted = RunManifest.model_validate(
+            payload | {"replayed_from_data_class": "synthetic"}
+        )
+        assert admitted.data_class == "replayed"
+
+    def test_a_synthetic_run_may_not_claim_an_inheritance(self):
+        payload = manifest("run-1").model_dump() | {
+            "replayed_from_data_class": "synthetic"
+        }
+        with pytest.raises(ValidationError, match="inherits nothing"):
             RunManifest.model_validate(payload)
 
 

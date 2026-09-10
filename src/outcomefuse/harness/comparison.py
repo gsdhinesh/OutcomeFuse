@@ -49,10 +49,22 @@ def diff_manifests(baseline: RunManifest, governed: RunManifest) -> list[Manifes
 
 def require_comparable(baseline: RunManifest, governed: RunManifest) -> None:
     """Raise unless the two arms are comparable."""
-    if baseline.mode != "baseline":
-        raise ComparisonRefused(f"the baseline arm has mode {baseline.mode!r}")
-    if governed.mode != "governed":
-        raise ComparisonRefused(f"the governed arm has mode {governed.mode!r}")
+    for name, manifest, wanted in (
+        ("baseline", baseline, "baseline"),
+        ("governed", governed, "governed"),
+    ):
+        if manifest.mode == wanted:
+            continue
+        if manifest.mode == "shadow":
+            # AD-11: only the observed path of a shadow run executed, so pairing
+            # it against another arm compares a measurement with an inference.
+            raise ComparisonRefused(
+                f"the {name} arm is a shadow run, which is not an arm: its governed "
+                "path was inferred rather than executed, and its projected figures "
+                "are presented from its own report instead"
+            )
+        raise ComparisonRefused(f"the {name} arm has mode {manifest.mode!r}")
+
     if baseline.run_id == governed.run_id:
         raise ComparisonRefused("both arms name the same run")
 

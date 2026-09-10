@@ -21,6 +21,12 @@ DataClass = Literal["synthetic", "replayed", "non-synthetic"]
 Split = Literal["calibration", "evaluation"]
 QualityState = Literal["not-evaluated", "pass", "fail"]
 
+#: Which path an entry belongs to. An enforced run writes only `observed`,
+#: which is what makes FR47's "same shape" true; a shadow run writes both, and
+#: the counterfactual ledger is the fold restricted to `counterfactual`. No
+#: consumer of the observed fold reads counterfactual entries.
+Lane = Literal["observed", "counterfactual"]
+
 PolicyAction = Literal[
     "proceed",
     "proceed-with-substitution",
@@ -62,6 +68,12 @@ POLICY_ACTIONS: Final[frozenset[str]] = frozenset(get_args(PolicyAction))
 TERMINAL_REASONS: Final[frozenset[str]] = frozenset(get_args(TerminalReason))
 EVENT_KINDS: Final[frozenset[str]] = frozenset(get_args(EventKind))
 QUALITY_STATES: Final[frozenset[str]] = frozenset(get_args(QualityState))
+LANES: Final[frozenset[str]] = frozenset(get_args(Lane))
+
+#: A counterfactual never opens or closes a run: the run is the host's.
+OBSERVED_ONLY_KINDS: Final[frozenset[str]] = frozenset(
+    {"run-manifest", "run-closed", "run-abandoned"}
+)
 
 #: Every code declares its family, so reporting aggregates by family rather
 #: than by enumerating codes.
@@ -123,3 +135,42 @@ def family_of(reason: str) -> str:
         if reason in codes:
             return family
     raise KeyError(f"unregistered decision_reason: {reason!r}")
+
+
+def refuse_persistence(data_class: str, replayed_from: str | None = None) -> str | None:
+    """Why persistence is refused for this class, or None where it is permitted.
+
+    One rule for the evidence store and the decision log alike (FR109, AD-21).
+    Refusing only the evidence would leave the decision record with no permitted
+    retention profile, and two copies of the rule would drift.
+
+    FR106 admits `replayed` workloads, so a blanket refusal of everything but
+    `synthetic` would make shadow mode undemonstrable. A replayed run instead
+    **inherits the class of the run it replays** and must name it: replaying
+    captured production traffic is then refused rather than relabelled
+    `synthetic`, and a replay of a replay is refused too, because the class it
+    ultimately inherits is not stated.
+    """
+    if data_class == "synthetic":
+        if replayed_from is not None:
+            return (
+                "a synthetic run inherits nothing; replayed_from belongs to a replayed run"
+            )
+        return None
+    if data_class == "replayed":
+        if replayed_from is None:
+            return (
+                "a replayed run must name the data_class of the run it replays; it "
+                "inherits that class rather than asserting one of its own"
+            )
+        if replayed_from != "synthetic":
+            return (
+                f"the replayed run inherits data_class {replayed_from!r} from the run it "
+                "replays, which has no approved production-data governance profile"
+            )
+        return None
+    return (
+        f"data_class {data_class!r} has no approved production-data governance profile; "
+        "persistence is refused for evidence and decision log alike rather than "
+        "falling back to mvp-synthetic-v1"
+    )

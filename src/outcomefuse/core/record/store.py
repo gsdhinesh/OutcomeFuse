@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS events (
     seq               INTEGER NOT NULL,
     kind              TEXT    NOT NULL,
     recorded_at       TEXT    NOT NULL,
+    lane              TEXT    NOT NULL,
     body              TEXT    NOT NULL,
     prev_sha256       TEXT,
     sha256            TEXT    NOT NULL,
@@ -52,9 +53,11 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE UNIQUE INDEX IF NOT EXISTS events_sha256 ON events(sha256);
 
--- terminal_reason is recorded at most once per run (FR103).
+-- terminal_reason is recorded at most once per run per lane (FR103). The
+-- counterfactual seals at its own first terminating decision, and that seal is
+-- not the observed run's.
 CREATE UNIQUE INDEX IF NOT EXISTS events_one_terminal
-    ON events(run_id) WHERE terminal_reason IS NOT NULL;
+    ON events(run_id, lane) WHERE terminal_reason IS NOT NULL;
 
 -- The chain is the real defence; these catch our own bugs, not an adversary
 -- who can equally drop them.
@@ -116,6 +119,21 @@ def _assert_local_storage(path: Path) -> None:
                 best, kind = parts[1], parts[2]
         if kind in remote:
             raise StoreError(f"the store may not live on a {kind} mount: {path}")
+
+
+def _assert_current_schema(db: sqlite3.Connection) -> None:
+    """Refuse a database file written by an older schema.
+
+    A reader opens without creating anything, and `CREATE TABLE IF NOT EXISTS`
+    does not add a column to a table that already exists — so without this the
+    first append against a pre-`lane` file fails deep inside an INSERT.
+    """
+    columns = {row[1] for row in db.execute("PRAGMA table_info(events)")}
+    if columns and "lane" not in columns:
+        raise StoreError(
+            "this database has no `lane` column, so it was written by an earlier "
+            "schema; it is refused rather than migrated in place"
+        )
 
 
 class _WriterLock:
@@ -189,6 +207,7 @@ class RecordStore:
             db.execute("PRAGMA foreign_keys=ON")
             if self._writer:
                 db.executescript(SCHEMA)
+            _assert_current_schema(db)
         except Exception:
             if self._lock is not None:
                 self._lock.release()
@@ -261,13 +280,15 @@ class RecordStore:
         try:
             db.execute(
                 "INSERT INTO events "
-                "(run_id, seq, kind, recorded_at, body, prev_sha256, sha256, terminal_reason) "
-                "VALUES (?,?,?,?,?,?,?,?)",
+                "(run_id, seq, kind, recorded_at, lane, body, prev_sha256, sha256, "
+                "terminal_reason) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
                 (
                     event.run_id,
                     event.seq,
                     event.kind,
                     event.recorded_at,
+                    event.lane,
                     body,
                     prev_hash,
                     digest,

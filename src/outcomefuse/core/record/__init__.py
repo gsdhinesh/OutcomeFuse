@@ -9,6 +9,8 @@ from .events import (
     DECISION_EVENT_ORDER,
     DECISION_REASONS,
     EVENT_KINDS,
+    LANES,
+    OBSERVED_ONLY_KINDS,
     POLICY_ACTIONS,
     REASON_FAMILIES,
     REASON_REGISTRY_VERSION,
@@ -17,12 +19,14 @@ from .events import (
     TERMINAL_REASONS,
     DataClass,
     EventKind,
+    Lane,
     Mode,
     PolicyAction,
     QualityState,
     Split,
     TerminalReason,
     family_of,
+    refuse_persistence,
 )
 from .fold import OrderViolation, RunState, check_order, fold, replay_equivalent
 from .models import Event, LedgerState, RunManifest, reason_registry_digest
@@ -40,7 +44,9 @@ __all__ = [
     "DECISION_EVENT_ORDER",
     "DECISION_REASONS",
     "EVENT_KINDS",
+    "LANES",
     "MIN_SQLITE",
+    "OBSERVED_ONLY_KINDS",
     "POLICY_ACTIONS",
     "REASON_FAMILIES",
     "REASON_REGISTRY_VERSION",
@@ -51,6 +57,7 @@ __all__ = [
     "DataClass",
     "Event",
     "EventKind",
+    "Lane",
     "LedgerState",
     "Mode",
     "OrderViolation",
@@ -67,5 +74,6 @@ __all__ = [
     "fold",
     "open_store",
     "reason_registry_digest",
+    "refuse_persistence",
     "replay_equivalent",
 ]

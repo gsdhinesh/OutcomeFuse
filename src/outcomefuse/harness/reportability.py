@@ -12,6 +12,12 @@ Three gates, and their strengths differ on purpose:
 No other component re-derives any of these. Each surface inventing its own
 notion of which figures may be quoted is how a demo convenience leaks into a
 judged claim.
+
+**Reportable and presentable are different words.** A shadow arm may be
+rendered, labelled `projected`, with its first divergence beside it; it may not
+back a headline claim, because the governed path it describes never ran. So
+shadow is a headline *refusal* rather than a blanket one, and the mode is read
+off the manifest rather than passed in beside it.
 """
 
 from __future__ import annotations
@@ -110,11 +116,14 @@ def check_admissibility(
 
 
 def grade_independence(
-    baseline_facts: RunFacts, governed_facts: RunFacts, *, shadow: bool = False
+    baseline: RunManifest,
+    governed: RunManifest,
+    baseline_facts: RunFacts,
+    governed_facts: RunFacts,
 ) -> tuple[Independence, list[str]]:
     """Graded. Degrades the label, never refuses."""
     labels: list[str] = []
-    if shadow:
+    if "shadow" in {baseline.mode, governed.mode}:
         # FR49: never presented as realized savings.
         return "projected", ["projected"]
 
@@ -175,12 +184,13 @@ def assess(
     accompaniment: Accompaniment,
     *,
     headline: bool = True,
-    shadow: bool = False,
 ) -> Reportability:
     admissibility = check_admissibility(
         baseline, governed, baseline_facts, governed_facts, headline=headline
     )
-    independence, labels = grade_independence(baseline_facts, governed_facts, shadow=shadow)
+    independence, labels = grade_independence(
+        baseline, governed, baseline_facts, governed_facts
+    )
     accompaniment_refusals = check_accompaniment(accompaniment) if headline else []
     return Reportability(
         admissible=not admissibility,

@@ -13,15 +13,18 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..canon import Digest, hash_structure
 from .events import (
+    OBSERVED_ONLY_KINDS,
     REASON_REGISTRY_VERSION,
     SCHEMA_VERSION,
     DataClass,
     EventKind,
+    Lane,
     Mode,
     PolicyAction,
     QualityState,
     Split,
     TerminalReason,
+    refuse_persistence,
 )
 
 _SHA256 = r"^[0-9a-f]{64}$"
@@ -66,6 +69,8 @@ class RunManifest(BaseModel):
     #: No default anywhere: a run whose class is absent is refused rather than
     #: assumed benign (FR109).
     data_class: DataClass
+    #: The class a `replayed` run inherits from the run it replays (AD-21).
+    replayed_from_data_class: DataClass | None = None
     retention_profile: str = Field(min_length=1)
 
     contract_hash: str = Field(pattern=_SHA256)
@@ -106,9 +111,12 @@ class RunManifest(BaseModel):
         if self.data_class != "synthetic":
             # FR109: refuse persistence rather than applying the MVP profile to
             # data it was never approved for.
+            refusal = refuse_persistence(self.data_class, self.replayed_from_data_class)
+            if refusal is not None:
+                raise ValueError(refusal)
+        elif self.replayed_from_data_class is not None:
             raise ValueError(
-                f"data_class {self.data_class!r} may not be persisted until a "
-                "production-data governance profile exists"
+                "a synthetic run inherits nothing; replayed_from belongs to a replayed run"
             )
         if self.split == "evaluation" and self.preregistration_hash is None:
             raise ValueError("an evaluation run must carry the preregistration hash")
@@ -131,6 +139,9 @@ class Event(BaseModel):
     kind: EventKind
     recorded_at: str
     step_id: str | None = None
+    #: An enforced run writes only `observed`. A shadow run writes both, and
+    #: the counterfactual is the fold restricted to its own lane.
+    lane: Lane = "observed"
 
     policy_action: PolicyAction | None = None
     decision_reason: str | None = None
@@ -164,6 +175,11 @@ class Event(BaseModel):
         }:
             raise ValueError(
                 f"terminal_reason may not appear on a {self.kind!r} event"
+            )
+        if self.lane == "counterfactual" and self.kind in OBSERVED_ONLY_KINDS:
+            raise ValueError(
+                f"a counterfactual may not {self.kind!r}: the run belongs to the host, "
+                "and only the observed lane opens or closes it"
             )
         return self
 

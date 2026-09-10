@@ -10,10 +10,12 @@ by mistake or by later edit. Documenting the matrix and enforcing it in review
 would leave the one guarantee the false-sufficiency counter-metric rests on
 depending on nobody being careless.
 
-Persistence is refused outright for any `data_class` other than `synthetic`
-(AD-21). Refusing only the evidence would leave the decision record with no
-permitted retention profile, and keying the refusal on `non-synthetic` alone
-would let `replayed` walk straight past it.
+Persistence is refused for any `data_class` the MVP profile was not approved
+for (AD-21), by the *same rule* the run manifest applies. Refusing only the
+evidence would leave the decision record with no permitted retention profile,
+and two copies of the rule would drift. A `replayed` run inherits the class of
+the run it replays, so replaying captured production traffic is refused rather
+than admitted as synthetic.
 """
 
 from __future__ import annotations
@@ -25,9 +27,10 @@ from typing import Any, Final
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.canon import Digest, build_file_manifest, hash_file_manifest
+from ..core.record import refuse_persistence
 
 RETENTION_PROFILE: Final[str] = "mvp-synthetic-v1"
-#: AD-21: the profile is admissible for this class alone.
+#: AD-21: the profile is approved for this class, and for a replay of it.
 ADMISSIBLE_DATA_CLASS: Final[str] = "synthetic"
 
 
@@ -52,15 +55,19 @@ class EvidenceRef(BaseModel):
 class EvidenceStore:
     """One directory per run under `root`. Handles are obtained by role."""
 
-    def __init__(self, root: Path | str, *, data_class: str) -> None:
-        if data_class != ADMISSIBLE_DATA_CLASS:
-            raise EvidenceRefused(
-                f"data_class {data_class!r} has no approved production-data governance "
-                "profile; persistence is refused for evidence and decision log alike "
-                "rather than falling back to mvp-synthetic-v1"
-            )
+    def __init__(
+        self,
+        root: Path | str,
+        *,
+        data_class: str,
+        replayed_from_data_class: str | None = None,
+    ) -> None:
+        refusal = refuse_persistence(data_class, replayed_from_data_class)
+        if refusal is not None:
+            raise EvidenceRefused(refusal)
         self.root = Path(root)
         self.data_class = data_class
+        self.replayed_from_data_class = replayed_from_data_class
         self.retention_profile = RETENTION_PROFILE
         self._sealed = False
 

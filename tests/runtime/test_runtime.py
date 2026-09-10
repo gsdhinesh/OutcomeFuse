@@ -113,7 +113,7 @@ def make_driver(tmp_path: Path, contract):
     stores = []
     counter = {"n": 0}
 
-    def build(*, approval="approved", shadow=False, handlers=None):
+    def build(*, approval="approved", handlers=None):
         counter["n"] += 1
         store = open_store(tmp_path / f"w{counter['n']}.db")
         stores.append(store)
@@ -128,7 +128,6 @@ def make_driver(tmp_path: Path, contract):
                 if handlers is not None
                 else {"search": lambda c: "found", "pay": lambda c: "paid"}
             ),
-            shadow=shadow,
         )
         driver.open_run(manifest())
         return driver
@@ -357,36 +356,20 @@ class TestFailClosed:
         assert driver.ledger.outstanding() == ()
 
 
-class TestShadowAltersNothing:
-    def test_shadow_records_the_halt_and_continues(self, make_driver):
-        # FR91: record the halt it would have imposed, alter nothing.
-        driver = make_driver(approval="channel-unavailable", shadow=True)
-        verdict = driver.execute_step(
-            ToolCall(tool="pay", arguments={"amount": 1}, step_id="s1")
-        )
-        assert verdict.decision_reason == "fail-closed"
-        assert verdict.terminal_reason is None
-        assert driver.terminated is None
-
-    def test_shadow_does_not_withhold_the_call_it_would_have_blocked(self, make_driver):
-        driver = make_driver(approval="channel-unavailable", shadow=True)
-        driver.execute_step(ToolCall(tool="pay", arguments={"amount": 1}, step_id="s1"))
-        assert driver.tools.was_invoked("pay")
-
-    def test_the_governed_arm_would_have_withheld_the_same_call(self, make_driver):
-        # The pair is the point: same condition, opposite effect on the host.
+class TestTheGovernedArmEnforces:
+    def test_the_governed_arm_withholds_the_call(self, make_driver):
+        # The pair with the shadow tests is the point: same condition,
+        # opposite effect on the host.
         governed = make_driver(approval="channel-unavailable")
         governed.execute_step(ToolCall(tool="pay", arguments={"amount": 1}, step_id="s1"))
         assert not governed.tools.was_invoked("pay")
 
-    def test_shadow_does_not_withhold_a_denied_call(self, make_driver):
-        driver = make_driver(approval="approved", shadow=True)
-        call = ToolCall(tool="search", arguments={"q": "a"}, step_id="s1")
-        driver.execute_step(call)
-        driver.governor._cache.clear()
-        driver.execute_step(call)
-        # The decision says deny; the host still did what it would have done.
-        assert driver.tools.invocation_count("search") == 2
+    def test_the_enforcing_driver_refuses_a_shadow_manifest(self, make_driver, tmp_path):
+        # AD-11: a shadow run is a different driver, not this one with a flag.
+        driver = make_driver()
+        assert not hasattr(driver, "shadow")
+        with pytest.raises(ValueError, match="belongs to ShadowDriver"):
+            driver.open_run(manifest("run-2").model_copy(update={"mode": "shadow"}))
 
 
 class TestCitableIndex:

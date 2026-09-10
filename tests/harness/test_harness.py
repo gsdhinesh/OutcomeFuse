@@ -33,6 +33,7 @@ from outcomefuse.harness import (
     build_proof_card,
     check_accompaniment,
     diff_manifests,
+    grade_independence,
     headline,
     require_comparable,
 )
@@ -343,12 +344,22 @@ class TestIndependenceIsGradedNotHard:
         assert "constraint-backed" in result.labels
 
     def test_shadow_figures_are_projected(self):
-        # FR49: never presented as realized savings.
-        baseline, governed = arms()
-        result = assess(
-            baseline, governed, facts(), facts(), accompaniment(), shadow=True
-        )
-        assert result.independence == "projected"
+        # FR49: never presented as realized savings. Read off the manifest
+        # rather than passed in beside it, so the two cannot disagree.
+        baseline, _ = arms()
+        shadow = manifest(run_id="run-shadow", mode="shadow")
+        independence, labels = grade_independence(baseline, shadow, facts(), facts())
+        assert independence == "projected"
+        assert labels == ["projected"]
+
+    def test_a_shadow_run_is_not_an_arm(self):
+        # AD-11: its governed path was inferred, not executed, so pairing it
+        # against a baseline would compare a measurement with an inference.
+        baseline, _ = arms()
+        shadow = manifest(run_id="run-shadow", mode="shadow")
+        result = assess(baseline, shadow, facts(), facts(), accompaniment())
+        assert not result.admissible
+        assert any("is not an arm" in r for r in result.refusals)
 
 
 class TestAccompanimentIsHard:

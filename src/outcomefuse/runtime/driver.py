@@ -19,6 +19,10 @@ Two rules are enforced here because nowhere else can be:
 Fail-open is deliberately *not* here. It belongs to the advisor registry, so a
 mechanism failing is a deregistration and a `degraded` event rather than a
 branch in the driver's control flow.
+
+Shadow is not here either. It is a **separate driver** (AD-11), because a
+`shadow` flag would put a conditional in the fail-closed paths above — the most
+safety-critical code in the system, on the branch least exercised by tests.
 """
 
 from __future__ import annotations
@@ -70,7 +74,6 @@ class Driver:
         tools: ProbedToolPort,
         policy: Policy | None = None,
         gate: QualityGate | None = None,
-        shadow: bool = False,
     ) -> None:
         self.run_id = run_id
         self.contract = contract
@@ -80,9 +83,6 @@ class Driver:
         self.tools = tools
         self.policy = policy or Policy()
         self.gate = gate or QualityGate()
-        #: FR91: shadow alters nothing the host would otherwise do, so it
-        #: applies neither posture and never withholds a call.
-        self.shadow = shadow
         self._seq = 0
         self._citable_index: CitableIndex | None = None
         self._index_digest: Digest | None = None
@@ -100,6 +100,11 @@ class Driver:
         return event
 
     def open_run(self, manifest: Any) -> None:
+        if getattr(manifest, "mode", None) == "shadow":
+            raise ValueError(
+                "a shadow run belongs to ShadowDriver; this driver enforces, and FR91 "
+                "forbids shadow altering anything the host would otherwise do"
+            )
         self.store.open_run(manifest, recorded_at=WHEN)
         self._seq = 1
 
@@ -151,8 +156,7 @@ class Driver:
 
         if disposition.channel_unavailable:
             # FR89 through AD-20: the gated call is not made and the run halts.
-            # In shadow the halt is recorded and the host proceeds regardless.
-            return self._fail_closed("request-human", disposition.detail, call=call)
+            return self._fail_closed("request-human", disposition.detail)
 
         if disposition.action == "pause-for-approval":
             return self._paused(call, disposition)
@@ -164,9 +168,6 @@ class Driver:
                 policy_action="deny",
                 decision_reason=disposition.reason,
             )
-            if self.shadow:
-                # Shadow records the denial and lets the host proceed anyway.
-                self._execute(call)
             return StepVerdict(action="deny", decision_reason=disposition.reason)
 
         if disposition.action == "proceed-with-substitution":
@@ -219,19 +220,6 @@ class Driver:
         return result.output
 
     def _paused(self, call: ToolCall, disposition: Disposition) -> StepVerdict:
-        if self.shadow:
-            # FR91: record the pause that would have been imposed, alter nothing.
-            self._append(
-                "decision-recorded",
-                step_id=call.step_id,
-                policy_action="pause-for-approval",
-                decision_reason=disposition.reason,
-            )
-            self._execute(call)
-            return StepVerdict(
-                action="pause-for-approval", decision_reason=disposition.reason
-            )
-
         if disposition.reason == "approval-timeout":
             action = self.contract.on_timeout or "terminate"
             terminal = None if action == "escalate" else "approval-timeout"
@@ -295,21 +283,7 @@ class Driver:
             )
         return None
 
-    def _fail_closed(
-        self, action: str, detail: str, *, call: ToolCall | None = None
-    ) -> StepVerdict:
-        if self.shadow:
-            # FR91: record the halt it would have imposed and continue. The
-            # host is not altered, so a call it would have made still happens.
-            self._append(
-                "decision-recorded",
-                policy_action=action,
-                decision_reason="fail-closed",
-                payload={"would_have_halted": True, "detail": detail},
-            )
-            if call is not None:
-                self._execute(call)
-            return StepVerdict(action=action, decision_reason="fail-closed", detail=detail)
+    def _fail_closed(self, action: str, detail: str) -> StepVerdict:
         self._append(
             "decision-recorded",
             policy_action=action,

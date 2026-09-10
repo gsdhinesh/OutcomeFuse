@@ -16,8 +16,14 @@ from .events import (
     DECISION_EVENT_ORDER,
     EVIDENCE_CYCLE_MAY_FOLLOW,
     TERMINAL_KINDS,
+    Lane,
 )
 from .models import Event, LedgerState
+
+
+def _in_lane(events: Iterable[Event], lane: Lane) -> list[Event]:
+    """One lane's entries. The manifest belongs to both: it is the run's."""
+    return [e for e in events if e.kind == "run-manifest" or e.lane == lane]
 
 
 class RunState(BaseModel):
@@ -26,6 +32,7 @@ class RunState(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     run_id: str
+    lane: Lane = "observed"
     sealed: bool = False
     terminal_reason: str | None = None
     quality_state: str = "not-evaluated"
@@ -42,9 +49,14 @@ class OrderViolation(ValueError):
     """The event stream departs from AD-2's canonical order."""
 
 
-def fold(events: Iterable[Event]) -> RunState:
-    """Derive run state. Pure: same events in, same state out."""
-    events = list(events)
+def fold(events: Iterable[Event], *, lane: Lane = "observed") -> RunState:
+    """Derive run state. Pure: same events in, same state out.
+
+    The counterfactual of a shadow run is this same fold restricted to the
+    other lane — one log, two folds, rather than a second ledger held
+    somewhere off to the side where it can disagree.
+    """
+    events = _in_lane(events, lane)
     if not events:
         raise ValueError("a run with no events has no state")
     if events[0].kind != "run-manifest":
@@ -90,8 +102,15 @@ def fold(events: Iterable[Event]) -> RunState:
         if event.kind in TERMINAL_KINDS:
             state["sealed"] = True
 
+    if lane == "counterfactual" and state["terminal_reason"] is not None:
+        # A counterfactual has no terminal row to seal it — nothing closes a run
+        # that never ran — so it seals at its first terminating decision, and
+        # everything the host spends afterwards is avoided-if-enforced instead.
+        state["sealed"] = True
+
     return RunState(
         run_id=str(state["run_id"]),
+        lane=lane,
         sealed=bool(state["sealed"]),
         terminal_reason=state["terminal_reason"],  # type: ignore[arg-type]
         quality_state=str(state["quality_state"]),
@@ -105,18 +124,19 @@ def fold(events: Iterable[Event]) -> RunState:
     )
 
 
-def check_order(events: Sequence[Event]) -> list[str]:
+def check_order(events: Sequence[Event], *, lane: Lane = "observed") -> list[str]:
     """Report departures from AD-2's fixed per-decision order.
 
     Returns findings rather than raising, because a driver under test wants all
-    of them at once rather than the first.
+    of them at once rather than the first. Scoped to one lane: two lanes
+    interleaved in one log are two orderings, not one out of order.
     """
     findings: list[str] = []
     expected = list(DECISION_EVENT_ORDER)
     position = 0
     last_kind = "run-manifest"
 
-    for event in events[1:]:
+    for event in _in_lane(events, lane)[1:]:
         kind = event.kind
         if kind in {"evidence-requested", "evidence-observed"}:
             if kind == "evidence-requested" and last_kind not in (
@@ -153,6 +173,8 @@ def replay_equivalent(left: RunState, right: RunState) -> list[str]:
     required and is never claimed** — so it is not compared here.
     """
     differences: list[str] = []
+    if left.lane != right.lane:
+        differences.append(f"lane: {left.lane!r} vs {right.lane!r}")
     if left.decisions != right.decisions:
         differences.append(f"decision sequence: {left.decisions} vs {right.decisions}")
     if left.reasons != right.reasons:
