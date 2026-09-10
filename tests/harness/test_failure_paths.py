@@ -267,6 +267,70 @@ class TestSurvivingAFailureIsNotTerminating:
             )
 
 
+class TestTheFuseFiresOnlyOnAStall:
+    def test_a_run_that_is_getting_somewhere_is_not_halted(self, make_driver):
+        # A fuse that halts everything is not a fuse. Without this, an
+        # implementation that halted unconditionally would pass the
+        # no-progress case above for the wrong reason.
+        driver = make_driver(fuse=LoopFuse(max_iterations=5))
+        for n in range(3):
+            assert (
+                driver.observe_progress(task_state={"draft": n}, evidence_count=n)
+                is None
+            )
+        assert driver.terminated is None
+
+    def test_the_halt_records_which_fuse_condition_fired(self, make_driver):
+        driver = make_driver(fuse=LoopFuse(max_iterations=5))
+        driver.observe_progress(task_state={"draft": "same"}, evidence_count=1)
+        driver.observe_progress(task_state={"draft": "same"}, evidence_count=1)
+        halted = [
+            e for e in driver.store.events("run-1") if e.payload.get("fuse")
+        ]
+        assert [e.payload["fuse"] for e in halted] == ["repeated-state"]
+
+
+class TestTheCheckerItself:
+    def test_a_wrong_terminal_reason_is_reported(self, make_driver):
+        # The checker is the instrument, so it gets checked too.
+        from outcomefuse.harness import FailureCase
+
+        events = run_for("sufficiency-stop", make_driver)
+        findings = check_case(
+            FailureCase(
+                name="sufficiency-stop",
+                policy_action="terminate",
+                decision_reason="sufficiency",
+                terminal_reason="halt-exhausted",
+                terminates=True,
+            ),
+            events,
+        )
+        assert any("expected terminal_reason 'halt-exhausted'" in f for f in findings)
+
+    def test_a_wrong_disposition_or_cause_is_reported(self, make_driver):
+        # The whole triple is checked, not just the part that terminates.
+        from outcomefuse.harness import FailureCase
+
+        findings = check_case(
+            FailureCase(
+                name="sufficiency-stop",
+                policy_action="return-partial",
+                decision_reason="exhaustion",
+                terminal_reason="stop-sufficient",
+                terminates=True,
+            ),
+            run_for("sufficiency-stop", make_driver),
+        )
+        assert any("expected policy_action 'return-partial'" in f for f in findings)
+        assert any("expected decision_reason 'exhaustion'" in f for f in findings)
+
+    def test_a_run_that_recorded_nothing_is_reported(self):
+        assert check_case(CASES_BY_NAME["sufficiency-stop"], []) == [
+            "sufficiency-stop: the run recorded no decision at all"
+        ]
+
+
 class TestExhaustionIsNotFailClosed:
     def test_running_out_of_budget_halts_exhausted(self, make_driver):
         # FR92 and AD-3: affordability is queried before deciding, so this is a
