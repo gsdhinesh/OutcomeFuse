@@ -1,5 +1,9 @@
 # Deferred Work
 
+- source_spec: `E11 shadow mode`
+  summary: Decide whether `verdict-applied` belongs in AD-2's canonical order, or in the driver that never emits it.
+  evidence: `DECISION_EVENT_ORDER` lists `verdict-applied` between `decision-recorded` and `outcome-observed`, and neither the enforcing driver nor the shadow driver writes one — so `check_order` returns a finding for every decision of every *correct* run, which trains a reader to ignore it. Either the driver should record that the adapter applied the verdict (which needs the adapter to report back, an E7/E10 change), or the order table should stop requiring a row nothing produces. Found while proving FR47: the shadow observed lane and the enforced log produce the *same* finding, which is what makes it pre-existing rather than E11's.
+
 - source_spec: `spec-e0-canonicalisation-and-hashing.md`
   summary: Publish normalisation `v1` as a normative written specification, not only as code plus test assertions.
   evidence: AD-6 requires the normalisation to be "specified and versioned". The rules are currently pinned by implementation and tests alone, which is enough for two processes of the same codebase but not for a second implementation or a future language port to reproduce them.
