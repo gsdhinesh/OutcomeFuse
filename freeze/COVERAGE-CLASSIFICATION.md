@@ -143,19 +143,46 @@ value and that its evidence exists and resolves. That is a real and checkable
 property, and it is not the same as understanding. Any claim drawn from these
 runs has to be phrased against what was actually verified.
 
-## Open items for E3
+## Open items for E3 — all resolved
 
-1. Confirm the `N`-free result against the contracts as authored, independently
-   of this document. If E3 finds a gap, the three-addition allowance is
-   available and unspent.
-2. Decide how `set-membership` is recorded given zero MVP mandatory usage.
-3. Decide whether the **predominantly constraint-backed** label should be
-   weighted rather than counted. A workload could carry one decisive
-   reference-backed criterion and five incidental constraint-backed ones and be
-   labelled constraint-backed, or the reverse. The current rule counts criteria
-   and is blind to which one carries the weight. It is a defensible rule and it
-   is not a precise one.
-4. `fix-summary-substantive` is a length-and-keyword regex — the weakest
-   mandatory criterion in the set, and a proxy for "a real fix was described".
-   It is honest as a *constraint*, and it should not be read as evidence the fix
-   is right. Consider whether it earns its place as mandatory at all.
+E3 re-derived the classification from the contracts and the registry rather than
+from this document. The generated result is [COVERAGE-REPORT.md](COVERAGE-REPORT.md),
+which is what E1b freezes; this file is the E1a working paper that fed it.
+
+1. **Confirmed, independently.** The generator reads the contracts and the
+   registry and reports **E 28 · N 0 · A 8** — the same `N`-free result this
+   document claimed, reached without consulting it. The three-addition allowance
+   is unspent.
+2. **`set-membership` is recorded as registered, tested, zero MVP mandatory
+   usage.** The report derives that count rather than asserting it, so an
+   invented use would show up as a number changing.
+3. **The counted rule stands; a weighted rule was rejected.** The count comes
+   from AD-7 and re-deciding it here would be re-deciding an architectural
+   decision from inside the epic it governs. What E3 adds instead is disclosure:
+   the report names the three workloads sitting exactly on the boundary at 3:3,
+   because a tie passing the test is a weaker result than "No" suggests. A
+   weighting would itself be an unverified judgement, and an arguable number
+   presented precisely is worse than a blunt one presented plainly.
+4. **`fix-summary-substantive` stays mandatory, and the report names it as the
+   weakest thing in the floor.** Demoting it would leave `fix_summary` checked
+   for presence alone, which accepts a single character — weaker, not more
+   honest. It is legitimate as a *constraint*; the judgement it must never be
+   read as making lives in the advisory `fix-is-appropriate`.
+
+### What E3 found that this document did not
+
+Three defects, none visible until a registry existed to load the contracts:
+
+- **`sql-is-read-only` did not compile.** Python requires inline regex flags at
+  position 0 and the pattern had `^(?i)`. That mandatory criterion would have
+  raised at verification time. It also lacked `DOTALL`, so it would have failed
+  every multi-line query it was meant to pass.
+- **`on_timeout: fail-closed`** in two contracts mixed closed vocabularies:
+  `fail-closed` is a `decision_reason` and a `terminal_reason`, while
+  `on_timeout` names a `policy_action`.
+- **Three optional criteria verified deliverable fields that were never
+  declared,** so they could never pass — FR9's unsatisfiability class exactly.
+
+This is the argument for BUILD-ORDER's insistence that E3 precede the freeze.
+Every one of these would have been frozen permanently.
+
