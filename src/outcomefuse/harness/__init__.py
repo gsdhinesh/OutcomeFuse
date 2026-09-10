@@ -16,6 +16,15 @@ from .failure_paths import (
     FailureCase,
     check_case,
 )
+from .overhead import (
+    DEFAULT_REPEATS,
+    Latencies,
+    OverheadRefused,
+    OverheadStudy,
+    build_study,
+    check_targets_are_derived,
+    measure,
+)
 from .preregistration import (
     COUNTER_METRICS,
     Preregistration,
@@ -44,6 +53,7 @@ from .reportability import (
 __all__ = [
     "CASES_BY_NAME",
     "COUNTER_METRICS",
+    "DEFAULT_REPEATS",
     "FR100_CASES",
     "MAY_DIFFER",
     "TERMINATING_ACTIONS",
@@ -52,7 +62,10 @@ __all__ = [
     "ComparisonRefused",
     "FailureCase",
     "Independence",
+    "Latencies",
     "ManifestMismatch",
+    "OverheadRefused",
+    "OverheadStudy",
     "PairedCase",
     "Preregistration",
     "PreregistrationError",
@@ -63,11 +76,14 @@ __all__ = [
     "SavingsTargets",
     "assess",
     "build_proof_card",
+    "build_study",
     "check_accompaniment",
     "check_admissibility",
     "check_case",
+    "check_targets_are_derived",
     "diff_manifests",
     "grade_independence",
     "headline",
+    "measure",
     "require_comparable",
 ]
