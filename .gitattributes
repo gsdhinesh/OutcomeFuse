@@ -1,0 +1,12 @@
+# Shell scripts must keep LF: a CRLF script fails on Linux with a confusing
+# "\r: not found", and freeze/verify-linux.sh is run inside a container.
+*.sh text eol=lf
+
+# Everything the freeze hashes in text mode is line-ending independent by
+# design, so these are declared for editor sanity rather than for the digests.
+*.md text
+*.py text
+*.sql text
+*.toml text
+*.yaml text
+*.yml text
