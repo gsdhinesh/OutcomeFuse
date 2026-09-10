@@ -1,0 +1,222 @@
+{
+  "case_sets": {
+    "calibration/code-triage": {
+      "answer_keys_sha256": "852a2fae36283365f5ab5eb8246d22ffeb8b486f19c499733c920e6c6f865ff0",
+      "case_count": 12,
+      "cases_sha256": "39b399b2663b5ceda912ed2b25c10e014cde2bd699e28c7073fd78a818a0abe6",
+      "corpus_ref": "cases/corpora/code-triage/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "calibration/data-sql": {
+      "answer_keys_sha256": "dc38749ad4d3efde7e45c30791572cf0c43fdf4805b06fb350dfc988eb0ff2f8",
+      "case_count": 12,
+      "cases_sha256": "baf22a55486fad2d38c8c9a0e2ce1d079b2bb1d0478f8dd7a25fbb29e61ac430",
+      "corpus_ref": "cases/corpora/data-sql/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "calibration/doc-research": {
+      "answer_keys_sha256": "32053376b335e6ebc232f2f463b23ed12798fd1722a7fdee2071a2687d1ff297",
+      "case_count": 12,
+      "cases_sha256": "973815e93bcbdbdda21a471fea6d6f69d735e786e9d762bf289bfda7112436fe",
+      "corpus_ref": "cases/corpora/doc-research/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "calibration/supply-chain": {
+      "answer_keys_sha256": "fde2e1b542851bb8387161b2889f89f3409ff19d08e5c6beef7ff4c58ee04dc7",
+      "case_count": 12,
+      "cases_sha256": "256a708550d1368c6f4163806814ca2fdea051004404f05cf088da976939b733",
+      "corpus_ref": "cases/corpora/supply-chain/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "evaluation/code-triage": {
+      "answer_keys_sha256": "01a45b9440a04923a1eb2dd0b9aa79263a722e3ab766364bf1db9525d42671b7",
+      "case_count": 8,
+      "cases_sha256": "5f4c432818c22dc40b22f5a2f44ba2541dc16143bc624148e1a2cec154487f49",
+      "corpus_ref": "cases/corpora/code-triage/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "evaluation/data-sql": {
+      "answer_keys_sha256": "913beb7721d3db5d2b92febff67811f715c6944db82d18da5be44c6b1490d243",
+      "case_count": 8,
+      "cases_sha256": "4a2bc9969d8092647a9536af8801a24c4c35c1a70b10a168ac1aad518997b88e",
+      "corpus_ref": "cases/corpora/data-sql/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "evaluation/doc-research": {
+      "answer_keys_sha256": "90d1c641de045ae39bbe855f0f7fd3aee9f131f021f317e39cce9234977b82c7",
+      "case_count": 8,
+      "cases_sha256": "7c676da669f45dbd49abde4a75406eb182fdc5131456ec5ba8c0b24a3b4708cb",
+      "corpus_ref": "cases/corpora/doc-research/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    },
+    "evaluation/supply-chain": {
+      "answer_keys_sha256": "51b5d9a47e8812ad296e992a1376997512cf27c3d817fc221805eca3df0e06e8",
+      "case_count": 8,
+      "cases_sha256": "12e76a8a352580a9e198ed747837845321f949741b898a124c762f125be423fe",
+      "corpus_ref": "cases/corpora/supply-chain/v1",
+      "data_class": "synthetic",
+      "route": "structure/v1"
+    }
+  },
+  "contracts": {
+    "code-triage": {
+      "contract_id": "ofc-code-triage",
+      "route": "structure/v1",
+      "sha256": "7578f3291cc8940ae7fdd9d329f150546f0b546b47cac6f4433a7c2158e80312",
+      "version": 1
+    },
+    "data-sql": {
+      "contract_id": "ofc-data-sql",
+      "route": "structure/v1",
+      "sha256": "a586ee16371851a91fc88bbba4a4a3087cdf505c379205513943d1c24cf11a04",
+      "version": 1
+    },
+    "doc-research": {
+      "contract_id": "ofc-doc-research",
+      "route": "structure/v1",
+      "sha256": "d3bc6d7fea5dad610b0a9976ca7a71b6ff1a2fd9783ff16ab0032a7595cc0323",
+      "version": 1
+    },
+    "supply-chain": {
+      "contract_id": "ofc-supply-chain",
+      "route": "structure/v1",
+      "sha256": "657d0e8cd4085c582db888d38980c7a783ee4eeb38bac162fc2139e163718442",
+      "version": 1
+    }
+  },
+  "coverage": {
+    "code-triage": {
+      "advisory": [
+        {
+          "id": "root-cause-explanation-correct",
+          "non_gating_reason": "Whether the *explanation* of the defect is right, as distinct from the location being right. Deterministically uncheckable — the location criteria above are what the gate actually rests on, and the coverage report must not let the two be conflated."
+        },
+        {
+          "id": "fix-is-appropriate",
+          "non_gating_reason": "Whether the proposed fix would actually resolve the defect."
+        }
+      ],
+      "constraint_backed_mandatory_count": 3,
+      "constraint_backed_percent": 50.0,
+      "mandatory_count": 6,
+      "predominantly_constraint_backed": false,
+      "reference_backed_mandatory_count": 3,
+      "reference_backed_percent": 50.0
+    },
+    "data-sql": {
+      "advisory": [
+        {
+          "id": "question-actually-answered",
+          "non_gating_reason": "Whether the query answers the question asked, as opposed to producing a number that happens to match. With a single answer key these coincide; on a production workload they would not, and that gap is the honest limit of this workload's evidence."
+        },
+        {
+          "id": "query-is-idiomatic",
+          "non_gating_reason": "Whether the SQL is reasonable rather than merely correct."
+        }
+      ],
+      "constraint_backed_mandatory_count": 3,
+      "constraint_backed_percent": 50.0,
+      "mandatory_count": 6,
+      "predominantly_constraint_backed": false,
+      "reference_backed_mandatory_count": 3,
+      "reference_backed_percent": 50.0
+    },
+    "doc-research": {
+      "advisory": [
+        {
+          "id": "conclusion-is-supported",
+          "non_gating_reason": "The answer is *supported* by the cited passages rather than merely accompanied by them. No deterministic verifier can establish this, so it is advisory by construction and is named here rather than quietly omitted."
+        },
+        {
+          "id": "answer-completeness",
+          "non_gating_reason": "The answer addresses every part of a multi-part question."
+        }
+      ],
+      "constraint_backed_mandatory_count": 3,
+      "constraint_backed_percent": 50.0,
+      "mandatory_count": 6,
+      "predominantly_constraint_backed": false,
+      "reference_backed_mandatory_count": 3,
+      "reference_backed_percent": 50.0
+    },
+    "supply-chain": {
+      "advisory": [
+        {
+          "id": "recommendation-is-justified",
+          "non_gating_reason": "Whether the recommended action follows from the evidence and the cited policy. This is the criterion an operations engineer actually cares about, and no deterministic verifier reaches it. Naming it advisory is the honest position; folding it into the mandatory set by proxy would not be."
+        },
+        {
+          "id": "evidence-completeness",
+          "non_gating_reason": "Whether the investigation gathered everything a competent analyst would have gathered before recommending."
+        }
+      ],
+      "constraint_backed_mandatory_count": 2,
+      "constraint_backed_percent": 33.3,
+      "mandatory_count": 6,
+      "predominantly_constraint_backed": false,
+      "reference_backed_mandatory_count": 4,
+      "reference_backed_percent": 66.7
+    }
+  },
+  "freeze_sha256": "3ac83cdab77d199cf07bd7d6647d4f4344c30a1d9377073e1c78922819a5e159",
+  "freeze_version": "v1",
+  "normalisation": "v1",
+  "routes": {
+    "file_digest": "file-digest/v1",
+    "structure": "structure/v1"
+  },
+  "source": {
+    "baseline_definition": {
+      "files": 6,
+      "route": "file-digest/v1",
+      "sha256": "62f3fb1ec0d93b85d9a28628684b4659cb14a2dfe83583eac8d2a761cb4f9c72"
+    },
+    "case_construction_rules": {
+      "files": 1,
+      "route": "file-digest/v1",
+      "sha256": "3c9e83abd10d77227cc5625b2803a0dc772321c995d1c6b3279a102ae5c2053e"
+    },
+    "corpora": {
+      "files": 14,
+      "route": "file-digest/v1",
+      "sha256": "6333cf6d71ad8e2bbb918003b4b608b38194dcadf41dc316ee063ad48ff653d1"
+    },
+    "coverage_report": {
+      "files": 1,
+      "route": "file-digest/v1",
+      "sha256": "25eb7f5812b84d08bafa4d897cd73b5f797ea7af8757bd88e308ab6fc43589bd"
+    },
+    "derivation_scripts": {
+      "files": 3,
+      "route": "file-digest/v1",
+      "sha256": "e946ff683ee833276ee37051f5d94cbb48577bca6d0471a6a4f36ea4ef4e7176"
+    },
+    "rubric": {
+      "files": 1,
+      "route": "file-digest/v1",
+      "sha256": "728a02b34048fb228f8084fa10f05cc5e6df2be3dcf39017c3d58c07541489d0"
+    },
+    "verifier_registry_source": {
+      "files": 4,
+      "route": "file-digest/v1",
+      "sha256": "3d267f1be1c8a55039c92e99a76b57dd0e4e74074e1d6f1a9450d87a28c97e31"
+    },
+    "verifier_registry_tests": {
+      "files": 2,
+      "route": "file-digest/v1",
+      "sha256": "4e3a9bce092d7c446fbc767f3b344ecd2f2d42a8e98704f901213998daaa5c17"
+    }
+  },
+  "verifier_registry": {
+    "route": "structure/v1",
+    "sha256": "71ea885351f1aa9afd8b7904360566bad949410a7fa5aae21f8b9d7533a576f6",
+    "version": "v1"
+  }
+}
