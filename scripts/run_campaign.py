@@ -9,7 +9,7 @@ A calibration proof card is a dry run of the measurement, not a result: FR66's
 admissibility check refuses a calibration campaign as the basis of a headline
 claim, and it should.
 
-Run with the venv's interpreter, not `uv run` — a sync removes openai and
+Run with the venv's interpreter, not `uv run` -- a sync removes openai and
 azure-identity, which are deliberately undeclared and imported lazily:
 
     .venv\\Scripts\\python.exe scripts/run_campaign.py data-sql --cases 3
@@ -25,6 +25,7 @@ from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
 from outcomefuse.core.contract import load_path
 from outcomefuse.harness.campaign import CampaignError, Plan, run_campaign
 from outcomefuse.harness.costs import CostTableError, load_cost_table
+from outcomefuse.harness.overhead import OverheadRefused, load_study
 from outcomefuse.harness.preregistration import PreregistrationError, load_preregistration
 from outcomefuse.harness.proofcard import headline
 
@@ -58,6 +59,11 @@ def main() -> int:
         default=None,
         help="override the contract's start model, to separate governance from model choice",
     )
+    parser.add_argument(
+        "--overhead-study",
+        default="preregistration/overhead-study-1.yaml",
+        help="the study the added-latency counter-metric is read from",
+    )
     args = parser.parse_args()
 
     contract = load_path(Path(f"contracts/{args.workload}.contract.yaml"))
@@ -73,10 +79,10 @@ def main() -> int:
         # The manifest cites the record by content, so a record edited after the
         # fact no longer matches the runs that claimed to be bound by it.
         prereg_hash = prereg.digest().sha256
-        print(f"preregistration {args.preregistration} → {prereg_hash[:16]}…")
+        print(f"preregistration {args.preregistration} -> {prereg_hash[:16]}...")
         print(
-            f"  net tokens ≥ {prereg.savings.net_token_reduction:.0%}, "
-            f"pass rate ≥ {prereg.quality_target_pass_rate:.0%}, "
+            f"  net tokens >= {prereg.savings.net_token_reduction:.0%}, "
+            f"pass rate >= {prereg.quality_target_pass_rate:.0%}, "
             f"minimum {prereg.minimum_case_count} cases\n"
         )
     elif args.split == "evaluation":
@@ -99,6 +105,12 @@ def main() -> int:
     except CostTableError as exc:
         print(f"! {exc}\n")
 
+    study = None
+    try:
+        study = load_study(Path(args.overhead_study))
+    except OverheadRefused as exc:
+        print(f"! {exc}; added-latency will report as not measured\n")
+
     plan = Plan(
         workload=args.workload,
         split=args.split,
@@ -112,9 +124,8 @@ def main() -> int:
         governed_model=args.governed_model,
         minimum_case_count=prereg.minimum_case_count if prereg else 0,
         counter_metric_thresholds=dict(prereg.counter_metric_thresholds) if prereg else {},
-        counter_metrics_reported=(
-            tuple(sorted(prereg.counter_metric_thresholds)) if prereg else ()
-        ),
+        preregistration=prereg,
+        overhead_study=study,
     )
 
     try:
@@ -176,7 +187,13 @@ def main() -> int:
         for refusal in verdict.refusals:
             print(f"  refused: {refusal}")
 
-    print(f"\nproof card {card.digest().sha256[:16]}…")
+    counters = report.counter_metrics()
+    print("\ncounter-metrics (FR66)")
+    print("\n".join(f"  {line}" for line in counters.rendered().splitlines()))
+    if counters.breaches:
+        print(f"  ! {len(counters.breaches)} breached its preregistered threshold")
+
+    print(f"\nproof card {card.digest().sha256[:16]}...")
     if args.split != "evaluation":
         print(
             "This is a calibration campaign. It is a dry run of the measurement, "

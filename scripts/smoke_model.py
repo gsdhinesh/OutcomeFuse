@@ -10,7 +10,7 @@ are not declared dependencies, so a sync would remove them.
 One call per deployment, tiny prompt. It exists to answer the questions a fake
 client cannot: does the credential work, does the endpoint accept what we send,
 and what does the usage accounting actually look like on this deployment. That
-last one matters most — the reasoning-token share is the number that decides
+last one matters most -- the reasoning-token share is the number that decides
 whether the OFF/ON signal survives, and guessing it would be guessing at the
 feasibility of the whole benchmark.
 """

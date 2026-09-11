@@ -39,6 +39,7 @@ from ..core.gate import GateUnavailable
 from ..core.policy import Ledger, Reserve
 from ..core.record import RecordStore, RunManifest
 from ..core.verify import CitableIndex
+from ..evidence.counter_metrics import BlindReview
 from ..ports import ModelPort
 from ..runtime import BaselineRecorder, Driver, ToolGovernor
 from ..workloads import WorkloadToolPort, citable_index_for, tool_port_for
@@ -51,6 +52,9 @@ from .attribution import (
 )
 from .cases import Case, load_case_set
 from .costs import CostTable
+from .counters import CounterMetrics, read_counter_metrics
+from .overhead import OverheadStudy
+from .preregistration import Preregistration
 from .proofcard import ArmTotals, PairedCase, ProofCard, build_proof_card
 from .reportability import Accompaniment, Reportability, RunFacts, assess
 from .runner import BaselineArm, GovernedArm, Outcome, run_case
@@ -80,6 +84,11 @@ class Plan:
     minimum_case_count: int = 0
     counter_metric_thresholds: dict[str, float] = field(default_factory=dict)
     counter_metrics_reported: tuple[str, ...] = ()
+    #: The record itself, and the study its targets were derived from, so the
+    #: counter-metrics can be read against their thresholds.
+    preregistration: Preregistration | None = None
+    overhead_study: OverheadStudy | None = None
+    blind_review: BlindReview | None = None
     baseline_model: str = "gpt-5"
     #: Overrides the contract's `models.start`. Calibration only, and it exists
     #: for one question: when the governed arm loses, was that the governor or
@@ -125,7 +134,13 @@ class CampaignReport:
     #: From the preregistration, where one was supplied.
     minimum_case_count: int = 0
     counter_metric_thresholds: dict[str, float] = field(default_factory=dict)
-    counter_metrics_reported: tuple[str, ...] = ()
+    #: Supplied so the counter-metrics can be read against their thresholds.
+    preregistration: Preregistration | None = None
+    overhead_study: OverheadStudy | None = None
+    #: FR69. A human who never saw the verdict, so the review can contradict it.
+    #: No campaign can produce one, and its absence is reported rather than
+    #: standing in for a rate of zero.
+    blind_review: BlindReview | None = None
     #: FR70: a tool-call reduction is meaningless without it, and it is not
     #: measurable until a mechanism actually suppresses a tool.
     tool_suppression_accuracy: float | None = None
@@ -153,6 +168,15 @@ class CampaignReport:
     def cost_attribution(self) -> dict[str, float]:
         """How much of the cost saving was governing, and how much was routing."""
         return attribute_cost(self.savings())
+
+    def counter_metrics(self) -> CounterMetrics:
+        """FR66's six, read where readable and admitted where not."""
+        return read_counter_metrics(
+            self,
+            study=self.overhead_study,
+            preregistration=self.preregistration,
+            blind_review=self.blind_review,
+        )
 
     def run_facts(self) -> tuple[RunFacts, RunFacts]:
         """What the harness knows about each arm, apart from its manifest.
@@ -195,7 +219,10 @@ class CampaignReport:
                 reports_failures_and_escalations=True,
                 headline_is_net=True,
                 counter_metric_thresholds=self.counter_metric_thresholds,
-                counter_metrics_reported=self.counter_metrics_reported,
+                # Only what was actually read. Naming a metric here that nobody
+                # measured would claim a check that did not happen, and FR66's
+                # threshold check would then pass on an absent number.
+                counter_metrics_reported=self.counter_metrics().reported,
             ),
             headline=headline_claim,
         )
@@ -356,7 +383,9 @@ def run_campaign(
         battery=run_battery(ReferenceAdapter()),
         minimum_case_count=plan.minimum_case_count,
         counter_metric_thresholds=dict(plan.counter_metric_thresholds),
-        counter_metrics_reported=plan.counter_metrics_reported,
+        preregistration=plan.preregistration,
+        overhead_study=plan.overhead_study,
+        blind_review=plan.blind_review,
         coverage_report_hash=plan.hashes.get("coverage_report"),
     )
 

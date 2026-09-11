@@ -241,6 +241,24 @@ MUTATIONS = [
         "    if False:",
         "accepting targets that cite no measurement",
     ),
+    (
+        "src/outcomefuse/harness/counters.py",
+        "        if self.value is None or self.threshold is None:\n            return False",
+        "        if self.value is None:\n            return False",
+        "letting an unmeasured metric stand in for a passing one",
+    ),
+    (
+        "src/outcomefuse/harness/counters.py",
+        "        return tuple(sorted(r.metric for r in self.measured))",
+        "        return tuple(sorted(r.metric for r in self.readings))",
+        "reporting a metric nobody measured as reported",
+    ),
+    (
+        "src/outcomefuse/harness/counters.py",
+        "    if suppressions_checked:",
+        "    if True:",
+        "reading a suppression rate of zero from no suppressions",
+    ),
 ]
 
 TESTS = [
@@ -251,6 +269,7 @@ TESTS = [
     "tests/harness/test_answer_keys.py",
     "tests/harness/test_campaign.py",
     "tests/harness/test_attribution.py",
+    "tests/harness/test_counters.py",
     "tests/harness/test_preregistration_record.py",
     "tests/runtime/test_escalation.py",
     "tests/submission/test_disclosures.py",

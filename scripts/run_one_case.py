@@ -7,7 +7,7 @@ schemas, actually calls the tools and returns a deliverable in the shape the
 parser expects. That is the question this answers, one case at a time, before
 anything is spent on a campaign.
 
-Run with the venv's interpreter, not `uv run` — a sync removes the openai and
+Run with the venv's interpreter, not `uv run` -- a sync removes the openai and
 azure-identity packages, which are deliberately not declared (an unresolvable
 dependency broke `uv run pytest` repo-wide, and they are imported lazily):
 
@@ -38,7 +38,7 @@ COST_TABLE = "ct-2"
 SHA = "0" * 64
 
 # From the frozen baseline definition. Reasoning models reject temperature and
-# top_p, so there are none to pin; 4096 output tokens was hazardous — the model
+# top_p, so there are none to pin; 4096 output tokens was hazardous -- the model
 # exhausts on reasoning, returns HTTP 200 with no text, and bills for it.
 MAX_OUTPUT_TOKENS = 25_000
 REASONING_EFFORT = "medium"
@@ -97,7 +97,7 @@ def main() -> int:
     tools = tool_port_for(contract)
 
     # Without this the gate cannot evaluate, and the run terminates fail-closed
-    # under AD-20 — correctly, but having spent the whole budget first.
+    # under AD-20 -- correctly, but having spent the whole budget first.
     try:
         answer_key = answer_key_for(
             case.case_id,
@@ -109,7 +109,7 @@ def main() -> int:
         print(f"{exc}")
         return 2
 
-    # The governed arm starts where the contract says to start — gpt-5-mini,
+    # The governed arm starts where the contract says to start -- gpt-5-mini,
     # escalating only if the gate demands it. The baseline is pinned to gpt-5 by
     # the frozen baseline definition: an ordinary team reaches for the strong
     # model and leaves it there. That difference is the mechanism, not a thumb
@@ -159,7 +159,7 @@ def main() -> int:
         index = citable_index_for(contract)
         if index is not None:
             digest = driver.bind_citable_index(index)
-            print(f"citable   {len(index.entries)} ids, {digest.sha256[:16]}…")
+            print(f"citable   {len(index.entries)} ids, {digest.sha256[:16]}...")
         arm = GovernedArm(driver, start_model=model_id)
     else:
         arm = BaselineArm(tools, model=model_id)
