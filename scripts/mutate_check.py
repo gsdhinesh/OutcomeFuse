@@ -177,6 +177,26 @@ MUTATIONS = [
         "letting a frozen-in defect go undisclosed",
     ),
     (
+        "src/outcomefuse/harness/attribution.py",
+        "        if not self.cut_short:\n"
+        "            return AGENT_STOPPED",
+        "        if False:\n"
+        "            return AGENT_STOPPED",
+        "crediting a mechanism that only confirmed an agent that had already stopped",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "        cut_short=terminal is not None and not finished,",
+        "        cut_short=terminal is not None,",
+        "calling a confirmed run a shortened one",
+    ),
+    (
+        "src/outcomefuse/harness/campaign.py",
+        "        passed = self.battery is not None and self.battery.passed",
+        "        passed = True",
+        "asserting conformance instead of measuring it",
+    ),
+    (
         "src/outcomefuse/submission/script.py",
         "        if self.disclosures:\n"
         '            lines.append("\\n## Disclosed (§8.2)")',
@@ -199,6 +219,7 @@ TESTS = [
     "tests/harness/test_costs.py",
     "tests/harness/test_answer_keys.py",
     "tests/harness/test_campaign.py",
+    "tests/harness/test_attribution.py",
     "tests/harness/test_preregistration_record.py",
     "tests/submission/test_disclosures.py",
 ]

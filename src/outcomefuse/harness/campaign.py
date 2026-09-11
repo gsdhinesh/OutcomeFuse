@@ -32,6 +32,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..adapters.host.reference import ReferenceAdapter
+from ..conformance import BatteryResult, run_battery
 from ..core.contract import Contract
 from ..core.gate import GateUnavailable
 from ..core.policy import Ledger, Reserve
@@ -41,9 +43,16 @@ from ..ports import ModelPort
 from ..runtime import BaselineRecorder, Driver, ToolGovernor
 from ..workloads import WorkloadToolPort, citable_index_for, tool_port_for
 from .answer_keys import load_answer_keys
+from .attribution import (
+    AttributionError,
+    CaseSaving,
+    attribute_cost,
+    attribute_tokens,
+)
 from .cases import Case, load_case_set
 from .costs import CostTable
 from .proofcard import ArmTotals, PairedCase, ProofCard, build_proof_card
+from .reportability import Accompaniment, Reportability, RunFacts, assess
 from .runner import BaselineArm, GovernedArm, Outcome, run_case
 
 
@@ -65,6 +74,12 @@ class Plan:
     provider_versions: dict[str, str]
     cost_table: CostTable | None = None
     preregistration_hash: str | None = None
+    #: Carried from the preregistration so accompaniment can be checked (FR59,
+    #: FR62, FR70). Zero and empty mean no record was supplied, which
+    #: `check_admissibility` already refuses for a headline.
+    minimum_case_count: int = 0
+    counter_metric_thresholds: dict[str, float] = field(default_factory=dict)
+    counter_metrics_reported: tuple[str, ...] = ()
     baseline_model: str = "gpt-5"
     #: Overrides the contract's `models.start`. Calibration only, and it exists
     #: for one question: when the governed arm loses, was that the governor or
@@ -103,9 +118,128 @@ class CampaignReport:
     excluded: list[tuple[str, str]]
     baseline_manifest: RunManifest | None = None
     governed_manifest: RunManifest | None = None
+    cost_table: CostTable | None = None
+    baseline_model: str = "gpt-5"
+    #: The conformance battery's actual verdict on the adapter (AD-15).
+    battery: BatteryResult | None = None
+    #: From the preregistration, where one was supplied.
+    minimum_case_count: int = 0
+    counter_metric_thresholds: dict[str, float] = field(default_factory=dict)
+    counter_metrics_reported: tuple[str, ...] = ()
+    #: FR70: a tool-call reduction is meaningless without it, and it is not
+    #: measurable until a mechanism actually suppresses a tool.
+    tool_suppression_accuracy: float | None = None
+    coverage_report_hash: str | None = None
+
+    def savings(self) -> list[CaseSaving]:
+        """Quality-matched pairs only: the rest bought a different outcome."""
+        return [
+            _saving(r, self.cost_table, self.baseline_model)
+            for r in self.results
+            if r.baseline_passed and r.governed_passed
+        ]
 
     def proof_card(self) -> ProofCard:
-        return build_proof_card(self.workload, [_pair(r) for r in self.results])
+        # FR62: the breakdown travels with the figure or the figure does not
+        # ship. It decomposes the *token* saving, which is what the headline
+        # reports; routing appears only in `cost_attribution`, because a cheaper
+        # model emits the same number of tokens.
+        return build_proof_card(
+            self.workload,
+            [_pair(r) for r in self.results],
+            per_mechanism=attribute_tokens(self.savings()),
+        )
+
+    def cost_attribution(self) -> dict[str, float]:
+        """How much of the cost saving was governing, and how much was routing."""
+        return attribute_cost(self.savings())
+
+    def run_facts(self) -> tuple[RunFacts, RunFacts]:
+        """What the harness knows about each arm, apart from its manifest.
+
+        `adapter_passed_conformance` is the battery's actual result rather than
+        an assertion. AD-15 makes an uncertified adapter inadmissible, so a
+        hardcoded `True` here would be the single most effective way to publish
+        a figure nothing had checked.
+        """
+        passed = self.battery is not None and self.battery.passed
+        qualifiers = {r.gate_qualifier for r in self.results}
+        qualifier = "constraint-backed" if "constraint-backed" in qualifiers else None
+        facts = RunFacts(
+            adapter_passed_conformance=passed,
+            gateway_metered=False,
+            gate_qualifier=qualifier or (next(iter(qualifiers), None)),
+        )
+        return facts, facts
+
+    def reportability(self, *, headline_claim: bool) -> Reportability | None:
+        """AD-10's one predicate. `None` until both arms have a manifest."""
+        if self.baseline_manifest is None or self.governed_manifest is None:
+            return None
+        baseline_facts, governed_facts = self.run_facts()
+        card = self.proof_card()
+        return assess(
+            self.baseline_manifest,
+            self.governed_manifest,
+            baseline_facts,
+            governed_facts,
+            Accompaniment(
+                per_mechanism_breakdown=bool(card.per_mechanism),
+                reports_tool_call_reduction=True,
+                tool_suppression_accuracy=self.tool_suppression_accuracy,
+                case_count=card.quality_matched_pairs,
+                minimum_case_count=self.minimum_case_count,
+                coverage_report_hash=self.coverage_report_hash,
+                predominantly_constraint_backed="constraint-backed" in qualifiers_of(card),
+                predominantly_constraint_backed_declared=True,
+                reports_failures_and_escalations=True,
+                headline_is_net=True,
+                counter_metric_thresholds=self.counter_metric_thresholds,
+                counter_metrics_reported=self.counter_metrics_reported,
+            ),
+            headline=headline_claim,
+        )
+
+
+def qualifiers_of(card: ProofCard) -> set[str]:
+    return set(card.gate_qualifiers)
+
+
+def _saving(
+    result: CaseResult, cost_table: CostTable | None, baseline_model: str
+) -> CaseSaving:
+    governed, baseline = result.governed, result.baseline
+    return CaseSaving(
+        case_id=result.case_id,
+        baseline_tokens=baseline.spend.total_tokens,
+        governed_tokens=governed.spend.total_tokens,
+        baseline_cost=baseline.cost,
+        governed_cost=governed.cost,
+        governed_cost_at_baseline_rates=_repriced(governed, cost_table, baseline_model),
+        terminal_reason=governed.terminal_reason,
+        cut_short=governed.cut_short,
+    )
+
+
+def _repriced(governed: Outcome, cost_table: CostTable | None, baseline_model: str) -> float:
+    """The governed run's own tokens, at the baseline model's rate.
+
+    Refuses rather than guesses when a run used more than one model. Escalation
+    is not implemented yet; when it is, this has to split tokens per model, and
+    failing here is how that gets noticed instead of being silently mispriced.
+    """
+    if cost_table is None or not cost_table.priced:
+        return governed.cost
+    if len(governed.models_used) > 1:
+        raise AttributionError(
+            f"{governed.case_id} ran on {list(governed.models_used)}; repricing a "
+            "multi-model run needs tokens counted per model"
+        )
+    return cost_table.price(
+        baseline_model,
+        prompt_tokens=governed.spend.prompt_tokens,
+        completion_tokens=governed.spend.completion_tokens,
+    )
 
 
 def _pair(result: CaseResult) -> PairedCase:
@@ -209,7 +343,22 @@ def run_campaign(
     price = _price(plan)
     runs_dir.mkdir(parents=True, exist_ok=True)
 
-    report = CampaignReport(workload=plan.workload, split=plan.split, results=[], excluded=[])
+    report = CampaignReport(
+        workload=plan.workload,
+        split=plan.split,
+        results=[],
+        excluded=[],
+        cost_table=plan.cost_table,
+        baseline_model=plan.baseline_model,
+        # AD-15: measured, not asserted. Cheap, offline, and it runs before any
+        # money is spent so an uncertified adapter is known before the campaign
+        # rather than at the moment of publishing.
+        battery=run_battery(ReferenceAdapter()),
+        minimum_case_count=plan.minimum_case_count,
+        counter_metric_thresholds=dict(plan.counter_metric_thresholds),
+        counter_metrics_reported=plan.counter_metrics_reported,
+        coverage_report_hash=plan.hashes.get("coverage_report"),
+    )
 
     for case in chosen:
         answer_key = keys.get(case.case_id)

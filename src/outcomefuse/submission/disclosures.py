@@ -44,6 +44,35 @@ class Disclosure(BaseModel):
 
 FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
     Disclosure(
+        key="sufficiency-stop-never-fires-early",
+        finding=(
+            "The product's central claim is stopping on sufficiency rather than on "
+            "exhaustion. As measured, the sufficiency stop never shortens a run. The "
+            "quality gate can only evaluate a deliverable, and the frozen prompts ask "
+            "the agent to 'stop when you judge the [task] dispositioned, then emit the "
+            "final JSON object' — one deliverable, at the end. So the gate fires after "
+            "the agent has already stopped asking for tools (measured at event 21 of "
+            "24) and confirms a result rather than causing one. Across the calibration "
+            "campaigns, 100% of the token saving is attributed to "
+            "'agent-stopped-unaided' and 0% to any governor mechanism."
+        ),
+        why_not_fixed=(
+            "The prompts are inside the freeze and runs exist, so §8.2 makes them "
+            "final. Reaching an early stop needs the agent to emit interim "
+            "deliverables the gate can evaluate mid-run, which is a change to the "
+            "shared task block that both arms receive byte-identical."
+        ),
+        workaround=(
+            "It is reported rather than implied. FR62's breakdown names "
+            "'agent-stopped-unaided' explicitly instead of crediting the gate for a "
+            "saving it did not cause, and the cost split separates model routing from "
+            "token reduction. The other terminating mechanisms — the budget ledger and "
+            "the loop fuse — do cut runs short, are exercised by FR100's failure "
+            "paths, and simply had no occasion to fire on these cases."
+        ),
+        direction="against",
+    ),
+    Disclosure(
         key="doc-research-iteration-cap",
         finding=(
             "The doc-research contract allows 8 iterations. Measured live, both arms "
@@ -102,6 +131,54 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
             "checker, so the checker keeps its meaning for every other ordering rule."
         ),
         direction="neutral",
+    ),
+    Disclosure(
+        key="conformance-covers-the-reference-adapter",
+        finding=(
+            "AD-15's battery is run and passed, but it is run against the reference "
+            "adapter in adapters/host/reference. The campaign drives its own loop "
+            "(harness/runner.py), which shares the Driver, the ports and the record "
+            "spine with it but is not itself put through the six scenarios. So "
+            "`adapter_passed_conformance` is true of the adapter the battery "
+            "measured, not of every line of code that produced the runs."
+        ),
+        why_not_fixed=(
+            "The battery's substitution scenario asserts that a substituted step "
+            "runs a cheaper *tool*; the campaign loop substitutes by returning a "
+            "cached result and running no tool at all. Both are valid "
+            "substitutions, but making the loop pass would mean editing the "
+            "specification every adapter is measured against so that this one "
+            "passes it — fitting the test to the code, after results exist."
+        ),
+        workaround=(
+            "The battery is run at campaign time and its real verdict is recorded, "
+            "never asserted. The loop's own verdict-honouring is covered by the "
+            "runner's tests instead: that a denied call does not reach the tool "
+            "port, that a terminal verdict stops the loop, and that a refusal is "
+            "reported to the agent as a refusal."
+        ),
+        direction="unknown",
+    ),
+    Disclosure(
+        key="attribution-is-per-run-not-per-decision",
+        finding=(
+            "FR62's per-mechanism breakdown credits each case's token saving to the "
+            "mechanism that *terminated* that run. A case stopped by the quality "
+            "gate may also have had tool calls denied along the way, and the gate "
+            "is credited for the whole of it."
+        ),
+        why_not_fixed=(
+            "Decomposing within a run needs a counterfactual — what the run would "
+            "have done had a denied tool been allowed — and no such run exists. An "
+            "invented one would make the breakdown finer and less true."
+        ),
+        workaround=(
+            "The granularity is stated rather than implied. Tool-call reductions "
+            "are counted exactly and reported separately, and the cost split "
+            "between governing and model routing is exact arithmetic on measured "
+            "token counts rather than an estimate."
+        ),
+        direction="unknown",
     ),
     Disclosure(
         key="cost-is-list-price-not-billed",

@@ -63,6 +63,7 @@ def main() -> int:
     contract = load_path(Path(f"contracts/{args.workload}.contract.yaml"))
 
     prereg_hash = None
+    prereg = None
     if args.preregistration:
         try:
             prereg = load_preregistration(args.preregistration)
@@ -109,6 +110,11 @@ def main() -> int:
         cost_table=table,
         preregistration_hash=prereg_hash,
         governed_model=args.governed_model,
+        minimum_case_count=prereg.minimum_case_count if prereg else 0,
+        counter_metric_thresholds=dict(prereg.counter_metric_thresholds) if prereg else {},
+        counter_metrics_reported=(
+            tuple(sorted(prereg.counter_metric_thresholds)) if prereg else ()
+        ),
     )
 
     try:
@@ -148,6 +154,28 @@ def main() -> int:
 
     print()
     print(json.dumps(headline(card), indent=2, sort_keys=True))
+
+    cost_split = report.cost_attribution()
+    if cost_split:
+        print("\ncost saving came from:")
+        for name, share in sorted(cost_split.items(), key=lambda kv: -kv[1]):
+            print(f"  {name:<16} {share:>7.1%}")
+
+    battery = report.battery
+    print(
+        f"\nadapter conformance {'passed' if battery and battery.passed else 'FAILED'}"
+        f" ({len(battery.results) if battery else 0} scenarios)"
+    )
+    if battery and not battery.passed:
+        for finding in battery.findings:
+            print(f"  ! {finding}")
+
+    verdict = report.reportability(headline_claim=args.split == "evaluation")
+    if verdict is not None:
+        print(f"reportable          {verdict.publishable} ({verdict.independence})")
+        for refusal in verdict.refusals:
+            print(f"  refused: {refusal}")
+
     print(f"\nproof card {card.digest().sha256[:16]}…")
     if args.split != "evaluation":
         print(

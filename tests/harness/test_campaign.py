@@ -74,6 +74,24 @@ class Model:
         )
 
 
+class Thriftier(Model):
+    """The smaller model answers in fewer tokens than the larger one.
+
+    Not a thumb on the scale: it reproduces what the live runs measured, where
+    the arms differed because the models did. A fixture returning identical
+    counts for both arms produces no saving at all, and then every attribution
+    test passes vacuously against an empty breakdown.
+    """
+
+    THRIFTY = "gpt-5-mini"
+
+    def complete(self, request):
+        response = super().complete(request)
+        if request.model_id != self.THRIFTY:
+            return response
+        return response.model_copy(update={"prompt_tokens": 60, "completion_tokens": 20})
+
+
 def a_plan(contract, **over) -> Plan:
     base = {
         "workload": WORKLOAD,
@@ -324,3 +342,128 @@ class TestCostIsNeverInvented:
         # why. A missing key would read as an oversight.
         report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
         assert headline(report.proof_card())["net_cost_reduction"] == 0.0
+
+
+PRICED = CostTable(
+    version="ct-9",
+    currency="USD",
+    per_tokens=1_000_000,
+    rates={
+        "gpt-5": Rate(input=1.25, output=10.0),
+        "gpt-5-mini": Rate(input=0.25, output=2.0),
+    },
+)
+
+
+class TestTheBreakdownTravelsWithTheFigure:
+    # FR62: a headline savings figure does not ship without it. The breakdown is
+    # what lets a reader tell governing from a cheaper model, and a figure
+    # nobody can decompose is a figure nobody can refute.
+
+    def test_a_campaign_produces_a_per_mechanism_breakdown(self, contract, tmp_path):
+        report = run_campaign(
+            a_plan(contract, model=Thriftier()), runs_dir=tmp_path, max_cases=1
+        )
+        assert report.proof_card().per_mechanism
+
+    def test_the_breakdown_names_the_mechanism_that_stopped_the_run(
+        self, contract, tmp_path
+    ):
+        # The scripted agent answers on turn one, so nothing shortened the run:
+        # the gate confirmed a result it did not cause. The breakdown says so
+        # rather than crediting the gate, which is the whole point of FR62.
+        report = run_campaign(
+            a_plan(contract, model=Thriftier()), runs_dir=tmp_path, max_cases=1
+        )
+        governed = report.results[0].governed
+        assert governed.terminal_reason == "stop-sufficient"
+        assert not governed.cut_short
+        assert set(report.proof_card().per_mechanism) == {"agent-stopped-unaided"}
+
+    def test_a_run_the_governor_cut_short_is_credited_to_it(self, contract, tmp_path):
+        # The mirror. Without it, `cut_short` could be hardwired False and the
+        # test above would still pass while the breakdown said nothing.
+        report = run_campaign(
+            a_plan(contract, model=Thriftier()), runs_dir=tmp_path, max_cases=1
+        )
+        report.results[0].governed = report.results[0].governed.model_copy(
+            update={"cut_short": True}
+        )
+        assert set(report.proof_card().per_mechanism) == {"quality-gate"}
+
+    def test_an_arm_that_saved_nothing_gets_no_breakdown(self, contract, tmp_path):
+        # And FR62 then refuses the headline, which is correct: there is no
+        # saving to break down.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        assert report.proof_card().per_mechanism == {}
+        assert not report.reportability(headline_claim=True).publishable
+
+    def test_the_cost_split_separates_routing_from_governing(self, contract, tmp_path):
+        # The governed arm runs gpt-5-mini and the baseline gpt-5, so the
+        # routing term is present and a reader can see it doing the work.
+        report = run_campaign(
+            a_plan(contract, cost_table=PRICED, model=Thriftier()),
+            runs_dir=tmp_path,
+            max_cases=1,
+        )
+        split = report.cost_attribution()
+        assert "model-routing" in split
+        assert sum(split.values()) == pytest.approx(1.0)
+
+    def test_there_is_no_routing_term_when_both_arms_share_a_model(
+        self, contract, tmp_path
+    ):
+        report = run_campaign(
+            a_plan(contract, cost_table=PRICED, governed_model="gpt-5"),
+            runs_dir=tmp_path,
+            max_cases=1,
+        )
+        assert "model-routing" not in report.cost_attribution()
+
+    def test_the_run_records_which_model_it_used(self, contract, tmp_path):
+        # Repricing needs it, and it has to refuse rather than guess once
+        # escalation makes it more than one.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        assert report.results[0].governed.models_used == ("gpt-5-mini",)
+        assert report.results[0].baseline.models_used == ("gpt-5",)
+
+
+class TestTheAdapterIsCertifiedNotAsserted:
+    def test_the_battery_actually_runs(self, contract, tmp_path):
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        assert report.battery is not None
+        assert len(report.battery.results) == 6
+
+    def test_the_facts_carry_the_battery_s_real_verdict(self, contract, tmp_path):
+        # AD-15 makes an uncertified adapter inadmissible, so a hardcoded True
+        # here would be the most effective way to publish an unchecked figure.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        baseline_facts, governed_facts = report.run_facts()
+        assert baseline_facts.adapter_passed_conformance is report.battery.passed
+        assert governed_facts.adapter_passed_conformance is report.battery.passed
+
+    def test_a_failing_battery_makes_the_run_inadmissible(self, contract, tmp_path):
+        # The mirror. Without it, "conformance passed" would be untested and the
+        # gate would be decoration.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        report.battery = None
+        verdict = report.reportability(headline_claim=True)
+        assert not verdict.admissible
+        assert any("conformance" in r for r in verdict.refusals)
+
+
+class TestReportability:
+    def test_a_calibration_campaign_cannot_support_a_headline(self, contract, tmp_path):
+        # Calibration results never contribute to a headline figure (§8.5).
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        verdict = report.reportability(headline_claim=True)
+        assert any("calibration" in r for r in verdict.refusals)
+
+    def test_independence_is_self_reported_without_gateway_metering(
+        self, contract, tmp_path
+    ):
+        # E13 is cut, so token counts come from the provider's own usage block
+        # rather than an independent meter. Graded, not refused — the
+        # measurement is weaker, not absent.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        assert report.reportability(headline_claim=False).independence == "self-reported"

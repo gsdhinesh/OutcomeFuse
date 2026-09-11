@@ -102,8 +102,18 @@ class Outcome(BaseModel):
     #: Zero where the cost table is unpriced. Tokens are counted regardless, so
     #: the token claim never depends on anyone having read a pricing page.
     cost: float = Field(default=0.0, ge=0)
+    #: Every model the run actually called, in first-use order. FR62's cost
+    #: split reprices a governed run at the baseline's rate, which needs to know
+    #: what it ran on — and needs to refuse rather than guess once escalation
+    #: makes this more than one.
+    models_used: tuple[str, ...] = ()
     parsed: Parsed | None = None
     terminal_reason: str | None = None
+    #: A mechanism stopped the loop while the agent still wanted to continue.
+    #: False when the agent finished by itself and a terminal reason was merely
+    #: recorded afterwards — `stop-sufficient` on a run the gate only confirmed
+    #: saved nothing, and crediting it would invent the product's whole claim.
+    cut_short: bool = False
     iterations: int = Field(ge=0)
     #: Set where the loop stopped for its own reasons rather than the agent's.
     stopped_by: str | None = None
@@ -326,6 +336,7 @@ def run_case(
 
     spend = Spend()
     cost = 0.0
+    models: list[str] = []
     parsed: Parsed | None = None
     terminal: str | None = None
     stopped_by: str | None = None
@@ -347,6 +358,8 @@ def run_case(
             response.prompt_tokens, response.completion_tokens, response.reasoning_tokens
         )
         iteration += 1
+        if response.model_id not in models:
+            models.append(response.model_id)
 
         turn_cost = (
             price(response.model_id, response.prompt_tokens, response.completion_tokens)
@@ -366,7 +379,9 @@ def run_case(
                 arm=arm.name,
                 spend=spend,
                 cost=cost,
+                models_used=tuple(models),
                 terminal_reason=terminal,
+                cut_short=True,
                 iterations=iteration,
             )
 
@@ -437,8 +452,13 @@ def run_case(
         arm=arm.name,
         spend=spend,
         cost=cost,
+        models_used=tuple(models),
         parsed=parsed,
         terminal_reason=terminal,
+        # `finished` means the agent stopped asking for tools of its own accord.
+        # Anything terminal recorded after that confirmed the run; it did not
+        # shorten it.
+        cut_short=terminal is not None and not finished,
         iterations=iteration,
         stopped_by=stopped_by,
     )
