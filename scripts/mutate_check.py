@@ -155,9 +155,12 @@ MUTATIONS = [
     ),
     (
         "src/outcomefuse/harness/campaign.py",
-        "        if missing:",
-        "        if False:",
-        "blanking an unobserved provider version",
+        "    if missing:\n"
+        "        # AD-9: an unobserved provider version is not a blank to fill in later.\n"
+        "        # Two arms that guessed differently would be silently incomparable.\n"
+        '        raise CampaignError(f"no observed provider version for {missing}")',
+        '    plan.provider_versions.update({m: "unknown" for m in missing})',
+        "silently filling in an unobserved provider version",
     ),
     (
         "src/outcomefuse/harness/runner.py",
