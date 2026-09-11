@@ -107,6 +107,10 @@ class Outcome(BaseModel):
     #: what it ran on — and needs to refuse rather than guess once escalation
     #: makes this more than one.
     models_used: tuple[str, ...] = ()
+    #: Prompt and completion tokens, per model. An escalated run spends on two,
+    #: and FR62's cost split reprices the governed run at the baseline's rate —
+    #: which needs to know how much was spent on each rather than assuming one.
+    tokens_by_model: dict[str, tuple[int, int]] = Field(default_factory=dict)
     #: How many times the gate failed and the contract directed a retry on a
     #: stronger model. FR66 sets a threshold on the rate: an arm that escalates
     #: on everything has no cheap path and its saving came from elsewhere.
@@ -346,6 +350,14 @@ def run_case(
     tokens only and the ledger sees a cost of zero. That is honest — an unpriced
     cost table refuses to invent a number — and it means the cost ceiling cannot
     bind, which the manifest's `cost_table_version` records.
+
+    **An escalation continues the conversation; it does not restart it.** The
+    tool results already gathered are facts from the corpus, independent of
+    which model fetched them, and re-fetching them costs a second full round of
+    latency and tokens for nothing. The failed answer is not carried, because it
+    is never appended: a turn that produces a deliverable produces no assistant
+    message. So the stronger model inherits the evidence and not the reasoning
+    that failed on it.
     """
     prompt = render(case)
     tools: tuple[ToolSchema, ...] = schemas_for(contract)
@@ -357,14 +369,34 @@ def run_case(
     spend = Spend()
     cost = 0.0
     models: list[str] = []
+    by_model: dict[str, tuple[int, int]] = {}
     escalations = 0
+    #: Counted per attempt. An escalation that inherited an exhausted counter
+    #: would get zero turns and be useless — which is the shape the bug took.
+    #: Total spend stays bounded by the ledger and by `max_escalations`.
+    attempt = 0
     parsed: Parsed | None = None
     terminal: str | None = None
     stopped_by: str | None = None
     finished = False
     iteration = 0
 
-    while iteration < max_iterations:
+    while True:
+        if attempt >= max_iterations:
+            # Running out of turns is the case escalation exists for: the cheap
+            # model was never given room to answer, which is a different failure
+            # from answering badly. Asked here rather than after the loop, so a
+            # granted escalation has turns left to use.
+            give_up = arm.finish(None, answer_key=answer_key)
+            if give_up.escalate_to is not None:
+                escalations += 1
+                attempt = 0
+                continue
+            terminal = give_up.terminal_reason
+            stopped_by = f"the agent did not finish within {max_iterations} turns"
+            finished = True
+            break
+
         step_id = f"{case.case_id}-{iteration:02d}"
         response = model.complete(
             ModelRequest(
@@ -379,8 +411,14 @@ def run_case(
             response.prompt_tokens, response.completion_tokens, response.reasoning_tokens
         )
         iteration += 1
+        attempt += 1
         if response.model_id not in models:
             models.append(response.model_id)
+        seen_prompt, seen_completion = by_model.get(response.model_id, (0, 0))
+        by_model[response.model_id] = (
+            seen_prompt + response.prompt_tokens,
+            seen_completion + response.completion_tokens,
+        )
 
         turn_cost = (
             price(response.model_id, response.prompt_tokens, response.completion_tokens)
@@ -401,6 +439,7 @@ def run_case(
                 spend=spend,
                 cost=cost,
                 models_used=tuple(models),
+                tokens_by_model=dict(by_model),
                 terminal_reason=terminal,
                 cut_short=True,
                 iterations=iteration,
@@ -416,16 +455,8 @@ def run_case(
             parsed = parse_deliverable(response.text)
             outcome_of_finish = arm.finish(parsed, answer_key=answer_key)
             if outcome_of_finish.escalate_to is not None:
-                # FR35. The contract directs a retry on a stronger model, so the
-                # run continues. The transcript is dropped rather than carried:
-                # a fresh attempt is what the contract asks for, and handing the
-                # stronger model the weaker one's failed reasoning anchors it to
-                # exactly the answer that just failed the gate.
                 escalations += 1
-                messages = [
-                    Message(role="system", content=prompt.system),
-                    Message(role="user", content=prompt.user),
-                ]
+                attempt = 0
                 parsed = None
                 continue
             terminal = outcome_of_finish.terminal_reason
@@ -471,15 +502,12 @@ def run_case(
         )
         if terminal is not None:
             break
-    else:
-        # The `while` ran out rather than breaking: the agent never stopped.
-        stopped_by = f"the agent did not finish within {max_iterations} turns"
 
     if not finished and terminal is None:
-        # The loop gave up. The run is still closed through the arm: a governed
-        # run left open has no `run-closed`, cannot be sealed, and is not
-        # admissible evidence of anything — including of the governor having
-        # behaved correctly.
+        # The loop broke for its own reasons. The run is still closed through
+        # the arm: a governed run left open has no `run-closed`, cannot be
+        # sealed, and is not admissible evidence of anything — including of the
+        # governor having behaved correctly.
         terminal = arm.finish(None, answer_key=answer_key).terminal_reason
 
     return Outcome(
@@ -488,6 +516,7 @@ def run_case(
         spend=spend,
         cost=cost,
         models_used=tuple(models),
+        tokens_by_model=dict(by_model),
         parsed=parsed,
         terminal_reason=terminal,
         escalations=escalations,

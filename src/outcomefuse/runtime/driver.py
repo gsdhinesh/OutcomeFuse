@@ -503,11 +503,15 @@ class Driver:
         self._keep_evidence(deliverable)
 
         if deliverable is None:
-            # Nothing to gate, and nothing further will produce one: the agent
-            # either stopped or emitted something unreadable. `floor_met=False`
-            # alone is not terminal — correctly, since an unmet floor mid-run is
-            # ordinary — so the situation put to the Policy is that no further
-            # progress toward the floor is possible.
+            # A run that produced nothing has failed harder than one whose answer
+            # the gate refused, so it gets the same retry. Measured on data-sql:
+            # seven of twelve governed runs spent their whole iteration budget
+            # and returned no answer, and stopping there means having charged
+            # for nothing at all — the worst outcome available, and worse than a
+            # wrong answer because nothing downstream can even detect it.
+            escalated = self._escalate(reason=parse_failure or "no deliverable")
+            if escalated is not None:
+                return escalated
             return self._resolve(
                 Situation(no_progress=True, quality_state=self.quality_state),
                 detail={"deliverable": parse_failure or "no deliverable was produced"},
@@ -520,7 +524,7 @@ class Driver:
         # The gate failed. The contract may direct a retry on a stronger model
         # before anything terminal happens, and an escalated run has not ended —
         # so this is checked before the FR103 ladder rather than inside it.
-        escalated = self._escalate()
+        escalated = self._escalate(reason="gate-fail")
         if escalated is not None:
             return escalated
 
@@ -552,7 +556,7 @@ class Driver:
             payload={"deliverable": ref.relative_path, "sha256": ref.sha256},
         )
 
-    def _escalate(self) -> StepVerdict | None:
+    def _escalate(self, *, reason: str = "gate-fail") -> StepVerdict | None:
         """FR35: retry on a stronger model when the contract says to.
 
         Returns `None` where escalation is not available, leaving the caller on
@@ -595,6 +599,7 @@ class Driver:
                 "from": self.model_id,
                 "to": stronger,
                 "escalation": self.escalations,
+                "because": reason,
                 "unmet": sorted(self._unmet),
             },
         )

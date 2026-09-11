@@ -264,23 +264,25 @@ class TestAnEscalatedRunHasNotEnded:
         assert escalations[0].payload["to"] == "gpt-5"
         assert escalations[0].decision_reason == "escalation-gate-fail"
 
-    def test_the_retry_does_not_inherit_the_failed_transcript(
+    def test_the_retry_inherits_the_evidence_but_not_the_failed_answer(
         self, case, contract, governed, answer_key
     ):
-        # Handing the stronger model the weaker one's failed reasoning anchors
-        # it to exactly the answer that just failed the gate.
-        #
-        # The first attempt must call a tool, or `messages` never grows and the
-        # reset is a no-op that any test would pass.
+        # Tool results are facts from the corpus, independent of which model
+        # fetched them. Re-fetching costs a second full round of latency and
+        # tokens for nothing, and in a real-time system that is the dominant
+        # cost. The failed answer is a different matter and is not carried: a
+        # turn that produces a deliverable appends no assistant message, so the
+        # stronger model inherits what was learned and not the reasoning that
+        # failed on it.
         arm, _ = governed()
-        seen: list[int] = []
+        seen: list[list[str]] = []
 
         class ToolThenAnswer:
             def __init__(self) -> None:
                 self.turns = 0
 
             def complete(self, request):
-                seen.append(len(request.messages))
+                seen.append([m.role for m in request.messages])
                 self.turns += 1
                 if request.model_id == "gpt-5-mini" and self.turns == 1:
                     return ModelResponse(
@@ -301,9 +303,47 @@ class TestAnEscalatedRunHasNotEnded:
                 )
 
         drive(case, contract, arm, ToolThenAnswer(), answer_key)
-        # Two turns on the weak model, the transcript growing; then the retry
-        # starts from the opening two messages again.
-        assert seen == [2, 4, 2]
+        assert seen[0] == ["system", "user"]
+        assert seen[1] == ["system", "user", "assistant", "tool"]
+        # The retry keeps the tool result and gains no assistant answer.
+        assert seen[2] == ["system", "user", "assistant", "tool"]
+        assert "assistant" not in seen[2][3:]
+
+    def test_the_retry_gets_a_fresh_iteration_budget(
+        self, case, contract, governed, answer_key
+    ):
+        # An escalation that inherited an exhausted counter would be granted and
+        # then have no turns to use it, which is the shape the bug took: the
+        # mechanism fires, the log says so, and nothing happens.
+        arm, _ = governed()
+        model = ByModel({"gpt-5-mini": WRONG, "gpt-5": GOOD})
+        outcome = drive(case, contract, arm, model, answer_key, max_iterations=1)
+        assert model.asked == ["gpt-5-mini", "gpt-5"]
+        assert outcome.terminal_reason == "stop-sufficient"
+
+    def test_tokens_are_counted_against_each_model_separately(
+        self, case, contract, governed, answer_key
+    ):
+        # FR62 reprices the governed run at the baseline's rate. An escalated
+        # run spends on two models, and pricing the whole of it at either one
+        # misstates the routing term in both directions. Observed live: the
+        # proof card refused to build until this existed.
+        arm, _ = governed()
+        outcome = drive(
+            case, contract, arm, ByModel({"gpt-5-mini": WRONG, "gpt-5": GOOD}), answer_key
+        )
+        assert set(outcome.tokens_by_model) == {"gpt-5-mini", "gpt-5"}
+        counted = sum(p + c for p, c in outcome.tokens_by_model.values())
+        assert counted == outcome.spend.total_tokens
+
+    def test_a_run_that_never_escalated_counts_one_model(
+        self, case, contract, governed, answer_key
+    ):
+        arm, _ = governed()
+        outcome = drive(
+            case, contract, arm, ByModel({"gpt-5-mini": GOOD, "gpt-5": GOOD}), answer_key
+        )
+        assert set(outcome.tokens_by_model) == {"gpt-5-mini"}
 
 
 class TestTheReserveIsProtected:

@@ -252,21 +252,19 @@ def _saving(
 def _repriced(governed: Outcome, cost_table: CostTable | None, baseline_model: str) -> float:
     """The governed run's own tokens, at the baseline model's rate.
 
-    Refuses rather than guesses when a run used more than one model. Escalation
-    is not implemented yet; when it is, this has to split tokens per model, and
-    failing here is how that gets noticed instead of being silently mispriced.
+    Summed per model, because an escalated run spends on two and pricing the
+    whole of it at either one would misstate the routing term in both
+    directions.
     """
     if cost_table is None or not cost_table.priced:
         return governed.cost
-    if len(governed.models_used) > 1:
+    if not governed.tokens_by_model:
         raise AttributionError(
-            f"{governed.case_id} ran on {list(governed.models_used)}; repricing a "
-            "multi-model run needs tokens counted per model"
+            f"{governed.case_id} recorded no per-model token counts to reprice"
         )
-    return cost_table.price(
-        baseline_model,
-        prompt_tokens=governed.spend.prompt_tokens,
-        completion_tokens=governed.spend.completion_tokens,
+    return sum(
+        cost_table.price(baseline_model, prompt_tokens=prompt, completion_tokens=completion)
+        for prompt, completion in governed.tokens_by_model.values()
     )
 
 

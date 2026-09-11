@@ -259,6 +259,37 @@ MUTATIONS = [
         "    if True:",
         "reading a suppression rate of zero from no suppressions",
     ),
+    (
+        "src/outcomefuse/runtime/driver.py",
+        "            escalated = self._escalate(reason=parse_failure or \"no deliverable\")\n"
+        "            if escalated is not None:\n"
+        "                return escalated",
+        "            pass",
+        "giving up on a run that produced nothing instead of escalating",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "                escalations += 1\n"
+        "                attempt = 0\n"
+        "                parsed = None\n"
+        "                continue",
+        "                escalations += 1\n"
+        "                parsed = None\n"
+        "                continue",
+        "granting an escalation no turns to use",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "            give_up = arm.finish(None, answer_key=answer_key)\n"
+        "            if give_up.escalate_to is not None:\n"
+        "                escalations += 1\n"
+        "                attempt = 0\n"
+        "                continue",
+        "            give_up = arm.finish(None, answer_key=answer_key)\n"
+        "            if False:\n"
+        "                pass",
+        "ignoring an escalation granted after running out of turns",
+    ),
 ]
 
 TESTS = [
