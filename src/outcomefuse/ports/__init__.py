@@ -14,11 +14,16 @@ from .approval import (
     ScriptedApprovalPort,
 )
 from .model import (
+    Message,
     ModelPort,
     ModelRequest,
     ModelResponse,
+    Role,
     ScriptedModelPort,
     StreamingBarred,
+    ToolInvocation,
+    ToolSchema,
+    user_turn,
 )
 from .posture import (
     POSTURES,
@@ -37,6 +42,7 @@ __all__ = [
     "ApprovalPort",
     "ApprovalRequest",
     "Decision",
+    "Message",
     "ModelPort",
     "ModelRequest",
     "ModelResponse",
@@ -45,10 +51,14 @@ __all__ = [
     "Posture",
     "PostureError",
     "ProbedToolPort",
+    "Role",
     "ScriptedApprovalPort",
     "ScriptedModelPort",
     "StreamingBarred",
     "ToolCall",
+    "ToolInvocation",
     "ToolPort",
     "ToolResult",
+    "ToolSchema",
+    "user_turn",
 ]

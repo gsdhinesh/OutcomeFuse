@@ -32,6 +32,7 @@ from outcomefuse.ports import (
     StreamingBarred,
     ToolCall,
 )
+from outcomefuse.ports.model import user_turn
 
 WHEN = "2026-09-10T12:00:00Z"
 
@@ -111,18 +112,23 @@ class TestModelPort:
         # make reconciliation a comparison between two guesses.
         with pytest.raises(StreamingBarred):
             ScriptedModelPort().complete(
-                ModelRequest(model_id="m", prompt="hi", max_output_tokens=10, stream=True)
+                ModelRequest(
+                    model_id="m",
+                    messages=user_turn("hi"),
+                    max_output_tokens=10,
+                    stream=True,
+                )
             )
 
     def test_a_scripted_reply_is_deterministic(self):
         port = ScriptedModelPort({"hi": "hello"})
-        request = ModelRequest(model_id="m", prompt="hi", max_output_tokens=10)
+        request = ModelRequest(model_id="m", messages=user_turn("hi"), max_output_tokens=10)
         assert port.complete(request).text == port.complete(request).text
 
     def test_token_counts_are_reported(self):
         port = ScriptedModelPort({"hi": "hello"})
         response = port.complete(
-            ModelRequest(model_id="m", prompt="hi", max_output_tokens=10)
+            ModelRequest(model_id="m", messages=user_turn("hi"), max_output_tokens=10)
         )
         assert response.total_tokens == response.prompt_tokens + response.completion_tokens
 

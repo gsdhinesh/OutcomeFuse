@@ -24,6 +24,7 @@ from .corpus import (
     sql_corpus,
     writable_copy,
 )
+from .schemas import SCHEMAS, schemas_for
 from .toolport import Handler, ToolError, WorkloadToolPort, required
 
 #: Which module serves which workload. The keys are contract `workload` values.
@@ -50,6 +51,7 @@ def tool_port_for(contract: Contract) -> WorkloadToolPort:
 
 
 __all__ = [
+    "SCHEMAS",
     "CorpusError",
     "Handler",
     "ToolCall",
@@ -61,6 +63,7 @@ __all__ = [
     "documents",
     "repo_files",
     "required",
+    "schemas_for",
     "sql_corpus",
     "tool_port_for",
     "writable_copy",

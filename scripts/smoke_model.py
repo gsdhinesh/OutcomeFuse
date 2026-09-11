@@ -20,7 +20,7 @@ from __future__ import annotations
 import sys
 
 from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
-from outcomefuse.ports import ModelRequest
+from outcomefuse.ports import ModelRequest, user_turn
 
 BASE_URL = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
 
@@ -47,7 +47,7 @@ def main() -> int:
             response = port.complete(
                 ModelRequest(
                     model_id=model_id,
-                    prompt=PROMPT,
+                    messages=user_turn(PROMPT),
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                     reasoning_effort=REASONING_EFFORT,
                 )

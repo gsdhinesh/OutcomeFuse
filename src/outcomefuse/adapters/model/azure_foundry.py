@@ -25,10 +25,17 @@ Three things are enforced here rather than trusted to a caller:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any, Final
 
-from ...ports.model import ModelRequest, ModelResponse, StreamingBarred
+from ...ports.model import (
+    Message,
+    ModelRequest,
+    ModelResponse,
+    StreamingBarred,
+    ToolInvocation,
+)
 
 #: The scope Foundry's `/openai/v1` surface expects for an Entra token. Not a
 #: secret: it names an audience, and the credential is fetched at call time.
@@ -120,12 +127,24 @@ class AzureFoundryModelPort:
 
         payload: dict[str, Any] = {
             "model": self.deployment_for(request.model_id),
-            "messages": [{"role": "user", "content": request.prompt}],
+            "messages": [_wire(message) for message in request.messages],
             # Reasoning models take `max_completion_tokens`; `max_tokens` is refused.
             "max_completion_tokens": request.max_output_tokens,
         }
         if request.reasoning_effort is not None:
             payload["reasoning_effort"] = request.reasoning_effort
+        if request.tools:
+            payload["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+                for tool in request.tools
+            ]
 
         try:
             completion = self._client.chat.completions.create(**payload)
@@ -135,6 +154,64 @@ class AzureFoundryModelPort:
             raise ModelPortError(f"the model call failed: {exc}") from exc
 
         return _read(completion, request)
+
+
+def _wire(message: Message) -> dict[str, Any]:
+    """One message in the provider's shape."""
+    if message.role == "tool":
+        return {
+            "role": "tool",
+            "tool_call_id": message.tool_call_id,
+            "content": message.content,
+        }
+    if message.tool_calls:
+        return {
+            "role": "assistant",
+            "content": message.content or None,
+            "tool_calls": [
+                {
+                    "id": call.id,
+                    "type": "function",
+                    "function": {
+                        "name": call.tool,
+                        "arguments": json.dumps(call.arguments),
+                    },
+                }
+                for call in message.tool_calls
+            ],
+        }
+    return {"role": message.role, "content": message.content}
+
+
+def _invocations(choice: Any) -> tuple[ToolInvocation, ...]:
+    """Tool calls as the model asked for them.
+
+    Unreadable arguments are carried rather than raised. A model that emits
+    broken JSON for a tool call has failed the step, and that failure belongs
+    to the arm that produced it — not to the harness, which would otherwise
+    turn it into a crash.
+    """
+    raw = getattr(getattr(choice, "message", None), "tool_calls", None) or ()
+    calls = []
+    for index, call in enumerate(raw):
+        function = getattr(call, "function", None)
+        text = getattr(function, "arguments", "") or "{}"
+        try:
+            arguments = json.loads(text)
+            malformed = None
+            if not isinstance(arguments, dict):
+                arguments, malformed = {}, f"arguments are a JSON {type(arguments).__name__}"
+        except json.JSONDecodeError as exc:
+            arguments, malformed = {}, f"arguments are not readable JSON: {exc.msg}"
+        calls.append(
+            ToolInvocation(
+                id=getattr(call, "id", None) or f"call-{index}",
+                tool=getattr(function, "name", "") or "unnamed",
+                arguments=arguments,
+                malformed=malformed,
+            )
+        )
+    return tuple(calls)
 
 
 def _read(completion: Any, request: ModelRequest) -> ModelResponse:
@@ -155,6 +232,7 @@ def _read(completion: Any, request: ModelRequest) -> ModelResponse:
         # Clamped rather than trusted: a provider reporting more reasoning than
         # output would otherwise take the whole run down at validation.
         reasoning_tokens=min(reasoning, completion_tokens),
+        tool_calls=_invocations(choice) if choice else (),
         provider_version=getattr(completion, "model", None),
         # The budget ran out mid-thought. Tokens were spent and no answer came
         # back, which is a failed step rather than an empty one.

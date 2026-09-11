@@ -18,6 +18,7 @@ from pydantic import ValidationError
 
 from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
 from outcomefuse.ports import ModelRequest, ModelResponse, StreamingBarred
+from outcomefuse.ports.model import Message, ToolInvocation, ToolSchema, user_turn
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
 
@@ -30,6 +31,7 @@ def a_completion(
     reasoning_tokens: int = 1792,
     finish_reason: str = "stop",
     model: str = "gpt-5-2025-08-07",
+    tool_calls=None,
 ):
     """Shaped like Microsoft's own documented response."""
     return SimpleNamespace(
@@ -37,7 +39,7 @@ def a_completion(
         choices=[
             SimpleNamespace(
                 finish_reason=finish_reason,
-                message=SimpleNamespace(content=text),
+                message=SimpleNamespace(content=text, tool_calls=tool_calls),
             )
         ],
         usage=SimpleNamespace(
@@ -71,7 +73,7 @@ def a_port(client: FakeClient | None = None, **over) -> AzureFoundryModelPort:
 def a_request(**over) -> ModelRequest:
     base = {
         "model_id": "gpt-5",
-        "prompt": "What is the capital of France?",
+        "messages": user_turn("What is the capital of France?"),
         "max_output_tokens": 25000,
         "reasoning_effort": "medium",
     }
@@ -95,10 +97,10 @@ class TestWhatItRefusesToSend:
         assert "top_p" not in client.payloads[0]
 
     def test_there_is_no_temperature_to_send(self):
-        with pytest.raises(ValidationError):
-            ModelRequest(
-                model_id="gpt-5", prompt="x", max_output_tokens=100, temperature=0
-            )
+        # Passing `prompt=` here too would make this pass on the wrong ground:
+        # `prompt` is itself a forbidden extra now.
+        with pytest.raises(ValidationError, match="temperature"):
+            ModelRequest(**(a_request().model_dump() | {"temperature": 0}))
 
     def test_the_output_budget_uses_the_parameter_reasoning_models_accept(self):
         client = FakeClient()
@@ -189,3 +191,169 @@ class TestFailures:
         from outcomefuse.ports import ModelPort
 
         assert isinstance(a_port(), ModelPort)
+
+
+def a_tool_call(*, id="call_1", name="sql_query", arguments='{"sql": "SELECT 1"}'):
+    return SimpleNamespace(
+        id=id, type="function", function=SimpleNamespace(name=name, arguments=arguments)
+    )
+
+
+class TestTheToolProtocol:
+    # The frozen task block names the tools but specifies no call format, and
+    # nothing may be added to it. So the provider's own protocol is the only
+    # one available, and this is where it is spoken.
+
+    def test_no_tools_key_is_sent_when_none_are_offered(self):
+        # An empty `tools: []` is not the same request as no tools at all.
+        client = FakeClient()
+        a_port(client).complete(a_request())
+        assert "tools" not in client.payloads[0]
+
+    def test_a_declared_tool_reaches_the_provider_in_its_own_shape(self):
+        client = FakeClient()
+        schema = ToolSchema(
+            name="sql_query",
+            description="Run one read-only SELECT.",
+            parameters={"type": "object", "properties": {"sql": {"type": "string"}}},
+        )
+        a_port(client).complete(a_request(tools=(schema,)))
+        assert client.payloads[0]["tools"] == [
+            {
+                "type": "function",
+                "function": {
+                    "name": "sql_query",
+                    "description": "Run one read-only SELECT.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"sql": {"type": "string"}},
+                    },
+                },
+            }
+        ]
+
+    def test_a_tool_call_comes_back_structured(self):
+        response = a_port(
+            FakeClient(a_completion(text="", tool_calls=[a_tool_call()]))
+        ).complete(a_request())
+        assert response.wants_tools
+        assert len(response.tool_calls) == 1
+        call = response.tool_calls[0]
+        assert (call.id, call.tool, call.arguments) == (
+            "call_1",
+            "sql_query",
+            {"sql": "SELECT 1"},
+        )
+        assert call.malformed is None
+
+    def test_an_answer_carries_no_tool_calls(self):
+        # `wants_tools` is what the runner loops on, so it must be false here.
+        response = a_port(FakeClient(a_completion(text="done"))).complete(a_request())
+        assert response.tool_calls == ()
+        assert not response.wants_tools
+
+    def test_several_tool_calls_in_one_turn_all_survive(self):
+        response = a_port(
+            FakeClient(
+                a_completion(
+                    text="",
+                    tool_calls=[a_tool_call(id="a"), a_tool_call(id="b", name="schema_describe")],
+                )
+            )
+        ).complete(a_request())
+        assert [(c.id, c.tool) for c in response.tool_calls] == [
+            ("a", "sql_query"),
+            ("b", "schema_describe"),
+        ]
+
+    def test_unreadable_arguments_are_carried_not_raised(self):
+        # A model emitting broken JSON has failed the step. That failure belongs
+        # to the arm that produced it; crashing here would charge it to the
+        # harness and lose the run.
+        response = a_port(
+            FakeClient(a_completion(text="", tool_calls=[a_tool_call(arguments="{not json")]))
+        ).complete(a_request())
+        call = response.tool_calls[0]
+        assert call.malformed is not None
+        assert call.arguments == {}
+        assert call.tool == "sql_query"
+
+    def test_arguments_that_are_valid_json_but_not_an_object_are_malformed(self):
+        # `[1, 2]` parses. It is still not a set of named arguments, and
+        # reaching into it would be the harness repairing the agent's output.
+        response = a_port(
+            FakeClient(a_completion(text="", tool_calls=[a_tool_call(arguments="[1, 2]")]))
+        ).complete(a_request())
+        assert response.tool_calls[0].malformed == "arguments are a JSON list"
+        assert response.tool_calls[0].arguments == {}
+
+    def test_empty_arguments_are_an_empty_mapping_not_a_failure(self):
+        # `schema_describe()` takes none. That is a legitimate call.
+        response = a_port(
+            FakeClient(a_completion(text="", tool_calls=[a_tool_call(arguments="")]))
+        ).complete(a_request())
+        assert response.tool_calls[0].arguments == {}
+        assert response.tool_calls[0].malformed is None
+
+
+class TestTheConversation:
+    def test_the_whole_transcript_is_sent_not_just_the_last_turn(self):
+        # FR64: the baseline carries context forward uncompressed. If the port
+        # dropped the history there would be nothing for a Context Governor to
+        # improve on, and the comparison would be meaningless.
+        client = FakeClient()
+        a_port(client).complete(
+            a_request(
+                messages=(
+                    Message(role="system", content="you are an agent"),
+                    Message(role="user", content="the task"),
+                    Message(role="assistant", content="thinking"),
+                )
+            )
+        )
+        assert client.payloads[0]["messages"] == [
+            {"role": "system", "content": "you are an agent"},
+            {"role": "user", "content": "the task"},
+            {"role": "assistant", "content": "thinking"},
+        ]
+
+    def test_a_tool_result_is_sent_against_the_call_it_answers(self):
+        client = FakeClient()
+        a_port(client).complete(
+            a_request(
+                messages=(
+                    Message(role="user", content="the task"),
+                    Message(
+                        role="assistant",
+                        tool_calls=(
+                            ToolInvocation(id="call_1", tool="sql_query", arguments={"sql": "x"}),
+                        ),
+                    ),
+                    Message(role="tool", tool_call_id="call_1", content="[[1]]"),
+                )
+            )
+        )
+        assistant, tool = client.payloads[0]["messages"][1:]
+        assert assistant["tool_calls"] == [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "sql_query", "arguments": '{"sql": "x"}'},
+            }
+        ]
+        assert assistant["content"] is None
+        assert tool == {"role": "tool", "tool_call_id": "call_1", "content": "[[1]]"}
+
+    def test_a_conversation_must_have_at_least_one_turn(self):
+        with pytest.raises(ValidationError):
+            ModelRequest(model_id="gpt-5", messages=(), max_output_tokens=100)
+
+    def test_the_prompt_view_reads_the_conversation(self):
+        # Kept so a port that takes no messages can still be driven.
+        request = a_request(
+            messages=(
+                Message(role="system", content="rules"),
+                Message(role="user", content="task"),
+            )
+        )
+        assert request.prompt == "rules\n\ntask"
