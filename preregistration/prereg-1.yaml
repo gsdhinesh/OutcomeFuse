@@ -1,0 +1,87 @@
+# Preregistration 1 — OutcomeFuse
+#
+# FR66, FR102, §8.5. Targets and thresholds recorded BEFORE any governed
+# evaluation-set result was executed or inspected. At the time of writing, no
+# evaluation run of any kind existed: the evaluation split is sealed at the read
+# in `harness/answer_keys.py`, and nothing had supplied a preregistration hash
+# to open it. This file is what opens it.
+#
+# A target set after the results are known cannot be missed, and may not be
+# reported as having been met. That is the whole reason this file is dated,
+# hashed, and cited by every evaluation manifest.
+#
+# The numbers below are a judgement, made by a person, from the measurements in
+# overhead-study-1.yaml. They are not read off it by a script — the study sets
+# no targets and says so. `derived_from` cites the study by content digest, and
+# `check_targets_are_derived` refuses a record whose citation does not match.
+
+recorded_at: '2026-09-11T10:12:12Z'
+
+derived_from: >-
+  Calibration overhead study fc2e369d172840bbf1ae177c2f9067111ba916c02221a0b6be89477db595e8d8
+  (preregistration/overhead-study-1.yaml, data-sql, python 3.14.6 on win32),
+  plus three-case live calibration campaigns on data-sql, code-triage,
+  doc-research and supply-chain.
+  Units: `added-latency` is milliseconds at p95 per governed decision. Every
+  other threshold is a fraction in [0, 1].
+
+# What the governed arm must achieve, net of its own overhead. Net leads; gross
+# never does (FR61).
+#
+# Judgement: calibration showed an enormous spread — supply-chain returned ~56%
+# fewer tokens at equal quality, data-sql roughly +5% on the same model. 0.20 is
+# set to be achievable on a mixed set without being met by supply-chain alone.
+savings:
+  net_token_reduction: 0.20
+  net_cost_reduction: 0.20
+  # Lower than the token target on purpose. A tool-call reduction is trivially
+  # maximised by denying everything, which is why FR70 makes it travel with
+  # suppression accuracy and why it is not the number that leads.
+  tool_call_reduction: 0.15
+
+# "Quality held constant" is the entire claim. A cheaper wrong answer is not a
+# saving, so this is the figure that decides whether any saving may be reported.
+quality_target_pass_rate: 0.90
+
+counter_metric_thresholds:
+  # Stopping while the evidence was actually insufficient. The mechanism's
+  # worst failure: it is the one that makes the product actively harmful rather
+  # than merely useless, so it carries the tightest threshold.
+  false-sufficiency-rate: 0.05
+
+  # Denying a tool the agent needed. Paired with the tool-call reduction above;
+  # without it a governor scores best by refusing everything.
+  tool-suppression-error-rate: 0.05
+
+  # Escalating to the stronger model. Not a failure — it is the escalation
+  # ladder working — but an arm that escalates on everything has no cheap path
+  # and its savings come from somewhere other than governance.
+  escalation-rate: 0.30
+
+  # NON-BINDING, AND DISCLOSED AS SUCH. Measured at 0.0%: with E12 cut, every
+  # registered mechanism is deterministic and spends no model tokens, so there
+  # is no overhead for this to constrain. It is set low and honestly rather than
+  # omitted, because a counter-metric without a threshold cannot fail and a
+  # counter-metric that cannot fail is decoration.
+  governor-overhead-share: 0.05
+
+  # Milliseconds, p95, per governed decision. Measured +3.95 ms, of which
+  # essentially all is five durable appends under `synchronous=FULL`. That cost
+  # buys FR5's guarantee that a decision is recorded before it takes effect; it
+  # does not buy any governing. A threshold near the measurement would therefore
+  # fail on durability rather than on the governor, so 10.0 leaves room for the
+  # fsync cost to vary across machines while still catching a real regression.
+  added-latency: 10.0
+
+  # Exceeding the contract's ceiling. The ledger holds before it spends, so this
+  # should be structurally impossible; a non-zero rate means the ledger is wrong.
+  budget-breach-rate: 0.02
+
+# The evaluation split holds 8 cases per workload, and only pairs that passed on
+# BOTH arms contribute to savings. 6 allows two of the eight not to pair while
+# still requiring a clear majority. It cannot exceed 8 without making every
+# claim refuse itself.
+minimum_case_count: 6
+
+# Blind review of quality-matched pairs, bounded by how many can exist.
+blind_review_sample_size: 4

@@ -9,6 +9,7 @@ judgement made from these numbers by a person, not read off them by a script.
 
 from __future__ import annotations
 
+import argparse
 import sqlite3
 import tempfile
 from datetime import UTC, datetime
@@ -19,7 +20,7 @@ from ..core.policy import Ledger, Reserve
 from ..core.record import Event, RunManifest, open_store
 from ..ports import ProbedToolPort, ScriptedApprovalPort, ToolCall
 from ..runtime import Driver, ToolGovernor
-from .overhead import DEFAULT_REPEATS, Latencies, build_study, measure
+from .overhead import DEFAULT_REPEATS, Latencies, OverheadStudy, build_study, measure, save_study
 
 SHA = "0" * 64
 
@@ -99,7 +100,7 @@ def _measure_append(repeats: int) -> Latencies:
             store.close()
 
 
-def run(repeats: int = DEFAULT_REPEATS) -> None:
+def run(repeats: int = DEFAULT_REPEATS, *, write_to: Path | None = None) -> OverheadStudy:
     contract = load_text(CONTRACT)
     tokens_per_step = 10
 
@@ -156,7 +157,25 @@ def run(repeats: int = DEFAULT_REPEATS) -> None:
         enabled_mechanisms=("tool-governor", "quality-gate"),
     )
     print(study.render())
+    if write_to is not None:
+        # The digest covers the measured latencies, so re-running produces a
+        # different one. A preregistration cites a study by content, so the
+        # study has to be an artifact rather than something recomputed.
+        save_study(study, write_to)
+        print(f"\nwritten to {write_to}")
+    return study
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
+    parser.add_argument(
+        "--write", default=None, help="save the study for a preregistration to cite"
+    )
+    args = parser.parse_args()
+    run(args.repeats, write_to=Path(args.write) if args.write else None)
+    return 0
 
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit(main())

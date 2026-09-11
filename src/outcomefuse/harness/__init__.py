@@ -23,13 +23,16 @@ from .overhead import (
     OverheadStudy,
     build_study,
     check_targets_are_derived,
+    load_study,
     measure,
+    save_study,
 )
 from .preregistration import (
     COUNTER_METRICS,
     Preregistration,
     PreregistrationError,
     SavingsTargets,
+    load_preregistration,
 )
 from .proofcard import (
     ArmTotals,
@@ -84,6 +87,9 @@ __all__ = [
     "diff_manifests",
     "grade_independence",
     "headline",
+    "load_preregistration",
+    "load_study",
     "measure",
     "require_comparable",
+    "save_study",
 ]

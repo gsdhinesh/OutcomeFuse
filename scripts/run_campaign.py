@@ -25,6 +25,7 @@ from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
 from outcomefuse.core.contract import load_path
 from outcomefuse.harness.campaign import CampaignError, Plan, run_campaign
 from outcomefuse.harness.costs import CostTableError, load_cost_table
+from outcomefuse.harness.preregistration import PreregistrationError, load_preregistration
 from outcomefuse.harness.proofcard import headline
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
@@ -46,7 +47,11 @@ def main() -> int:
     parser.add_argument("workload")
     parser.add_argument("--split", default="calibration")
     parser.add_argument("--cases", type=int, default=None, help="run only the first N")
-    parser.add_argument("--preregistration", default=None)
+    parser.add_argument(
+        "--preregistration",
+        default=None,
+        help="a preregistration version, e.g. prereg-1; required to open the evaluation split",
+    )
     parser.add_argument("--runs-dir", default="runs/campaign")
     parser.add_argument(
         "--governed-model",
@@ -56,6 +61,29 @@ def main() -> int:
     args = parser.parse_args()
 
     contract = load_path(Path(f"contracts/{args.workload}.contract.yaml"))
+
+    prereg_hash = None
+    if args.preregistration:
+        try:
+            prereg = load_preregistration(args.preregistration)
+        except PreregistrationError as exc:
+            print(f"{exc}")
+            return 2
+        # The manifest cites the record by content, so a record edited after the
+        # fact no longer matches the runs that claimed to be bound by it.
+        prereg_hash = prereg.digest().sha256
+        print(f"preregistration {args.preregistration} → {prereg_hash[:16]}…")
+        print(
+            f"  net tokens ≥ {prereg.savings.net_token_reduction:.0%}, "
+            f"pass rate ≥ {prereg.quality_target_pass_rate:.0%}, "
+            f"minimum {prereg.minimum_case_count} cases\n"
+        )
+    elif args.split == "evaluation":
+        print(
+            "the evaluation split is sealed: pass --preregistration. Targets written "
+            "after seeing the evaluation answer keys are not predictions."
+        )
+        return 2
 
     table = None
     try:
@@ -79,7 +107,7 @@ def main() -> int:
         reasoning_effort=REASONING_EFFORT,
         provider_versions=dict(PROVIDER_VERSIONS),
         cost_table=table,
-        preregistration_hash=args.preregistration,
+        preregistration_hash=prereg_hash,
         governed_model=args.governed_model,
     )
 

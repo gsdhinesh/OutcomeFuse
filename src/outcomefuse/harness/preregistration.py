@@ -14,8 +14,10 @@ counter-metric that cannot fail is decoration.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Final
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..core.canon import Digest, hash_structure
@@ -79,3 +81,26 @@ class Preregistration(BaseModel):
 
     def digest(self) -> Digest:
         return hash_structure(self.model_dump(mode="json"))
+
+
+ROOT: Final[Path] = Path("preregistration")
+
+
+def load_preregistration(version: str, *, root: Path | None = None) -> Preregistration:
+    """Load a committed record. Never constructs a default.
+
+    A missing record is an error rather than an empty one, because an empty
+    preregistration is indistinguishable from a permissive one: no target to
+    miss, no threshold to breach, and every result reportable.
+    """
+    path = (root or ROOT) / f"{version}.yaml"
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise PreregistrationError(f"no preregistration {version!r} at {path}") from exc
+    except yaml.YAMLError as exc:
+        raise PreregistrationError(f"{path} is not readable YAML: {exc}") from exc
+    try:
+        return Preregistration.model_validate(raw)
+    except ValueError as exc:
+        raise PreregistrationError(f"{path} is not a usable preregistration: {exc}") from exc
