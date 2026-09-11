@@ -26,6 +26,7 @@ isolate.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -50,12 +51,16 @@ class BaselineRecorder:
         store: RecordStore,
         gate: QualityGate | None = None,
         citable_index: CitableIndex | None = None,
+        evidence: Any | None = None,
     ) -> None:
         self.run_id = run_id
         self.contract = contract
         self.store = store
         self.gate = gate or QualityGate()
         self.citable_index = citable_index
+        #: AD-5b's sidecar. The blind review compares arms, so it has to be able
+        #: to read this one too.
+        self.evidence = evidence
         self.verdict: Verdict | None = None
         self.closed = False
         self._seq = 0
@@ -131,6 +136,16 @@ class BaselineRecorder:
             )
             self._close()
             return None
+
+        if self.evidence is not None:
+            ref = self.evidence.write(
+                "deliverable.json",
+                json.dumps(dict(deliverable), indent=2, sort_keys=True),
+            )
+            self._append(
+                "evidence-observed",
+                payload={"deliverable": ref.relative_path, "sha256": ref.sha256},
+            )
 
         try:
             self.verdict = self.gate.evaluate(

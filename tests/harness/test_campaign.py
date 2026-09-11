@@ -452,6 +452,57 @@ class TestTheAdapterIsCertifiedNotAsserted:
         assert any("conformance" in r for r in verdict.refusals)
 
 
+class TestTheDeliverableIsKept:
+    # AD-5b. Until this existed the run recorded that a gate passed and not
+    # what it passed, so FR69's blind review — the check that exists to
+    # contradict the gate — had nothing to read.
+
+    def test_both_arms_write_their_deliverable(self, contract, tmp_path):
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        case_id = report.results[0].case_id
+        for arm in ("baseline", "governed"):
+            path = tmp_path / "evidence" / f"{case_id}-{arm}" / "deliverable.json"
+            assert path.is_file(), arm
+            assert json.loads(path.read_text(encoding="utf-8"))["result_value"] == 16
+
+    def test_the_log_carries_a_reference_and_a_hash_not_a_body(self, contract, tmp_path):
+        # The decision log is the audit trail, not the archive. Putting the
+        # answer in it would make every run's log grow with its content and
+        # would hand a blind reviewer the verdict alongside the deliverable.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        case_id = report.results[0].case_id
+        with RecordStore(tmp_path / f"{case_id}-governed.db", writer=False).open() as s:
+            refs = [
+                e
+                for e in s.events(f"{case_id}-governed")
+                if "deliverable" in (e.payload or {}) and "sha256" in (e.payload or {})
+            ]
+        assert len(refs) == 1
+        assert refs[0].payload["deliverable"] == "deliverable.json"
+        assert len(refs[0].payload["sha256"]) == 64
+
+    def test_a_blind_reviewer_can_read_it_without_the_verdict(self, contract, tmp_path):
+        from outcomefuse.evidence.store import EvidenceStore
+
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        case_id = report.results[0].case_id
+        store = EvidenceStore(tmp_path / "evidence", data_class="synthetic")
+        handle = store.for_blind_review(f"{case_id}-governed")
+        assert json.loads(handle.deliverable())["result_value"] == 16
+        # Structural: the handle has no method that returns a verdict at all.
+        assert not hasattr(handle, "verdict")
+
+    def test_a_run_with_no_deliverable_writes_none(self, contract, tmp_path):
+        # Nothing to keep, and an empty file would look like an answer.
+        report = run_campaign(
+            a_plan(contract, model=Model("not json")), runs_dir=tmp_path, max_cases=1
+        )
+        case_id = report.results[0].case_id
+        assert not (
+            tmp_path / "evidence" / f"{case_id}-governed" / "deliverable.json"
+        ).exists()
+
+
 class TestReportability:
     def test_a_calibration_campaign_cannot_support_a_headline(self, contract, tmp_path):
         # Calibration results never contribute to a headline figure (§8.5).

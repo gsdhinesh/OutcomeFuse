@@ -40,6 +40,7 @@ from ..core.policy import Ledger, Reserve
 from ..core.record import RecordStore, RunManifest
 from ..core.verify import CitableIndex
 from ..evidence.counter_metrics import BlindReview
+from ..evidence.store import EvidenceStore
 from ..ports import ModelPort
 from ..runtime import BaselineRecorder, Driver, ToolGovernor
 from ..workloads import WorkloadToolPort, citable_index_for, tool_port_for
@@ -369,6 +370,9 @@ def run_campaign(
     index = citable_index_for(plan.contract)
     price = _price(plan)
     runs_dir.mkdir(parents=True, exist_ok=True)
+    # AD-5b: the deliverable lives here, not in the decision log, so FR69's
+    # blind review has something to read that the gate did not write.
+    evidence = EvidenceStore(runs_dir / "evidence", data_class=case_set.data_class)
 
     report = CampaignReport(
         workload=plan.workload,
@@ -397,7 +401,7 @@ def run_campaign(
         try:
             result, manifests = _run_pair(
                 case, plan, tools=tools, index=index, price=price, answer_key=answer_key,
-                runs_dir=runs_dir,
+                runs_dir=runs_dir, evidence=evidence,
             )
         except GateUnavailable as exc:
             # Our breakage, not the agent's. Counting it as a loss for one arm
@@ -419,6 +423,7 @@ def _run_pair(
     price: Callable[[str, int, int], float] | None,
     answer_key: dict[str, Any],
     runs_dir: Path,
+    evidence: EvidenceStore | None = None,
 ) -> tuple[CaseResult, tuple[RunManifest, RunManifest]]:
     baseline_manifest = build_manifest(
         plan, run_id=f"{case.case_id}-baseline", mode="baseline", mechanisms={}
@@ -438,6 +443,9 @@ def _run_pair(
             contract=plan.contract,
             store=baseline_store,
             citable_index=index,
+            evidence=(
+                evidence.for_driver(baseline_manifest.run_id) if evidence else None
+            ),
         )
         recorder.open_run(baseline_manifest)
         baseline = run_case(
@@ -453,7 +461,15 @@ def _run_pair(
         )
         baseline_seal = recorder.seal()
 
-        driver = _driver(plan, governed_store, run_id=governed_manifest.run_id, tools=tools)
+        driver = _driver(
+            plan,
+            governed_store,
+            run_id=governed_manifest.run_id,
+            tools=tools,
+            evidence=(
+                evidence.for_driver(governed_manifest.run_id) if evidence else None
+            ),
+        )
         driver.open_run(governed_manifest)
         if index is not None:
             driver.bind_citable_index(index)
@@ -506,7 +522,14 @@ def _weaker(left: str | None, right: str | None) -> str:
     )
 
 
-def _driver(plan: Plan, store: RecordStore, *, run_id: str, tools: WorkloadToolPort) -> Driver:
+def _driver(
+    plan: Plan,
+    store: RecordStore,
+    *,
+    run_id: str,
+    tools: WorkloadToolPort,
+    evidence: Any | None = None,
+) -> Driver:
     budget = plan.contract.budget
     return Driver(
         run_id=run_id,
@@ -524,6 +547,7 @@ def _driver(plan: Plan, store: RecordStore, *, run_id: str, tools: WorkloadToolP
         ),
         governor=ToolGovernor(plan.contract),
         tools=tools,
+        evidence=evidence,
     )
 
 

@@ -27,6 +27,7 @@ safety-critical code in the system, on the branch least exercised by tests.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -90,6 +91,7 @@ class Driver:
         gate: QualityGate | None = None,
         fuse: LoopFuse | None = None,
         advisors: AdvisorRegistry | None = None,
+        evidence: Any | None = None,
     ) -> None:
         self.run_id = run_id
         self.contract = contract
@@ -101,6 +103,9 @@ class Driver:
         self.gate = gate or QualityGate()
         self.fuse = fuse
         self.advisors = advisors
+        #: AD-5b's sidecar. FR69's blind review reads the deliverable from here,
+        #: because the decision log carries a reference and a hash, never a body.
+        self.evidence = evidence
         self._seq = 0
         self._iterations = 0
         self._citable_index: CitableIndex | None = None
@@ -495,6 +500,7 @@ class Driver:
 
         self._deliverable = deliverable
         self._answer_key = answer_key
+        self._keep_evidence(deliverable)
 
         if deliverable is None:
             # Nothing to gate, and nothing further will produce one: the agent
@@ -527,6 +533,23 @@ class Driver:
                 contract_directs=self._on_gate_fail(),
             ),
             detail={"deliverable": "gate did not pass and the agent stopped"},
+        )
+
+    def _keep_evidence(self, deliverable: Mapping[str, Any] | None) -> None:
+        """Write the answer where a blind reviewer can read it (AD-5b, FR69).
+
+        Without this the run records that a gate passed and not what it passed,
+        so the review that exists to contradict the gate has nothing to read.
+        The log gets the reference and the hash; the body stays in the sidecar.
+        """
+        if self.evidence is None or deliverable is None:
+            return
+        ref = self.evidence.write(
+            "deliverable.json", json.dumps(dict(deliverable), indent=2, sort_keys=True)
+        )
+        self._append(
+            "evidence-observed",
+            payload={"deliverable": ref.relative_path, "sha256": ref.sha256},
         )
 
     def _escalate(self) -> StepVerdict | None:
