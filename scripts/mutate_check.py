@@ -140,8 +140,8 @@ MUTATIONS = [
     ),
     (
         "src/outcomefuse/harness/runner.py",
-        "    if not finished and terminal is None:",
-        "    if False:",
+        "            give_up = arm.finish(None, answer_key=answer_key)",
+        "            give_up = Finish()",
         "leaving a run open when the loop gives up",
     ),
     (
@@ -198,7 +198,7 @@ MUTATIONS = [
     ),
     (
         "src/outcomefuse/runtime/driver.py",
-        "        escalated = self._escalate()\n"
+        "        escalated = self._escalate(reason=\"gate-fail\")\n"
         "        if escalated is not None:\n"
         "            return escalated",
         "        pass",
@@ -220,12 +220,9 @@ MUTATIONS = [
     ),
     (
         "src/outcomefuse/harness/runner.py",
-        '                messages = [\n'
-        '                    Message(role="system", content=prompt.system),\n'
-        '                    Message(role="user", content=prompt.user),\n'
-        "                ]",
-        "                pass",
-        "anchoring the retry to the answer that just failed",
+        "        seen_prompt, seen_completion = by_model.get(response.model_id, (0, 0))",
+        "        seen_prompt, seen_completion = (0, 0)",
+        "losing the first model's tokens when a run escalates",
     ),
     (
         "src/outcomefuse/submission/script.py",

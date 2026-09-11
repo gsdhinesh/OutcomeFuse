@@ -346,6 +346,101 @@ class TestAnEscalatedRunHasNotEnded:
         assert set(outcome.tokens_by_model) == {"gpt-5-mini"}
 
 
+class TestARunThatProducedNothing:
+    # Option B's whole reason for existing, and measured as the commonest
+    # failure: seven of twelve governed data-sql runs spent their entire
+    # iteration budget and returned no answer, so no gate ever ran and the
+    # gate-keyed retry could never fire. Every test above goes through a gate
+    # failure, so none of them covered this.
+
+    class NeverAnswers:
+        """Asks for a tool every turn on the weak model; answers on the strong."""
+
+        def __init__(self, answer: str = GOOD) -> None:
+            self.answer = answer
+            self.asked: list[str] = []
+
+        def complete(self, request):
+            self.asked.append(request.model_id)
+            if request.model_id == "gpt-5-mini":
+                return ModelResponse(
+                    model_id=request.model_id,
+                    text="",
+                    prompt_tokens=100,
+                    completion_tokens=10,
+                    tool_calls=(
+                        ToolInvocation(id="c1", tool="schema_describe", arguments={}),
+                    ),
+                )
+            return ModelResponse(
+                model_id=request.model_id,
+                text=self.answer,
+                prompt_tokens=100,
+                completion_tokens=50,
+            )
+
+    def test_running_out_of_turns_escalates(self, case, contract, governed, answer_key):
+        arm, driver = governed()
+        model = self.NeverAnswers()
+        outcome = drive(case, contract, arm, model, answer_key, max_iterations=3)
+        assert "gpt-5" in model.asked
+        assert driver.escalations == 1
+        assert outcome.terminal_reason == "stop-sufficient"
+
+    def test_the_log_says_why_it_escalated(self, case, contract, governed, answer_key):
+        # `no deliverable` and `gate-fail` are different failures and the record
+        # keeps them apart, so a reader can tell which one the mechanism caught.
+        arm, driver = governed()
+        drive(case, contract, arm, self.NeverAnswers(), answer_key, max_iterations=3)
+        escalation = next(
+            e
+            for e in driver.store.events(driver.run_id)
+            if e.policy_action == "escalate"
+        )
+        assert escalation.payload["because"] == "the agent produced no answer"
+
+    def test_the_gate_fail_path_says_something_different(
+        self, case, contract, governed, answer_key
+    ):
+        arm, driver = governed()
+        drive(case, contract, arm, ByModel({"gpt-5-mini": WRONG, "gpt-5": GOOD}), answer_key)
+        escalation = next(
+            e
+            for e in driver.store.events(driver.run_id)
+            if e.policy_action == "escalate"
+        )
+        assert escalation.payload["because"] == "gate-fail"
+
+    def test_every_turn_of_each_model_is_counted_not_just_the_last(
+        self, case, contract, governed, answer_key
+    ):
+        # The weak model takes several turns here. A fixture where each model
+        # answers once cannot tell accumulation from overwriting, and the
+        # repricing that FR62's cost split depends on would silently lose
+        # everything but the final turn.
+        arm, _ = governed()
+        outcome = drive(
+            case, contract, arm, self.NeverAnswers(), answer_key, max_iterations=3
+        )
+        weak_prompt, weak_completion = outcome.tokens_by_model["gpt-5-mini"]
+        assert weak_prompt == 300  # three turns at 100
+        assert weak_completion == 30
+        counted = sum(p + c for p, c in outcome.tokens_by_model.values())
+        assert counted == outcome.spend.total_tokens
+
+    def test_with_no_escalation_left_it_halts_rather_than_looping(
+        self, case, contract, governed, answer_key
+    ):
+        # The mirror: escalation must not turn "ran out of turns" into an
+        # unbounded retry. One escalation, then the ladder.
+        arm, driver = governed()
+        model = self.NeverAnswers(answer="")
+        outcome = drive(case, contract, arm, model, answer_key, max_iterations=2)
+        assert driver.escalations <= contract.escalation.max_escalations
+        assert outcome.terminal_reason is not None
+        assert driver.terminated is not None
+
+
 class TestTheReserveIsProtected:
     # Sized so the *escalation* is what cannot be afforded. An allocation too
     # small for the first turn would kill the run before the guard was reached,
