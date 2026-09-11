@@ -162,6 +162,21 @@ class TestUnmeasuredIsNotZero:
         assert not reading.breached
         assert not reading.measured
 
+    def test_a_measured_metric_with_no_threshold_does_not_breach(self, study):
+        # A campaign run without a preregistration reads real values against no
+        # thresholds at all. Comparing a number to a missing threshold is not a
+        # breach, and it must not be a crash either.
+        metrics = read_counter_metrics(a_report(), study=study, preregistration=None)
+        assert metrics.breaches == ()
+        assert all(r.threshold is None for r in metrics.readings)
+        assert any(r.measured for r in metrics.readings)
+
+    def test_a_threshold_of_zero_is_a_threshold_not_an_absence(self):
+        # `0.0` is falsy, so a truthiness check here would silently drop the
+        # tightest threshold anyone can set.
+        assert Reading(metric="x", value=0.1, threshold=0.0, basis="b").breached
+        assert not Reading(metric="x", value=0.0, threshold=0.0, basis="b").breached
+
     def test_only_measured_metrics_are_reported_as_reported(self, prereg, study):
         # Accompaniment is told this. Naming an unmeasured metric would claim a
         # check that did not happen, and FR66's threshold test would then pass
