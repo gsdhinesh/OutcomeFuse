@@ -34,6 +34,7 @@ from ..core.gate import GateUnavailable, QualityGate, Verdict
 from ..core.record import Event, RecordStore
 from ..core.verify import CitableIndex
 from ..ports import ToolCall
+from .tool_governor import canonical_key
 
 WHEN = "2026-09-10T12:00:00Z"
 
@@ -81,12 +82,28 @@ class BaselineRecorder:
         )
 
     def observe_tool(self, call: ToolCall, *, failed: str | None = None) -> None:
-        """A tool ran, or broke. Either way it was allowed: nothing here can deny."""
-        self._append("evidence-requested", step_id=call.step_id, payload={"tool": call.tool})
+        """A tool ran, or broke. Either way it was allowed: nothing here can deny.
+
+        The canonical key is recorded so an ungoverned run can be asked, after
+        the fact, how many of its calls a deduplicating governor would have had
+        anything to catch. Without it a repeated tool *name* is indistinguishable
+        from a repeated *call*, and the two say opposite things about whether
+        the tool governor has work to do.
+        """
+        key = canonical_key(call)
+        self._append(
+            "evidence-requested",
+            step_id=call.step_id,
+            payload={"tool": call.tool, "canonical_key": key},
+        )
         self._append(
             "outcome-observed",
             step_id=call.step_id,
-            payload={"tool": call.tool, **({"tool_error": failed} if failed else {})},
+            payload={
+                "tool": call.tool,
+                "canonical_key": key,
+                **({"tool_error": failed} if failed else {}),
+            },
         )
 
     def score(
