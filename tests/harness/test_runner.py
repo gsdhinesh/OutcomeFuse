@@ -329,27 +329,36 @@ class TestTheAgentsFailuresAreScoredNotRaised:
         assert "tool error" in reply.content
         assert outcome.parsed is not None and outcome.parsed.ok
 
-    def test_a_broken_tool_releases_the_budget_it_reserved(self, case, contract, governed):
+    def test_a_broken_tool_releases_the_budget_it_reserved(self, governed):
         # Found in a real run's log: four tool calls proposed, three
         # `outcome-observed`. The failing one had taken a reservation that was
         # never released, so the run's spendable budget shrank for the rest of
         # its life — invisibly, because the log shows a reservation and simply
         # never shows its release.
+        #
+        # Asserted mid-run, deliberately. Closing a run calls `release_all`, so
+        # the same assertion made after `run_case` returns would hold whether or
+        # not the hold was ever released, and would defend nothing.
         arm, driver = governed()
         before = driver.ledger.in_flight_tokens
-        model = Model(
-            asks(a_call(tool="sql_query", arguments={"sql": "SELECT nope FROM nowhere"})),
-            answer('{"answer": "x"}'),
+        outcome = arm.run_tool(
+            ToolCall(
+                tool="sql_query",
+                arguments={"sql": "SELECT nope FROM nowhere"},
+                step_id="s1",
+            )
         )
-        run_case(
-            case,
-            contract=contract,
-            arm=arm,
-            model=model,
-            max_output_tokens=25000,
-            reasoning_effort="medium",
-        )
+        assert "tool error" in outcome.content
+        assert driver.terminated is None  # the run is still open
         assert driver.ledger.in_flight_tokens == before
+
+    def test_a_successful_tool_also_leaves_nothing_in_flight(self, governed):
+        # The mirror: a release that fired on every path, or a ledger that never
+        # held anything, would pass the test above for the wrong reason.
+        arm, driver = governed()
+        arm.run_tool(ToolCall(tool="schema_describe", arguments={}, step_id="s1"))
+        assert driver.ledger.in_flight_tokens == 0
+        assert driver.ledger.spent_tokens > 0
 
     def test_a_broken_tool_is_recorded_as_an_observation(self, case, contract, governed):
         # Every reservation must be answered in the log. A `budget-reserved`
