@@ -111,6 +111,24 @@ MUTATIONS = [
         "        if False:",
         "spending a model turn the budget cannot afford",
     ),
+    (
+        "src/outcomefuse/runtime/driver.py",
+        "            self.ledger.release_unspent(hold_id)",
+        "            pass",
+        "leaking the budget reserved for a tool that then failed",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "    if verdict.failed:",
+        "    if False:",
+        "reporting a broken tool to the agent as a refusal",
+    ),
+    (
+        "src/outcomefuse/harness/answer_keys.py",
+        "    if split == SEALED_SPLIT and not preregistration_hash:",
+        "    if False:",
+        "opening the evaluation split with no preregistration",
+    ),
 ]
 
 TESTS = [
@@ -118,6 +136,7 @@ TESTS = [
     "tests/adapters/test_azure_model_port.py",
     "tests/harness/test_runner.py",
     "tests/harness/test_costs.py",
+    "tests/harness/test_answer_keys.py",
 ]
 
 

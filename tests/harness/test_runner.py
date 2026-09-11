@@ -329,6 +329,66 @@ class TestTheAgentsFailuresAreScoredNotRaised:
         assert "tool error" in reply.content
         assert outcome.parsed is not None and outcome.parsed.ok
 
+    def test_a_broken_tool_releases_the_budget_it_reserved(self, case, contract, governed):
+        # Found in a real run's log: four tool calls proposed, three
+        # `outcome-observed`. The failing one had taken a reservation that was
+        # never released, so the run's spendable budget shrank for the rest of
+        # its life — invisibly, because the log shows a reservation and simply
+        # never shows its release.
+        arm, driver = governed()
+        before = driver.ledger.in_flight_tokens
+        model = Model(
+            asks(a_call(tool="sql_query", arguments={"sql": "SELECT nope FROM nowhere"})),
+            answer('{"answer": "x"}'),
+        )
+        run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=model,
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+        )
+        assert driver.ledger.in_flight_tokens == before
+
+    def test_a_broken_tool_is_recorded_as_an_observation(self, case, contract, governed):
+        # Every reservation must be answered in the log. A `budget-reserved`
+        # with no outcome is the shape the leak took.
+        arm, driver = governed()
+        model = Model(
+            asks(a_call(tool="sql_query", arguments={"sql": "SELECT nope FROM nowhere"})),
+            answer('{"answer": "x"}'),
+        )
+        run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=model,
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+        )
+        events = driver.store.events(driver.run_id)
+        observed = [e for e in events if e.kind == "outcome-observed"]
+        assert len(observed) == 1
+        assert "tool_error" in observed[0].payload
+
+    def test_a_broken_tool_is_not_reported_to_the_agent_as_a_refusal(
+        self, case, contract, governed
+    ):
+        # An agent told "not allowed" stops trying. An agent told the query was
+        # wrong fixes the query. Conflating them turns a typo into a dead run.
+        arm, _ = governed()
+        outcome = arm.run_tool(
+            ToolCall(
+                tool="sql_query",
+                arguments={"sql": "SELECT nope FROM nowhere"},
+                step_id="s1",
+            )
+        )
+        assert not outcome.refused
+        assert "tool error" in outcome.content
+        assert outcome.terminal_reason is None
+
     def test_a_malformed_tool_call_is_answered_without_running_anything(
         self, case, contract, baseline, tools
     ):

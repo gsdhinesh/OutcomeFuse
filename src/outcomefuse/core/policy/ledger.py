@@ -224,9 +224,20 @@ class Ledger:
             self.attributions.append(attribution)
         return held
 
+    def release_unspent(self, hold_id: str) -> Hold:
+        """Release a hold without spending it. The step did not happen.
+
+        Covers both a denial and a tool that failed after the reservation was
+        taken. Either way the money must come back: a hold left in flight
+        shrinks what the run can spend for the rest of its life, and it does so
+        invisibly — the log shows a reservation and simply never shows its
+        release.
+        """
+        return self._release(hold_id)
+
     def release_denied(self, hold_id: str) -> Hold:
         """Release without spending: the step was denied."""
-        return self._release(hold_id)
+        return self.release_unspent(hold_id)
 
     def release_all(self) -> list[Hold]:
         """Run termination releases whatever is still outstanding."""

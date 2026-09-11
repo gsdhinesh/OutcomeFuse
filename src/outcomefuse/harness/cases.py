@@ -46,8 +46,11 @@ class Case(BaseModel):
     workload: str = Field(min_length=1)
     split: Split
     difficulty: str
-    #: `answer` or `insufficient-evidence`. Roughly one case in ten is the
-    #: latter, and no prompt says which.
+    #: `answer` or `partial`. Eight of the eighty cases are `partial` — the
+    #: corpus cannot support a full answer and the right move is to say so —
+    #: and no prompt says which. `is_unanswerable` tests against `answer`
+    #: rather than for `partial`, so a third value added later is treated as
+    #: not-fully-answerable rather than silently scored as answerable.
     expected_outcome: str
     prompt: str = Field(min_length=1)
     #: What a coin-flip would score. Present so a result can be compared

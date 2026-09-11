@@ -20,3 +20,4 @@ _bmad/render/
 # Source research summarising internal decks and third-party internal proposals.
 # Kept locally, deliberately not published. See README note.
 doc/
+runs/

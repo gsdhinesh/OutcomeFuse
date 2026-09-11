@@ -61,6 +61,9 @@ class StepVerdict(BaseModel):
     terminal_reason: str | None = None
     result: Any = None
     detail: str = ""
+    #: The tool was allowed and then failed. Distinct from a denial: the agent
+    #: should read the error and try something else, not conclude it is barred.
+    failed: bool = False
 
     @property
     def terminates(self) -> bool:
@@ -229,7 +232,26 @@ class Driver:
             decision_reason=disposition.reason,
         )
 
-        result = self._execute(call)
+        try:
+            result = self._execute(call)
+        except Exception as exc:  # noqa: BLE001 - any tool failure, released and recorded
+            # The hold must come back. A tool that raises after the budget was
+            # reserved would otherwise leave that reservation in flight for the
+            # rest of the run, quietly shrinking what the agent can spend until
+            # it halts exhausted for no reason anyone could find in the log.
+            self.ledger.release_unspent(hold_id)
+            self._append(
+                "outcome-observed",
+                step_id=call.step_id,
+                payload={"tool_error": str(exc), "tool": call.tool},
+            )
+            return StepVerdict(
+                action="proceed",
+                decision_reason=disposition.reason,
+                detail=f"tool error: {exc}",
+                failed=True,
+            )
+
         self._append("outcome-observed", step_id=call.step_id)
         self.ledger.settle(hold_id)
         self._append("spend-settled", step_id=call.step_id, tokens_consumed=estimated_tokens)

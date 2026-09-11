@@ -143,8 +143,10 @@ class GovernedArm:
         try:
             verdict = self._driver.execute_step(call)
         except ToolError as exc:
-            # The tool itself failed. That is information the agent can act on,
-            # not a reason to lose the run.
+            # Kept as a backstop. The driver now catches a failing tool itself,
+            # so that it can release the budget it reserved for it; this is here
+            # only for a tool port that raises somewhere the driver does not
+            # reach.
             return ToolOutcome(content=f"tool error: {exc}", refused=True)
         return _from_verdict(verdict)
 
@@ -207,6 +209,10 @@ def _from_verdict(verdict: StepVerdict) -> ToolOutcome:
             content=f"the run was stopped: {verdict.decision_reason}",
             terminal_reason=verdict.terminal_reason,
         )
+    if verdict.failed:
+        # The call was allowed and the tool broke. The agent should read the
+        # error and try something else, not conclude it is barred from the tool.
+        return ToolOutcome(content=verdict.detail, refused=False)
     if verdict.action == "deny":
         # Told plainly, because an agent that cannot tell refusal from failure
         # will retry the same call until the loop cap stops it.
