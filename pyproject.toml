@@ -9,6 +9,14 @@ dependencies = [
     "pyyaml>=6",
 ]
 
+# The live model adapter needs `openai` and `azure-identity`. They are
+# deliberately NOT declared here: `uv.lock` is committed, and a dependency this
+# machine's TLS interception cannot resolve would break `uv run pytest` for
+# everyone. They are imported lazily, so the suite runs without them. Install
+# them when you want to talk to a real deployment:
+#
+#     uv pip install openai azure-identity
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
