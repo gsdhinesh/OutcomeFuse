@@ -225,6 +225,12 @@ MUTATIONS = [
         "losing the first model's tokens when a run escalates",
     ),
     (
+        "src/outcomefuse/harness/reportability.py",
+        "    if a.counter_metric_breaches:",
+        "    if False:",
+        "publishing a headline whose counter-metric breached its threshold",
+    ),
+    (
         "src/outcomefuse/submission/script.py",
         "        if self.disclosures:\n"
         '            lines.append("\\n## Disclosed (§8.2)")',

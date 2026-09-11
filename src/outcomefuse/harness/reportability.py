@@ -64,6 +64,10 @@ class Accompaniment(BaseModel):
     headline_is_net: bool = True
     counter_metric_thresholds: dict[str, float] = Field(default_factory=dict)
     counter_metrics_reported: tuple[str, ...] = ()
+    #: Metrics whose measured value exceeded its preregistered threshold. A
+    #: threshold that does not refuse anything is decoration, which is the exact
+    #: failure the preregistration exists to prevent.
+    counter_metric_breaches: tuple[str, ...] = ()
 
 
 class Reportability(BaseModel):
@@ -171,6 +175,15 @@ def check_accompaniment(accompaniment: Accompaniment) -> list[str]:
     if unthresholded:
         refusals.append(
             f"counter-metrics reported without a preregistered threshold: {unthresholded}"
+        )
+    if a.counter_metric_breaches:
+        # Measured on data-sql: an escalation rate of 0.83 against a
+        # preregistered 0.30. An arm that escalates on almost everything has no
+        # cheap path, so whatever it saved did not come from governing — which
+        # is the reading the threshold was set to force.
+        refusals.append(
+            "counter-metrics breached their preregistered thresholds: "
+            + ", ".join(sorted(a.counter_metric_breaches))
         )
 
     return refusals

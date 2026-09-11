@@ -234,3 +234,49 @@ class TestBreaches:
         metrics = read_counter_metrics(report, study=study, preregistration=prereg)
         breached = [r.metric for r in metrics.breaches]
         assert "escalation-rate" in breached
+
+
+class TestABreachRefusesTheHeadline:
+    # Measured on data-sql: an escalation rate of 0.83 against a preregistered
+    # 0.30. The metric read it correctly and the run was still reported as
+    # publishable, because accompaniment only checked that each metric *had* a
+    # threshold and never whether it passed one. Every threshold in the
+    # preregistration was decorative.
+
+    def _accompaniment(self, **over):
+        from outcomefuse.harness.reportability import Accompaniment
+
+        base = {
+            "per_mechanism_breakdown": True,
+            "case_count": 6,
+            "minimum_case_count": 6,
+            "coverage_report_hash": "a" * 64,
+            "reports_failures_and_escalations": True,
+            "headline_is_net": True,
+            "counter_metric_thresholds": {"escalation-rate": 0.3},
+            "counter_metrics_reported": ("escalation-rate",),
+        }
+        return Accompaniment(**(base | over))
+
+    def test_a_breach_is_refused(self):
+        from outcomefuse.harness.reportability import check_accompaniment
+
+        refusals = check_accompaniment(
+            self._accompaniment(counter_metric_breaches=("escalation-rate",))
+        )
+        assert any("breached their preregistered thresholds" in r for r in refusals)
+
+    def test_no_breach_is_not_refused(self):
+        # The mirror: refusing unconditionally would pass the test above and
+        # block every honest result.
+        from outcomefuse.harness.reportability import check_accompaniment
+
+        assert check_accompaniment(self._accompaniment()) == []
+
+    def test_the_breached_metric_is_named(self):
+        from outcomefuse.harness.reportability import check_accompaniment
+
+        refusals = check_accompaniment(
+            self._accompaniment(counter_metric_breaches=("escalation-rate",))
+        )
+        assert any("escalation-rate" in r for r in refusals)

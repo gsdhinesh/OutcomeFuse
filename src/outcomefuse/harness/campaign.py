@@ -203,6 +203,7 @@ class CampaignReport:
             return None
         baseline_facts, governed_facts = self.run_facts()
         card = self.proof_card()
+        counters = self.counter_metrics()
         return assess(
             self.baseline_manifest,
             self.governed_manifest,
@@ -224,6 +225,7 @@ class CampaignReport:
                 # measured would claim a check that did not happen, and FR66's
                 # threshold check would then pass on an absent number.
                 counter_metrics_reported=self.counter_metrics().reported,
+                counter_metric_breaches=tuple(r.metric for r in counters.breaches),
             ),
             headline=headline_claim,
         )
