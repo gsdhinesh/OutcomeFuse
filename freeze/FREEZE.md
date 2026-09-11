@@ -2,7 +2,7 @@
 
 **Generated** by `freeze/freeze.py`. Do not edit by hand.
 
-**Freeze digest** `4150cf034ba3f10d93a4129d0d243439c01d399e2cf9d706b24cde1e5addb22a`
+**Freeze digest** `42e4a45ba399730f8734f85b3a00c82829842323bc3f77194872c731810f0a7d`
 
 This is the point of no return. §8.2's defence is that the rubric and answer
 keys were fixed before the governor existed; re-freezing after seeing it is
@@ -18,6 +18,11 @@ A re-freeze is only defensible where nothing was learned from results first. Eac
 | --- | --- | --- | --- | --- |
 | `3ac83cdab77d199c…` | 2026-09-09 | derivation scripts, and the seal | an unclosed SQLite connection in the answer-key deriver was fixed | none; the governor did not yet exist |
 | `823b4910ecfbe4bc…` | 2026-09-11 | the four contracts' model ids, the baseline definition, and the seal | gpt-4o is unavailable on the deployment this project has, and its replacement is a reasoning model that rejects `temperature`, so the frozen setting could not be honoured by any alias or mapping | none; the evaluation split was still sealed |
+| `4150cf034ba3f10d…` | 2026-09-11 | a `prompt_context` of `region` / `as_of` / `po_id` added to four cases, and the seal | the four `partial` cases carried no prompt parameters, so the structured header their frozen prompt template requires could not be filled and they could not run at all. Each value is already stated verbatim in that case's own prompt, so nothing was added the agent is not told; the change makes those four consistent with their peers rather than the only cases in the set with an empty header. Held in `prompt_context` rather than `reference` because `reference` means key-derivation input, which an unanswerable case correctly has none of — the deriver refuses one that does, and that invariant stands | none; the evaluation split was still sealed |
+
+### When this stops being available
+
+The freeze may be amended only while **no run of any kind exists**. From the moment the first run is recorded the freeze is final: a defect found afterwards is worked around and disclosed in the submission, never fixed. After that point an amendment could be influenced by what a result looked like, and §8.2 exists for no other reason.
 
 ## Coverage at freeze time
 
@@ -43,12 +48,12 @@ A re-freeze is only defensible where nothing was learned from results first. Eac
 | --- | ---: | --- | --- | --- | --- |
 | calibration/code-triage | 12 | synthetic | `cases/corpora/code-triage/v1` | `39b399b2663b5ced…` | `852a2fae36283365…` |
 | calibration/data-sql | 12 | synthetic | `cases/corpora/data-sql/v1` | `baf22a55486fad2d…` | `dc38749ad4d3efde…` |
-| calibration/doc-research | 12 | synthetic | `cases/corpora/doc-research/v1` | `973815e93bcbdbdd…` | `32053376b335e6eb…` |
-| calibration/supply-chain | 12 | synthetic | `cases/corpora/supply-chain/v1` | `256a708550d1368c…` | `fde2e1b542851bb8…` |
+| calibration/doc-research | 12 | synthetic | `cases/corpora/doc-research/v1` | `d24bfac51e8fe010…` | `32053376b335e6eb…` |
+| calibration/supply-chain | 12 | synthetic | `cases/corpora/supply-chain/v1` | `8cd280e3a12aa71f…` | `fde2e1b542851bb8…` |
 | evaluation/code-triage | 8 | synthetic | `cases/corpora/code-triage/v1` | `5f4c432818c22dc4…` | `01a45b9440a04923…` |
 | evaluation/data-sql | 8 | synthetic | `cases/corpora/data-sql/v1` | `4a2bc9969d809264…` | `913beb7721d3db5d…` |
-| evaluation/doc-research | 8 | synthetic | `cases/corpora/doc-research/v1` | `7c676da669f45dbd…` | `90d1c641de045ae3…` |
-| evaluation/supply-chain | 8 | synthetic | `cases/corpora/supply-chain/v1` | `12e76a8a352580a9…` | `51b5d9a47e8812ad…` |
+| evaluation/doc-research | 8 | synthetic | `cases/corpora/doc-research/v1` | `43234d87b15371ab…` | `90d1c641de045ae3…` |
+| evaluation/supply-chain | 8 | synthetic | `cases/corpora/supply-chain/v1` | `184bd772a70e9244…` | `51b5d9a47e8812ad…` |
 
 The **evaluation** sets are frozen and sealed. Their case definitions are
 authored and known; it is the *results* that must stay unseen until

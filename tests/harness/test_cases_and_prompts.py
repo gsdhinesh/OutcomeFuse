@@ -15,6 +15,8 @@ failure that looked like the agent's.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from outcomefuse.harness.cases import PROMPT_CONTEXT_KEYS, Case, CaseError, load_case_set
@@ -22,10 +24,11 @@ from outcomefuse.harness.prompts import PromptError, load_template, render
 
 WORKLOADS = ("data-sql", "code-triage", "doc-research", "supply-chain")
 
-#: The four `partial` cases whose reference is empty in the frozen case sets,
-#: so the structured header their template needs cannot be filled. Listed here
-#: so the count is asserted rather than discovered one run at a time.
-UNRENDERABLE = {"dr-c-012", "dr-e-008", "sc-c-012", "sc-e-008"}
+#: The four `partial` cases. Their prompt parameters live in `prompt_context`
+#: rather than `reference`, because `reference` means key-derivation input and
+#: an unanswerable case correctly has none — the frozen deriver refuses one
+#: that does.
+PARTIAL_CASES = {"dr-c-012", "dr-e-008", "sc-c-012", "sc-e-008"}
 
 
 def a_case(**over) -> Case:
@@ -58,8 +61,6 @@ class TestTheReferenceNeverReachesTheRuntime:
     def test_a_rendered_prompt_never_contains_an_answer_artifact(self):
         for workload in WORKLOADS:
             for case in load_case_set(workload, "calibration").cases:
-                if case.case_id in UNRENDERABLE:
-                    continue
                 text = render(case).shared_task_block.lower()
                 assert "value_sql" not in text
                 assert "answer_key" not in text
@@ -138,27 +139,32 @@ class TestAHalfSubstitutedPromptIsRefused:
         with pytest.raises(PromptError, match="harness bug"):
             render(a_case(workload="supply-chain"))
 
-    @pytest.mark.parametrize("case_id", sorted(UNRENDERABLE))
-    def test_the_four_frozen_partial_cases_are_currently_refused(self, case_id):
-        # Documented rather than worked around: their reference is empty in the
-        # frozen case set, so the template's structured header cannot be
-        # filled. Rendering a blank `Region:` would give exactly the cases that
-        # test fabrication a differently shaped prompt from every other case.
+    @pytest.mark.parametrize("case_id", sorted(PARTIAL_CASES))
+    def test_the_four_partial_cases_render_like_their_peers(self, case_id):
+        # They are the load-bearing unanswerable cases. A blank `Region:` would
+        # give exactly the cases that test fabrication a differently shaped
+        # prompt from every other case — and an empty header is itself a cue.
         split = "calibration" if "-c-" in case_id else "evaluation"
         workload = "doc-research" if case_id.startswith("dr") else "supply-chain"
         case = load_case_set(workload, split).by_id(case_id)
         assert case.expected_outcome == "partial"
-        assert case.prompt_context == {}
-        with pytest.raises(PromptError):
-            render(case)
+        assert case.prompt_context
+        assert render(case).user
 
-    def test_every_other_frozen_case_renders(self):
-        refused = set()
+    def test_a_partial_case_still_carries_no_key_derivation_reference(self):
+        # The frozen deriver refuses an unanswerable case that does, and that
+        # invariant was not weakened to make these render.
+        import yaml
+
+        raw = yaml.safe_load(
+            Path("cases/calibration/supply-chain/cases.yaml").read_text(encoding="utf-8")
+        )
+        case = next(c for c in raw["cases"] if c["case_id"] == "sc-c-012")
+        assert "reference" not in case
+        assert case["prompt_context"] == {"po_id": 5009}
+
+    def test_every_frozen_case_renders(self):
         for split in ("calibration", "evaluation"):
             for workload in WORKLOADS:
                 for case in load_case_set(workload, split).cases:
-                    try:
-                        render(case)
-                    except PromptError:
-                        refused.add(case.case_id)
-        assert refused == UNRENDERABLE
+                    assert render(case).user

@@ -19,7 +19,7 @@
     "calibration/doc-research": {
       "answer_keys_sha256": "32053376b335e6ebc232f2f463b23ed12798fd1722a7fdee2071a2687d1ff297",
       "case_count": 12,
-      "cases_sha256": "973815e93bcbdbdda21a471fea6d6f69d735e786e9d762bf289bfda7112436fe",
+      "cases_sha256": "d24bfac51e8fe01006d6efd8eae3230fefaa90960445cb64ac83750d032962aa",
       "corpus_ref": "cases/corpora/doc-research/v1",
       "data_class": "synthetic",
       "route": "structure/v1"
@@ -27,7 +27,7 @@
     "calibration/supply-chain": {
       "answer_keys_sha256": "fde2e1b542851bb8387161b2889f89f3409ff19d08e5c6beef7ff4c58ee04dc7",
       "case_count": 12,
-      "cases_sha256": "256a708550d1368c6f4163806814ca2fdea051004404f05cf088da976939b733",
+      "cases_sha256": "8cd280e3a12aa71ff9b50bfdeeddc868811ef4d6bdd97647de91b266dd1765c7",
       "corpus_ref": "cases/corpora/supply-chain/v1",
       "data_class": "synthetic",
       "route": "structure/v1"
@@ -51,7 +51,7 @@
     "evaluation/doc-research": {
       "answer_keys_sha256": "90d1c641de045ae39bbe855f0f7fd3aee9f131f021f317e39cce9234977b82c7",
       "case_count": 8,
-      "cases_sha256": "7c676da669f45dbd49abde4a75406eb182fdc5131456ec5ba8c0b24a3b4708cb",
+      "cases_sha256": "43234d87b15371ab6ebb4e692a340ff004b97d8b46322abef58da18c4764f2a4",
       "corpus_ref": "cases/corpora/doc-research/v1",
       "data_class": "synthetic",
       "route": "structure/v1"
@@ -59,7 +59,7 @@
     "evaluation/supply-chain": {
       "answer_keys_sha256": "51b5d9a47e8812ad296e992a1376997512cf27c3d817fc221805eca3df0e06e8",
       "case_count": 8,
-      "cases_sha256": "12e76a8a352580a9e198ed747837845321f949741b898a124c762f125be423fe",
+      "cases_sha256": "184bd772a70e9244db8e3c3401f1d016c76b1a37de959cff0f6d9f50949b15af",
       "corpus_ref": "cases/corpora/supply-chain/v1",
       "data_class": "synthetic",
       "route": "structure/v1"
@@ -165,7 +165,7 @@
       "reference_backed_percent": 66.7
     }
   },
-  "freeze_sha256": "4150cf034ba3f10d93a4129d0d243439c01d399e2cf9d706b24cde1e5addb22a",
+  "freeze_sha256": "42e4a45ba399730f8734f85b3a00c82829842323bc3f77194872c731810f0a7d",
   "freeze_version": "v1",
   "normalisation": "v1",
   "routes": {

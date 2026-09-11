@@ -181,6 +181,7 @@ cases:
       What records retention period applied in EMEA as at 1 December 2024?
       Give the answer, name the document it rests on, and cite the sources you
       relied on.
+    prompt_context: { region: emea, as_of: '2024-12-01' }
     unmet_criteria:
       - answer-matches-key
       - primary-source-matches-key

@@ -24,6 +24,12 @@ ROOT: Final[Path] = Path(__file__).resolve().parents[3]
 #: The only reference keys a prompt may be built from, per
 #: `freeze/baseline-prompts/README.md`. Everything else in a reference exists
 #: to derive the answer key, and the runtime has no business seeing it.
+#:
+#: A case may also carry `prompt_context` directly. The two exist separately
+#: because `reference` means *key-derivation input* — the deriver refuses an
+#: unanswerable case that carries any — while a prompt parameter is just what
+#: the question asks about, and the unanswerable cases need one without having
+#: an answer to derive.
 PROMPT_CONTEXT_KEYS: Final[frozenset[str]] = frozenset({"as_of", "region", "po_id"})
 
 
@@ -86,7 +92,9 @@ def load_case_set(workload: str, split: str) -> CaseSet:
 
     cases = []
     for raw in document["cases"]:
-        reference = raw.get("reference") or {}
+        # `prompt_context` where the case states it; otherwise the allow-listed
+        # slice of `reference`. Either way only the three keys survive.
+        supplied = raw.get("prompt_context") or raw.get("reference") or {}
         cases.append(
             Case(
                 case_id=raw["case_id"],
@@ -98,7 +106,7 @@ def load_case_set(workload: str, split: str) -> CaseSet:
                 guess_baseline=raw.get("guess_baseline", 0.0),
                 prompt_context={
                     key: value
-                    for key, value in reference.items()
+                    for key, value in supplied.items()
                     if key in PROMPT_CONTEXT_KEYS
                 },
             )

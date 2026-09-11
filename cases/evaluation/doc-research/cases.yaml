@@ -123,6 +123,7 @@ cases:
       What encryption-at-rest standard applies in EMEA as at 15 March 2026?
       Give the answer, name the document it rests on, and cite the sources you
       relied on.
+    prompt_context: { region: emea, as_of: '2026-03-15' }
     unmet_criteria:
       - answer-matches-key
       - primary-source-matches-key

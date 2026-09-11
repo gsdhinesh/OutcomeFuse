@@ -137,6 +137,8 @@ cases:
       the variance against the quoted freight rate. Classify the exception,
       identify its root cause, recommend a disposition, and cite the supplier
       policy clauses your recommendation rests on.
+    prompt_context:
+      po_id: 5018
     unmet_criteria:
       - exception-type-matches-key
       - root-cause-matches-key

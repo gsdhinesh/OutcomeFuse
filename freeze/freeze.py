@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import yaml
 
@@ -71,6 +71,40 @@ SUPERSEDED: tuple[dict[str, str], ...] = (
         ),
         "results_seen": "none; the evaluation split was still sealed",
     },
+    {
+        "digest": "4150cf034ba3f10d93a4129d0d243439c01d399e2cf9d706b24cde1e5addb22a",
+        "date": "2026-09-11",
+        "moved": (
+            "a `prompt_context` of `region` / `as_of` / `po_id` added to four "
+            "cases, and the seal"
+        ),
+        "reason": (
+            "the four `partial` cases carried no prompt parameters, so the "
+            "structured header their frozen prompt template requires could not be "
+            "filled and they could not run at all. Each value is already stated "
+            "verbatim in that case's own prompt, so nothing was added the agent "
+            "is not told; the change makes those four consistent with their peers "
+            "rather than the only cases in the set with an empty header. Held in "
+            "`prompt_context` rather than `reference` because `reference` means "
+            "key-derivation input, which an unanswerable case correctly has none "
+            "of — the deriver refuses one that does, and that invariant stands"
+        ),
+        "results_seen": "none; the evaluation split was still sealed",
+    },
+)
+
+#: When amending the freeze stops being available at all.
+#:
+#: Every supersession above was justified on its own terms, which is exactly how
+#: a freeze quietly stops being one. §8.2 cares about a single thing: that the
+#: benchmark was not shaped by anyone who had seen a result. So the line is
+#: drawn where that becomes possible rather than at a count of amendments.
+FINALITY_RULE: Final[str] = (
+    "The freeze may be amended only while **no run of any kind exists**. From "
+    "the moment the first run is recorded the freeze is final: a defect found "
+    "afterwards is worked around and disclosed in the submission, never fixed. "
+    "After that point an amendment could be influenced by what a result looked "
+    "like, and §8.2 exists for no other reason."
 )
 
 FREEZE_VERSION = "v1"
@@ -314,7 +348,7 @@ def render_markdown(record: dict[str, Any]) -> str:
                 f"| `{entry['digest'][:16]}\u2026` | {entry['date']} | {entry['moved']} | "
                 f"{entry['reason']} | {entry['results_seen']} |"
             )
-        lines.append("")
+        lines += ["", "### When this stops being available", "", FINALITY_RULE, ""]
     lines += [
         "## Coverage at freeze time",
         "",
