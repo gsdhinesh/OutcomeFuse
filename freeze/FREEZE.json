@@ -69,25 +69,25 @@
     "code-triage": {
       "contract_id": "ofc-code-triage",
       "route": "structure/v1",
-      "sha256": "7578f3291cc8940ae7fdd9d329f150546f0b546b47cac6f4433a7c2158e80312",
+      "sha256": "d40dcf88edd36370a25ae278a7d9788e95c3762b339f0f509c8378cc5b79008e",
       "version": 1
     },
     "data-sql": {
       "contract_id": "ofc-data-sql",
       "route": "structure/v1",
-      "sha256": "a586ee16371851a91fc88bbba4a4a3087cdf505c379205513943d1c24cf11a04",
+      "sha256": "b386bf3aded91f715cbd0bfbde0410652ff50ab2e515231dca6b15cb60b7eb5a",
       "version": 1
     },
     "doc-research": {
       "contract_id": "ofc-doc-research",
       "route": "structure/v1",
-      "sha256": "d3bc6d7fea5dad610b0a9976ca7a71b6ff1a2fd9783ff16ab0032a7595cc0323",
+      "sha256": "5a321ba672338b086e50e9e13e72355119ed04bdeb18e24c2cfc431d9a0390b8",
       "version": 1
     },
     "supply-chain": {
       "contract_id": "ofc-supply-chain",
       "route": "structure/v1",
-      "sha256": "657d0e8cd4085c582db888d38980c7a783ee4eeb38bac162fc2139e163718442",
+      "sha256": "2b80766bdb22b31f5726046f6737a0915aeb66c29e28ff6333a2aa8d5c3f097a",
       "version": 1
     }
   },
@@ -165,7 +165,7 @@
       "reference_backed_percent": 66.7
     }
   },
-  "freeze_sha256": "823b4910ecfbe4bc89d329bfd31217070ad691f46efa051624b7520b6e0aa8a1",
+  "freeze_sha256": "4150cf034ba3f10d93a4129d0d243439c01d399e2cf9d706b24cde1e5addb22a",
   "freeze_version": "v1",
   "normalisation": "v1",
   "routes": {
@@ -176,7 +176,7 @@
     "baseline_definition": {
       "files": 6,
       "route": "file-digest/v1",
-      "sha256": "62f3fb1ec0d93b85d9a28628684b4659cb14a2dfe83583eac8d2a761cb4f9c72"
+      "sha256": "c9170558795200f31a18c251bf1d33319ad5544806c332be28901a2d43356000"
     },
     "case_construction_rules": {
       "files": 1,

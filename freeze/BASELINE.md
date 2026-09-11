@@ -7,6 +7,15 @@ differs from this definition.
 > The baseline is defined by the party who benefits from it losing. Publishing
 > its definition is the only defence against that. Read this adversarially.
 
+**Superseded once, on 2026-09-11, before any run existed.** The original
+definition named `gpt-4o` at `temperature: 0`. That model is not available on
+the deployment this project has, and its replacement is a *reasoning* model
+which does not accept `temperature` at all — so the setting could not be
+honoured by any mapping or alias. The cases, answer keys, rubric, verifier
+registry and coverage report were byte-identical across the change, no
+evaluation result had been executed or inspected, and nothing about the
+substitution was learned from results. See FREEZE.md for the digests.
+
 ## What the baseline is
 
 A **reasonable** agent, not a strawman:
@@ -14,7 +23,7 @@ A **reasonable** agent, not a strawman:
 - **Full retrieved context per step.** The whole working transcript is carried
   forward. This is the ordinary thing to do and it is the thing the Context
   Governor exists to improve on — so it must be what the baseline actually does.
-- **One capable model throughout.** `gpt-4o` for every call. No routing, no
+- **One capable model throughout.** `gpt-5` for every call. No routing, no
   downgrade on easy steps. Escalation is a governor behaviour; the baseline has
   nothing to escalate from.
 - **A genuine evaluator/retry loop.** The agent checks its own completion notion
@@ -39,10 +48,11 @@ available here.
 
 | Field | Value |
 | --- | --- |
-| Model | `gpt-4o`, provider version pinned in the run manifest |
-| Temperature | `0` |
-| Top-p | `1.0` |
-| Max output tokens per call | `4096` |
+| Model | `gpt-5`, provider version pinned in the run manifest |
+| Temperature | **not supported** — reasoning models reject the parameter; the service applies `1.0` and it is sent by neither arm |
+| Top-p | **not supported** — as above |
+| Reasoning effort | `medium` — the documented balanced setting, identical on both arms |
+| Max output tokens per call | `25000`, as `max_completion_tokens`; reasoning tokens are drawn from this budget |
 | Streaming | **disabled** — the gateway estimates token counts when streaming is on, so the evidence path bars it |
 | Context policy | full transcript, no compression, no eviction |
 | Tool set | identical to the governed arm's, per workload, from the same contract's `tools` |
@@ -52,6 +62,20 @@ available here.
 | Max tool calls | per-workload contract value, identical to the governed arm |
 | Cost table | pinned version recorded in the manifest |
 | Seed / sampling | recorded in the manifest |
+
+**Reasoning tokens count as output and are billed as output.** They are read
+from `completion_tokens_details.reasoning_tokens` and counted in the spend of
+whichever arm incurred them. Excluding them would understate both arms and
+flatter whichever one thinks less — and a run that exhausts
+`max_completion_tokens` on reasoning alone returns `status: incomplete` with no
+visible output while still billing. Such a run is a failure of the arm that
+produced it, never a cheap success.
+
+**Determinism is weaker here than the original definition assumed.** With
+`temperature` unavailable, two runs of the same case may differ. This is why
+AD-2's replay equivalence compares decisions, reasons and ledger totals and
+**never byte equality of model output**, and why FR58 requires repeated runs
+rather than a single pair.
 
 The prompt template per workload is held in [baseline-prompts/](baseline-prompts/)
 and hashed with this file. Each is the **shared task block** — the bytes both

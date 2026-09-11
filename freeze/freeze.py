@@ -48,6 +48,31 @@ from derive_answer_keys import context_for, derive  # noqa: E402
 FREEZE_JSON = ROOT / "freeze" / "FREEZE.json"
 FREEZE_MD = ROOT / "freeze" / "FREEZE.md"
 
+#: Every digest this freeze has replaced, and why. A supersession that lives
+#: only in a commit message is a supersession nobody reading the evidence will
+#: find, so §8.2's defence has to be auditable from the record itself: what
+#: moved, what did not, and whether any result had been seen at the time.
+SUPERSEDED: tuple[dict[str, str], ...] = (
+    {
+        "digest": "3ac83cdab77d199cf07bd7d6647d4f4344c30a1d9377073e1c78922819a5e159",
+        "date": "2026-09-09",
+        "moved": "derivation scripts, and the seal",
+        "reason": "an unclosed SQLite connection in the answer-key deriver was fixed",
+        "results_seen": "none; the governor did not yet exist",
+    },
+    {
+        "digest": "823b4910ecfbe4bc89d329bfd31217070ad691f46efa051624b7520b6e0aa8a1",
+        "date": "2026-09-11",
+        "moved": "the four contracts' model ids, the baseline definition, and the seal",
+        "reason": (
+            "gpt-4o is unavailable on the deployment this project has, and its "
+            "replacement is a reasoning model that rejects `temperature`, so the "
+            "frozen setting could not be honoured by any alias or mapping"
+        ),
+        "results_seen": "none; the evaluation split was still sealed",
+    },
+)
+
 FREEZE_VERSION = "v1"
 WORKLOADS = ("code-triage", "data-sql", "doc-research", "supply-chain")
 SPLITS = ("calibration", "evaluation")
@@ -272,6 +297,25 @@ def render_markdown(record: dict[str, Any]) -> str:
         "regenerating it must reproduce identical bytes — a freeze that differed between",
         "two machines would trip FR65's drift refusal on artifacts that never changed.",
         "",
+    ]
+    if SUPERSEDED:
+        lines += [
+            "## What this freeze superseded",
+            "",
+            "A re-freeze is only defensible where nothing was learned from results "
+            "first. Each row states what moved and what had been seen at the time, "
+            "so the claim can be checked rather than taken on trust.",
+            "",
+            "| Superseded digest | Date | What moved | Why | Results seen |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for entry in SUPERSEDED:
+            lines.append(
+                f"| `{entry['digest'][:16]}\u2026` | {entry['date']} | {entry['moved']} | "
+                f"{entry['reason']} | {entry['results_seen']} |"
+            )
+        lines.append("")
+    lines += [
         "## Coverage at freeze time",
         "",
         "| Workload | Mandatory | Reference-backed | Constraint-backed | Reference % |"

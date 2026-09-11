@@ -2,13 +2,22 @@
 
 **Generated** by `freeze/freeze.py`. Do not edit by hand.
 
-**Freeze digest** `823b4910ecfbe4bc89d329bfd31217070ad691f46efa051624b7520b6e0aa8a1`
+**Freeze digest** `4150cf034ba3f10d93a4129d0d243439c01d399e2cf9d706b24cde1e5addb22a`
 
 This is the point of no return. §8.2's defence is that the rubric and answer
 keys were fixed before the governor existed; re-freezing after seeing it is
 what that section exists to prevent. The record carries no timestamp, because
 regenerating it must reproduce identical bytes — a freeze that differed between
 two machines would trip FR65's drift refusal on artifacts that never changed.
+
+## What this freeze superseded
+
+A re-freeze is only defensible where nothing was learned from results first. Each row states what moved and what had been seen at the time, so the claim can be checked rather than taken on trust.
+
+| Superseded digest | Date | What moved | Why | Results seen |
+| --- | --- | --- | --- | --- |
+| `3ac83cdab77d199c…` | 2026-09-09 | derivation scripts, and the seal | an unclosed SQLite connection in the answer-key deriver was fixed | none; the governor did not yet exist |
+| `823b4910ecfbe4bc…` | 2026-09-11 | the four contracts' model ids, the baseline definition, and the seal | gpt-4o is unavailable on the deployment this project has, and its replacement is a reasoning model that rejects `temperature`, so the frozen setting could not be honoured by any alias or mapping | none; the evaluation split was still sealed |
 
 ## Coverage at freeze time
 
@@ -23,10 +32,10 @@ two machines would trip FR65's drift refusal on artifacts that never changed.
 
 | Workload | Contract | Version | Route | SHA-256 |
 | --- | --- | ---: | --- | --- |
-| code-triage | `ofc-code-triage` | 1 | `structure/v1` | `7578f3291cc8940a…` |
-| data-sql | `ofc-data-sql` | 1 | `structure/v1` | `a586ee16371851a9…` |
-| doc-research | `ofc-doc-research` | 1 | `structure/v1` | `d3bc6d7fea5dad61…` |
-| supply-chain | `ofc-supply-chain` | 1 | `structure/v1` | `657d0e8cd4085c58…` |
+| code-triage | `ofc-code-triage` | 1 | `structure/v1` | `d40dcf88edd36370…` |
+| data-sql | `ofc-data-sql` | 1 | `structure/v1` | `b386bf3aded91f71…` |
+| doc-research | `ofc-doc-research` | 1 | `structure/v1` | `5a321ba672338b08…` |
+| supply-chain | `ofc-supply-chain` | 1 | `structure/v1` | `2b80766bdb22b31f…` |
 
 ## Case sets
 
@@ -58,7 +67,7 @@ in the same operation.
 
 | Group | Files | SHA-256 |
 | --- | ---: | --- |
-| baseline_definition | 6 | `62f3fb1ec0d93b85…` |
+| baseline_definition | 6 | `c9170558795200f3…` |
 | case_construction_rules | 1 | `3c9e83abd10d7722…` |
 | corpora | 14 | `6333cf6d71ad8e2b…` |
 | coverage_report | 1 | `25eb7f5812b84d08…` |
