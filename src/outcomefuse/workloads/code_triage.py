@@ -15,7 +15,9 @@ from __future__ import annotations
 import re
 from typing import Any, Final
 
+from ..core.canon import hash_structure
 from ..core.contract import Contract
+from ..core.verify import CitableEntry, CitableIndex
 from .corpus import repo_files
 from .toolport import ToolError, WorkloadToolPort, required
 
@@ -118,6 +120,41 @@ def run_tests(arguments: dict[str, Any], *, side_effects: list[str]) -> Any:
             "it ran and reports no result to reason from"
         ),
     }
+
+
+def citable_index() -> CitableIndex:
+    """AD-7: the index the `evidence-refs-resolve` verifier is handed.
+
+    The frozen prompt asks for `{"id": "<path>:<line>"}`, so every real line of
+    every file in the corpus is citable — 241 of them, which is small enough to
+    enumerate exactly rather than approximate with a pattern. A bare path is
+    citable too: the criterion is that what was cited exists, and a file plainly
+    does. Anything else fails, which is what stops an agent citing a line it
+    never read in a file that was never there.
+
+    The index carries no hint about *which* lines matter. It is built from the
+    corpus alone, so an agent could learn nothing from it but the shape of the
+    repo, which the tools already expose.
+    """
+    entries = []
+    for path, body in sorted(_files().items()):
+        lines = body.splitlines()
+        entries.append(
+            CitableEntry(
+                id=path,
+                target=f"{CORPUS}#{path}",
+                sha256=hash_structure({"path": path, "body": body}).sha256,
+            )
+        )
+        entries.extend(
+            CitableEntry(
+                id=f"{path}:{number}",
+                target=f"{CORPUS}#{path}:{number}",
+                sha256=hash_structure({"path": path, "line": number, "text": text}).sha256,
+            )
+            for number, text in enumerate(lines, start=1)
+        )
+    return CitableIndex(entries=tuple(entries))
 
 
 def tool_port(contract: Contract) -> WorkloadToolPort:
