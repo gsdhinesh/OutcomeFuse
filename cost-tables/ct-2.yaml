@@ -1,0 +1,49 @@
+# Cost table ct-2 — Azure Foundry, OutcomeFuse
+#
+# AD-13 pins a cost table into every run manifest so cost is computed from a
+# recorded, versioned rate rather than reconstructed later from memory. Two runs
+# priced with different tables are not comparable, which is why the version
+# travels in the manifest.
+#
+# This is a NEW VERSION rather than an edit to ct-1. Runs already exist whose
+# manifests record `cost_table_version: ct-1`, and ct-1 was unpriced. Filling it
+# in would change what that recorded version means and silently re-price
+# history. A cost table version is a content identity.
+#
+# Rates are per 1,000,000 tokens, in the currency named below.
+#
+# **Reasoning tokens bill at the output rate.** They are a subset of completion
+# tokens, not an addition, so pricing completion tokens already prices the
+# reasoning. Measured live, gpt-5 spent 64-79% of its completion tokens on
+# reasoning, so the output rate is what decides a run's cost.
+
+version: ct-2
+currency: USD
+per_tokens: 1000000
+
+source: >-
+  Rates from https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/
+  "GPT-5 series", US/USD, Global column.
+
+  The Global column is the one that applies: the deployment SKU was read from
+  the resource itself rather than assumed --
+  `az cognitiveservices account deployment list -n OutcomeFuse-Foundry
+  -g Hack-OutcomeFuse` reports both gpt-5 and gpt-5-mini as **GlobalStandard**,
+  model version 2025-08-07, in eastus2. That version matches the
+  `provider_version` the API returns on every call, so the rates below apply to
+  the deployments actually being billed. Data Zone rates are ~10% higher and do
+  not apply here.
+
+  Not transcribed from a model's recollection. A price that is merely plausible
+  is the failure this file exists to prevent.
+source_read_at: '2026-09-11T10:30:00Z'
+
+rates:
+  gpt-5:
+    input: 1.25
+    cached_input: 0.13
+    output: 10.00
+  gpt-5-mini:
+    input: 0.25
+    cached_input: 0.03
+    output: 2.00

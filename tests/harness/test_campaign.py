@@ -28,6 +28,7 @@ from outcomefuse.harness.campaign import (
 )
 from outcomefuse.harness.comparison import ComparisonRefused, require_comparable
 from outcomefuse.harness.costs import CostTable, Rate
+from outcomefuse.harness.proofcard import headline
 from outcomefuse.ports import ModelResponse
 
 WORKLOAD = "data-sql"
@@ -302,3 +303,24 @@ class TestCostIsNeverInvented:
         assert build_manifest(
             plan, run_id="a", mode="baseline", mechanisms={}
         ).cost_table_version == "ct-9"
+
+    def test_a_cost_reduction_is_quotable_once_the_table_is_priced(self, contract, tmp_path):
+        # FR66 sets a net_cost_reduction target, so the figure has to reach the
+        # headline or the target has nothing to be checked against.
+        table = CostTable(
+            version="ct-9", currency="USD", per_tokens=1_000_000,
+            rates={
+                "gpt-5": Rate(input=1.25, output=10.0),
+                "gpt-5-mini": Rate(input=0.25, output=2.0),
+            },
+        )
+        report = run_campaign(
+            a_plan(contract, cost_table=table), runs_dir=tmp_path, max_cases=1
+        )
+        assert "net_cost_reduction" in headline(report.proof_card())
+
+    def test_an_unpriced_campaign_reports_a_zero_cost_reduction(self, contract, tmp_path):
+        # Zero rather than absent, and the manifest's cost_table_version says
+        # why. A missing key would read as an oversight.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        assert headline(report.proof_card())["net_cost_reduction"] == 0.0

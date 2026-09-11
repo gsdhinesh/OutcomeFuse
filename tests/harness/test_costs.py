@@ -154,21 +154,54 @@ class TestLoading:
             load_cost_table("ct-test", root=tmp_path)
 
 
-class TestTheShippedTable:
+class TestTheShippedTables:
     def test_ct_1_loads(self):
         assert load_cost_table("ct-1").version == "ct-1"
 
     def test_ct_1_names_both_deployed_models(self):
         assert set(load_cost_table("ct-1").rates) == {"gpt-5", "gpt-5-mini"}
 
-    def test_ct_1_is_honest_about_being_unpriced(self):
-        # It ships with null rates because nobody has read the portal. This test
-        # is expected to be deleted when the rates are filled in — and until
-        # then it is the thing standing between us and a fabricated cost claim.
+    def test_ct_1_is_still_unpriced_and_stays_that_way(self):
+        # Runs exist whose manifests record `cost_table_version: ct-1`, and it
+        # was unpriced when they ran. Filling it in now would change what that
+        # recorded version means and silently re-price history — a cost table
+        # version is a content identity, so ct-2 was added instead.
         table = load_cost_table("ct-1")
         assert not table.priced
         with pytest.raises(Unpriced):
             table.price("gpt-5", prompt_tokens=1, completion_tokens=1)
+
+    def test_ct_2_is_priced(self):
+        assert load_cost_table("ct-2").priced
+
+    def test_ct_2_names_both_deployed_models(self):
+        assert set(load_cost_table("ct-2").rates) == {"gpt-5", "gpt-5-mini"}
+
+    def test_ct_2_records_where_and_when_the_rates_were_read(self):
+        # A rate with no provenance is indistinguishable from a remembered one.
+        table = load_cost_table("ct-2")
+        assert table.source_read_at
+        assert "azure.microsoft.com" in table.source
+
+    def test_ct_2_says_which_deployment_sku_it_applies_to(self):
+        # Global and Data Zone differ by ~10%. The SKU was read from the
+        # resource rather than assumed, and the table has to say so or the next
+        # reader cannot tell which column was used.
+        assert "GlobalStandard" in load_cost_table("ct-2").source
+
+    def test_mini_is_cheaper_than_gpt_5_on_both_directions(self):
+        # The escalation ladder's entire premise. If this inverted, starting on
+        # the smaller model would cost more by construction.
+        table = load_cost_table("ct-2")
+        assert table.rates["gpt-5-mini"].input < table.rates["gpt-5"].input
+        assert table.rates["gpt-5-mini"].output < table.rates["gpt-5"].output
+
+    def test_output_costs_more_than_input_on_both_models(self):
+        # Reasoning bills at the output rate and was 64-79% of completion in the
+        # live runs, so an inverted table would badly misprice the baseline.
+        table = load_cost_table("ct-2")
+        for rate in table.rates.values():
+            assert rate.output > rate.input
 
 
 class TestTheModel:

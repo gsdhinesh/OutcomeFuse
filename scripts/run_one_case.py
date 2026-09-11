@@ -34,7 +34,7 @@ from outcomefuse.runtime import Driver, ToolGovernor
 from outcomefuse.workloads import citable_index_for, tool_port_for
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
-COST_TABLE = "ct-1"
+COST_TABLE = "ct-2"
 SHA = "0" * 64
 
 # From the frozen baseline definition. Reasoning models reject temperature and

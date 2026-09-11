@@ -104,19 +104,24 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
         direction="neutral",
     ),
     Disclosure(
-        key="cost-table-unpriced",
+        key="cost-is-list-price-not-billed",
         finding=(
-            "Cost table ct-1 ships with null rates: nobody has read the vendor's pricing "
-            "page, so no run has been priced."
+            "Cost is computed from published list prices (cost table ct-2: Azure "
+            "OpenAI Global rates for gpt-5 and gpt-5-mini, 2025-08-07, read from the "
+            "vendor's pricing page with the GlobalStandard deployment SKU confirmed "
+            "against the resource itself). It is not reconciled against an invoice, "
+            "and any enterprise agreement discount would lower the real figure for "
+            "both arms."
         ),
         why_not_fixed=(
-            "Not a freeze matter. The rates are simply unknown, and inventing a "
-            "plausible one would produce a clean, arithmetically correct and entirely "
-            "false cost saving that every check downstream would agree with."
+            "An invoice for these runs does not exist yet, and reconciling one would "
+            "not change the ratio the claim rests on: both arms are priced from the "
+            "same table, so a uniform discount cancels."
         ),
         workaround=(
-            "Every figure is reported in tokens and tool calls, which are counted rather "
-            "than priced. No cost claim is made at all."
+            "The cost table version travels in every run manifest, so any figure can "
+            "be re-derived against a different table. Token and tool-call reductions "
+            "are counted rather than priced and do not depend on this at all."
         ),
         direction="neutral",
     ),

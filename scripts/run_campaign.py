@@ -29,7 +29,7 @@ from outcomefuse.harness.preregistration import PreregistrationError, load_prere
 from outcomefuse.harness.proofcard import headline
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
-COST_TABLE = "ct-1"
+COST_TABLE = "ct-2"
 
 # Observed from the service, not guessed. AD-9 requires both arms to declare the
 # same versions, so these are pinned here and recorded in both manifests.

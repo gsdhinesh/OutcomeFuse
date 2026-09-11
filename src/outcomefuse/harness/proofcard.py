@@ -180,6 +180,10 @@ def headline(card: ProofCard) -> dict[str, Any]:
     return {
         "net_token_reduction": card.savings.net_token_fraction,
         "gross_token_reduction": card.savings.gross_token_fraction,
+        # Zero where the cost table was unpriced, which the manifest's
+        # `cost_table_version` records. FR66 sets a target for it, so it has to
+        # be quotable or the target has nothing to be checked against.
+        "net_cost_reduction": card.savings.net_cost_fraction,
         "governor_overhead_share": card.savings.overhead_share,
         "baseline_passes": card.baseline_passes,
         "governed_passes": card.governed_passes,
