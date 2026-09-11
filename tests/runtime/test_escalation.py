@@ -27,7 +27,7 @@ from outcomefuse.core.policy import Ledger, Reserve
 from outcomefuse.core.record import RecordStore, RunManifest
 from outcomefuse.harness.cases import load_case_set
 from outcomefuse.harness.runner import GovernedArm, run_case
-from outcomefuse.ports import ModelResponse
+from outcomefuse.ports import ModelResponse, ToolInvocation
 from outcomefuse.runtime import Driver, ToolGovernor
 from outcomefuse.workloads import tool_port_for
 
@@ -189,13 +189,33 @@ class TestTheContractIsObeyed:
     def test_escalation_stops_at_the_contract_s_limit(
         self, case, contract, governed, answer_key
     ):
-        # max_escalations is 1, so a model that fails at both levels escalates
-        # once and then takes the FR103 ladder.
+        # `max_escalations: 0` with a stronger model still available, so the
+        # limit is the only thing that can stop it. Asserting against the
+        # shipped `max_escalations: 1` would prove nothing: with two eligible
+        # models, running out of models and running out of escalations happen
+        # at the same moment.
+        arm, driver = governed()
+        driver.contract = contract.model_copy(
+            update={
+                "escalation": contract.escalation.model_copy(
+                    update={"max_escalations": 0}
+                )
+            }
+        )
+        model = ByModel({"gpt-5-mini": WRONG, "gpt-5": GOOD})
+        outcome = drive(case, contract, arm, model, answer_key)
+        assert model.asked == ["gpt-5-mini"]
+        assert driver.escalations == 0
+        assert outcome.terminal_reason == "returned-partial"
+
+    def test_the_shipped_limit_of_one_is_reached_and_then_honoured(
+        self, case, contract, governed, answer_key
+    ):
         arm, driver = governed()
         model = ByModel({"gpt-5-mini": WRONG, "gpt-5": WRONG})
         outcome = drive(case, contract, arm, model, answer_key)
         assert model.asked == ["gpt-5-mini", "gpt-5"]
-        assert driver.escalations == 1
+        assert driver.escalations == contract.escalation.max_escalations == 1
         assert outcome.terminal_reason == "returned-partial"
 
     def test_the_top_of_the_eligible_list_cannot_escalate(
@@ -249,22 +269,41 @@ class TestAnEscalatedRunHasNotEnded:
     ):
         # Handing the stronger model the weaker one's failed reasoning anchors
         # it to exactly the answer that just failed the gate.
+        #
+        # The first attempt must call a tool, or `messages` never grows and the
+        # reset is a no-op that any test would pass.
         arm, _ = governed()
-        seen = []
+        seen: list[int] = []
 
-        class Watching(ByModel):
+        class ToolThenAnswer:
+            def __init__(self) -> None:
+                self.turns = 0
+
             def complete(self, request):
                 seen.append(len(request.messages))
-                return super().complete(request)
+                self.turns += 1
+                if request.model_id == "gpt-5-mini" and self.turns == 1:
+                    return ModelResponse(
+                        model_id=request.model_id,
+                        text="",
+                        prompt_tokens=100,
+                        completion_tokens=10,
+                        tool_calls=(
+                            ToolInvocation(id="c1", tool="schema_describe", arguments={}),
+                        ),
+                    )
+                text = WRONG if request.model_id == "gpt-5-mini" else GOOD
+                return ModelResponse(
+                    model_id=request.model_id,
+                    text=text,
+                    prompt_tokens=100,
+                    completion_tokens=50,
+                )
 
-        drive(
-            case,
-            contract,
-            arm,
-            Watching({"gpt-5-mini": WRONG, "gpt-5": GOOD}),
-            answer_key,
-        )
-        assert seen == [2, 2]
+        drive(case, contract, arm, ToolThenAnswer(), answer_key)
+        # Two turns on the weak model, the transcript growing; then the retry
+        # starts from the opening two messages again.
+        assert seen == [2, 4, 2]
 
 
 class TestTheReserveIsProtected:
