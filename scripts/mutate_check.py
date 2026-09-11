@@ -184,6 +184,12 @@ MUTATIONS = [
         '            lines.append("\\n## Disclosed (§8.2)")',
         "carrying disclosures but never rendering them",
     ),
+    (
+        "src/outcomefuse/harness/overhead.py",
+        "    if study.digest().sha256 not in preregistration.derived_from:",
+        "    if False:",
+        "accepting targets that cite no measurement",
+    ),
 ]
 
 TESTS = [
@@ -193,6 +199,7 @@ TESTS = [
     "tests/harness/test_costs.py",
     "tests/harness/test_answer_keys.py",
     "tests/harness/test_campaign.py",
+    "tests/harness/test_preregistration_record.py",
     "tests/submission/test_disclosures.py",
 ]
 
