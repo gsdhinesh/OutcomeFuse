@@ -1,11 +1,14 @@
-"""The enforcing runtime (E7) and the observing one (E11).
+"""The enforcing runtime (E7), the observing one (E11), and the recording one.
 
-At the end of E7 the protected core runs. Shadow is a second driver rather than
-a flag on the first, so the fail-closed paths carry no shadow branch.
+Three peers. `Driver` enforces. `ShadowDriver` observes a counterfactual, as a
+second driver rather than a flag on the first, so the fail-closed paths carry no
+shadow branch. `BaselineRecorder` writes down an ungoverned run, deciding
+nothing, because an unrecorded arm cannot be admitted or paired.
 """
 
 from __future__ import annotations
 
+from .baseline import BaselineRecorder
 from .driver import Driver, StepVerdict
 from .shadow import (
     Divergence,
@@ -24,6 +27,7 @@ from .tool_governor import (
 
 __all__ = [
     "Action",
+    "BaselineRecorder",
     "Disposition",
     "Divergence",
     "Driver",

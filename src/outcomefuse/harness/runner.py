@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.contract import Contract
 from ..ports import Message, ModelPort, ModelRequest, ToolCall, ToolSchema
-from ..runtime import Driver, StepVerdict
+from ..runtime import BaselineRecorder, Driver, StepVerdict
 from ..workloads import ToolError, WorkloadToolPort, schemas_for
 from .cases import Case
 from .deliverable import Parsed, parse_deliverable
@@ -99,6 +99,9 @@ class Outcome(BaseModel):
     case_id: str
     arm: str
     spend: Spend
+    #: Zero where the cost table is unpriced. Tokens are counted regardless, so
+    #: the token claim never depends on anyone having read a pricing page.
+    cost: float = Field(default=0.0, ge=0)
     parsed: Parsed | None = None
     terminal_reason: str | None = None
     iterations: int = Field(ge=0)
@@ -193,13 +196,24 @@ class BaselineArm:
     would still impose the driver's own control flow — its ordering, its
     fail-closed paths, its bookkeeping — on the arm that is supposed to show
     what happens without any of it.
+
+    It does take a `BaselineRecorder`, because recording is measurement rather
+    than governance and an unrecorded arm cannot be admitted or paired. The
+    recorder decides nothing.
     """
 
     name = "baseline"
 
-    def __init__(self, tools: WorkloadToolPort, *, model: str) -> None:
+    def __init__(
+        self,
+        tools: WorkloadToolPort,
+        *,
+        model: str,
+        recorder: BaselineRecorder | None = None,
+    ) -> None:
         self._tools = tools
         self._model = model
+        self._recorder = recorder
 
     def model_id(self) -> str:
         return self._model
@@ -208,14 +222,22 @@ class BaselineArm:
         try:
             result = self._tools.invoke(call)
         except ToolError as exc:
-            return ToolOutcome(content=f"tool error: {exc}", refused=True)
+            if self._recorder is not None:
+                self._recorder.observe_tool(call, failed=str(exc))
+            return ToolOutcome(content=f"tool error: {exc}", refused=False)
+        if self._recorder is not None:
+            self._recorder.observe_tool(call)
         return ToolOutcome(content=_render(result.output))
 
     def charge_model_turn(
         self, *, step_id: str, tokens: int, cost: float, model_used: str
     ) -> str | None:
-        # Nothing to charge against. Spending is counted by the loop for the
-        # proof card either way; the baseline simply has no budget to breach.
+        # Recorded, never refused. There is no ledger here to say no — that is
+        # the arm's entire point — but the spend still has to appear in the log.
+        if self._recorder is not None:
+            self._recorder.observe_model_turn(
+                step_id=step_id, tokens=tokens, model_used=model_used
+            )
         return None
 
     def observe_progress(self, *, task_state: Any, evidence_count: int) -> str | None:
@@ -224,6 +246,18 @@ class BaselineArm:
         return None
 
     def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None:
+        # The gate runs here, once, after the agent has already stopped of its
+        # own accord. It scores; it does not steer. Running it any earlier would
+        # hand the baseline the sufficiency stop that is the mechanism under
+        # test, and the experiment would compare the governor against itself.
+        if self._recorder is not None:
+            self._recorder.score(
+                parsed.deliverable if parsed is not None and parsed.ok else None,
+                answer_key=answer_key,
+                parse_failure=(
+                    parsed.failure if parsed is not None else "the agent produced no answer"
+                ),
+            )
         return None
 
 
@@ -291,6 +325,7 @@ def run_case(
     ]
 
     spend = Spend()
+    cost = 0.0
     parsed: Parsed | None = None
     terminal: str | None = None
     stopped_by: str | None = None
@@ -313,15 +348,16 @@ def run_case(
         )
         iteration += 1
 
-        cost = (
+        turn_cost = (
             price(response.model_id, response.prompt_tokens, response.completion_tokens)
             if price is not None
             else 0.0
         )
+        cost += turn_cost
         terminal = arm.charge_model_turn(
             step_id=step_id,
             tokens=response.prompt_tokens + response.completion_tokens,
-            cost=cost,
+            cost=turn_cost,
             model_used=response.provider_version or response.model_id,
         )
         if terminal is not None:
@@ -329,6 +365,7 @@ def run_case(
                 case_id=case.case_id,
                 arm=arm.name,
                 spend=spend,
+                cost=cost,
                 terminal_reason=terminal,
                 iterations=iteration,
             )
@@ -399,6 +436,7 @@ def run_case(
         case_id=case.case_id,
         arm=arm.name,
         spend=spend,
+        cost=cost,
         parsed=parsed,
         terminal_reason=terminal,
         iterations=iteration,

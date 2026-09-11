@@ -104,6 +104,7 @@ class Driver:
         self._deliverable: Mapping[str, Any] | None = None
         self._answer_key: Mapping[str, Any] | None = None
         self.quality_state = "not-evaluated"
+        self.gate_qualifier: str | None = None
         self.terminated: str | None = None
 
     # ------------------------------------------------------------- the log
@@ -425,6 +426,7 @@ class Driver:
             return self._fail_closed("request-human", f"gate unavailable: {exc}")
 
         self.quality_state = verdict.verdict
+        self.gate_qualifier = verdict.qualifier
         self._append(
             "gate-verdict",
             gate_verdict=verdict.verdict,

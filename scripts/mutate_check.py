@@ -144,6 +144,29 @@ MUTATIONS = [
         "    if False:",
         "leaving a run open when the loop gives up",
     ),
+    (
+        "src/outcomefuse/harness/campaign.py",
+        "        model_ids=eligible,",
+        "        model_ids=(\n"
+        "            (_governed_model(plan),) if mode == 'governed'\n"
+        "            else (plan.baseline_model,)\n"
+        "        ),",
+        "declaring only the model each arm started on",
+    ),
+    (
+        "src/outcomefuse/harness/campaign.py",
+        "        if missing:",
+        "        if False:",
+        "blanking an unobserved provider version",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "        if self._recorder is not None:\n"
+        "            self._recorder.score(",
+        "        if False:\n"
+        "            self._recorder.score(",
+        "never gating the baseline arm",
+    ),
 ]
 
 TESTS = [
@@ -152,6 +175,7 @@ TESTS = [
     "tests/harness/test_runner.py",
     "tests/harness/test_costs.py",
     "tests/harness/test_answer_keys.py",
+    "tests/harness/test_campaign.py",
 ]
 
 
