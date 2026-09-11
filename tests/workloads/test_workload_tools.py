@@ -94,14 +94,24 @@ class TestDeterminismTheGovernorRelieson:
 
 class TestDataSql:
     def test_the_corpus_is_read_only_at_the_engine(self, ports):
-        # Not a regex over the query text: that is a guess a creative query
-        # wins. `query_only` makes the write fail inside SQLite.
-        with pytest.raises(ToolError, match="the query failed"):
-            call(ports["data-sql"], "sql_query", sql="DELETE FROM orders")
+        # An UPDATE, deliberately: `DELETE FROM orders` is blocked by a foreign
+        # key whether or not the corpus is read-only, so it would pass this
+        # test with the pragma removed. Nothing but `query_only` stops this one.
+        with pytest.raises(ToolError, match="readonly database"):
+            call(ports["data-sql"], "sql_query", sql="UPDATE orders SET status='closed'")
+
+    def test_an_insert_is_refused_too(self, ports):
+        with pytest.raises(ToolError, match="readonly database"):
+            call(
+                ports["data-sql"],
+                "sql_query",
+                sql="INSERT INTO suppliers (supplier_id, name, country, tier) "
+                "VALUES (999, 'x', 'x', 1)",
+            )
 
     def test_a_read_still_works_after_a_refused_write(self, ports):
         with pytest.raises(ToolError):
-            call(ports["data-sql"], "sql_query", sql="DELETE FROM orders")
+            call(ports["data-sql"], "sql_query", sql="UPDATE orders SET status='closed'")
         # The refusal must not poison the connection every later read shares.
         assert call(ports["data-sql"], "sql_query", sql="SELECT count(*) FROM orders")[
             "rows"
@@ -205,27 +215,38 @@ class TestCodeTriage:
 
 
 class TestDocResearchLeavesSelectionToTheAgent:
-    def test_search_applies_no_step_of_the_rule(self, ports):
-        # SELECTION.md is key-derivation material and not agent-visible. A
-        # search that filtered drafts, applied supersession or preferred the
-        # region would be doing the task.
-        out = call(ports["doc-research"], "corpus_search", topic="data-retention")
-        statuses = {h["status"] for h in out["hits"]}
-        regions = {h["region"] for h in out["hits"]}
-        assert len(out["hits"]) > 1
-        assert statuses != {"active"} or len(regions) > 1
+    """Each step of SELECTION.md's rule, checked separately.
 
-    def test_results_are_ordered_by_id_so_order_implies_no_precedence(self, ports):
+    An `or` across the steps would let a search that applied one of them pass
+    on the strength of another — which is exactly what happened before mutation
+    testing was pointed at it.
+    """
+
+    def test_step_2_drafts_are_still_returned(self, ports):
+        # "Drafts have no force" is the agent's filter to apply, not search's.
+        hits = call(ports["doc-research"], "corpus_search")["hits"]
+        assert {h["status"] for h in hits} != {"active"}
+
+    def test_step_3_documents_not_yet_in_force_are_still_returned(self, ports):
+        hits = call(ports["doc-research"], "corpus_search")["hits"]
+        assert max(h["effective_from"] for h in hits) > "2026-01-01"
+
+    def test_step_4_superseded_documents_are_still_returned(self, ports):
+        everything = call(ports["doc-research"], "corpus_search")["hits"]
+        superseded = {h["supersedes"] for h in everything if h["supersedes"]}
+        returned = {h["doc_id"] for h in everything}
+        assert superseded and superseded <= returned
+
+    def test_step_5_global_and_regional_both_survive_a_topic_search(self, ports):
+        hits = call(ports["doc-research"], "corpus_search", topic="data-retention")["hits"]
+        regions = {h["region"] for h in hits}
+        assert "global" in regions and len(regions) > 1
+
+    def test_step_6_results_are_ordered_by_id_so_order_implies_no_precedence(self, ports):
         out = call(ports["doc-research"], "corpus_search", topic="data-retention")
         ids = [h["doc_id"] for h in out["hits"]]
         assert ids == sorted(ids)
-
-    def test_superseded_documents_are_still_returned(self, ports):
-        # Step 4 of the rule is the agent's to apply.
-        everything = call(ports["doc-research"], "corpus_search")
-        superseded = {h["supersedes"] for h in everything["hits"] if h["supersedes"]}
-        returned = {h["doc_id"] for h in everything["hits"]}
-        assert superseded and superseded <= returned
+        assert "no precedence" in out["ordering"]
 
     def test_an_unknown_document_is_refused(self, ports):
         with pytest.raises(ToolError, match="no document 'doc-999'"):
