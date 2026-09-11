@@ -59,9 +59,66 @@ MUTATIONS = [
         "if False:",
         "never offering the tools at all",
     ),
+    # --- the runner: the arms must stay identical everywhere but the tool call
+    (
+        "src/outcomefuse/harness/runner.py",
+        "    tools: tuple[ToolSchema, ...] = schemas_for(contract)",
+        "    tools = () if arm.name == 'baseline' else schemas_for(contract)",
+        "withholding tools from one arm",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "                reasoning_effort=reasoning_effort,",
+        "                reasoning_effort=(\n"
+        "                    'high' if arm.name == 'governed' else reasoning_effort\n"
+        "                ),",
+        "giving one arm different sampling parameters",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "                messages=tuple(messages),",
+        "                messages=(messages[0], messages[-1]),",
+        "dropping the transcript instead of carrying it forward",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "            if response.incomplete and not response.text.strip():",
+        "            if False:",
+        "scoring an exhausted output budget as a wrong answer",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "        spend = spend.plus_turn(\n"
+        "            response.prompt_tokens, response.completion_tokens, "
+        "response.reasoning_tokens\n"
+        "        )",
+        "        spend = spend.plus_turn(\n"
+        "            response.prompt_tokens,\n"
+        "            response.completion_tokens + response.reasoning_tokens,\n"
+        "            response.reasoning_tokens,\n"
+        "        )",
+        "counting reasoning tokens twice",
+    ),
+    (
+        "src/outcomefuse/harness/costs.py",
+        "        if not rate.known:",
+        "        if False:",
+        "pricing an unknown rate at zero",
+    ),
+    (
+        "src/outcomefuse/runtime/driver.py",
+        "        if not self.ledger.can_afford(tokens, cost):",
+        "        if False:",
+        "spending a model turn the budget cannot afford",
+    ),
 ]
 
-TESTS = ["tests/workloads/test_tool_schemas.py", "tests/adapters/test_azure_model_port.py"]
+TESTS = [
+    "tests/workloads/test_tool_schemas.py",
+    "tests/adapters/test_azure_model_port.py",
+    "tests/harness/test_runner.py",
+    "tests/harness/test_costs.py",
+]
 
 
 def main() -> int:

@@ -387,13 +387,42 @@ class TestTheLoopTerminates:
         assert outcome.stopped_by is None
         assert outcome.iterations == 1
 
-    def test_a_run_stopped_by_the_governor_stops_the_loop(
-        self, case, contract, governed
-    ):
-        arm, driver = governed(allocated_tokens=1)
-        outcome = drive(case, contract, arm, asks(a_call()), answer("{}"))
+    def test_a_run_stopped_by_the_governor_stops_the_loop(self, case, contract, governed):
+        arm, driver = governed(allocated_tokens=100)
+        outcome = drive(
+            case, contract, arm, asks(a_call(), prompt=5000, completion=5000), answer("{}")
+        )
         assert outcome.terminal_reason is not None
         assert driver.terminated is not None
+
+    def test_a_budget_that_cannot_afford_the_turn_is_exhaustion_not_a_fault(
+        self, case, contract, governed
+    ):
+        # `halt-exhausted` and `fail-closed` both stop the run, so a test that
+        # accepted either would pass whether or not affordability was ever
+        # asked — and the product's central cost event would be filed as a
+        # system fault. This is the same defect that was in `execute_step`.
+        arm, driver = governed(allocated_tokens=100)
+        outcome = drive(
+            case, contract, arm, answer('{"answer": "x"}', prompt=5000, completion=5000)
+        )
+        assert outcome.terminal_reason == "halt-exhausted"
+        assert driver.terminated == "halt-exhausted"
+
+    def test_the_model_is_not_called_again_after_exhaustion(self, case, contract, governed):
+        arm, _ = governed(allocated_tokens=100)
+        model = Model(
+            answer("{}", prompt=5000, completion=5000), answer('{"answer": "x"}')
+        )
+        run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=model,
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+        )
+        assert len(model.requests) == 1
 
 
 class TestSpendIsCountedNotEstimated:
