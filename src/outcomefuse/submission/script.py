@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ..core.canon import Digest, hash_structure
 from ..core.record import Event
 from ..harness import Preregistration, ProofCard, Reportability
+from .disclosures import DISCLOSURE_KEYS, FROZEN_DEFECTS, Disclosure
 from .figures import Figure
 
 #: FR81, in order. The order is the argument: what is wrong, what was built,
@@ -128,6 +129,10 @@ class Submission(BaseModel):
     mechanism: MechanismEvidence
     #: §8.4: no claim of measured generalization beyond what was completed.
     workloads_completed: tuple[str, ...] = Field(min_length=1)
+    #: §8.2: defects found after the first run are worked around and disclosed.
+    #: Defaults to the full registry so omitting them takes a deliberate act,
+    #: and the validator below refuses that act.
+    disclosures: tuple[Disclosure, ...] = FROZEN_DEFECTS
 
     @model_validator(mode="after")
     def _well_formed(self) -> Submission:
@@ -138,6 +143,16 @@ class Submission(BaseModel):
             )
         if self.seconds > MAX_SECONDS:
             raise ValueError(f"the video runs {self.seconds}s, over FR81's {MAX_SECONDS}s")
+
+        undisclosed = sorted(DISCLOSURE_KEYS - {d.key for d in self.disclosures})
+        if undisclosed:
+            # The entries are the ones that make the number look worse, which is
+            # exactly why dropping them cannot be left to an author's judgement
+            # on the last day.
+            raise ValueError(
+                f"§8.2 requires every frozen-in defect to be disclosed; missing "
+                f"{undisclosed}"
+            )
 
         promised = {show for beat in self.beats for show in beat.shows}
         missing = sorted(REQUIRED_DEMONSTRATIONS - promised)
@@ -183,6 +198,14 @@ class Submission(BaseModel):
             for figure in beat.figures:
                 marker = "HEADLINE " if figure.headline else ""
                 lines.append(f"- {marker}{figure.rendered()}")
+        if self.disclosures:
+            lines.append("\n## Disclosed (§8.2)")
+            for disclosure in self.disclosures:
+                lines.append(
+                    f"- **{disclosure.key}** ({disclosure.direction}): "
+                    f"{disclosure.finding} Not fixed: {disclosure.why_not_fixed} "
+                    f"Instead: {disclosure.workaround}"
+                )
         return "\n".join(lines)
 
 

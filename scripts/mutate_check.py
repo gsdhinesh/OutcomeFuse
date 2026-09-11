@@ -170,6 +170,20 @@ MUTATIONS = [
         "            self._recorder.score(",
         "never gating the baseline arm",
     ),
+    (
+        "src/outcomefuse/submission/script.py",
+        "        undisclosed = sorted(DISCLOSURE_KEYS - {d.key for d in self.disclosures})",
+        "        undisclosed = []",
+        "letting a frozen-in defect go undisclosed",
+    ),
+    (
+        "src/outcomefuse/submission/script.py",
+        "        if self.disclosures:\n"
+        '            lines.append("\\n## Disclosed (§8.2)")',
+        "        if False:\n"
+        '            lines.append("\\n## Disclosed (§8.2)")',
+        "carrying disclosures but never rendering them",
+    ),
 ]
 
 TESTS = [
@@ -179,6 +193,7 @@ TESTS = [
     "tests/harness/test_costs.py",
     "tests/harness/test_answer_keys.py",
     "tests/harness/test_campaign.py",
+    "tests/submission/test_disclosures.py",
 ]
 
 

@@ -98,17 +98,19 @@ class BaselineRecorder:
     ) -> Verdict | None:
         """Run the gate once, for the score. Nothing about the run changes.
 
-        A deliverable that never arrived is recorded as a fail rather than left
-        blank: absent and failing are the same outcome for the agent, and a
-        blank would be silently dropped from the pass counts instead of counted
-        against the arm that produced it.
+        A deliverable that never arrived is recorded as an observation, not as a
+        gate verdict: the gate did not run, and writing down a `fail` it never
+        produced would put a verdict in the log that nothing evaluated. The arm
+        still scores as a failure, because `verdict` stays `None` and only a
+        passing verdict counts as a pass.
         """
         if deliverable is None:
             self._append(
-                "gate-verdict",
-                gate_verdict="fail",
-                quality_state="fail",
-                payload={"detail": parse_failure or "no deliverable was produced"},
+                "outcome-observed",
+                payload={
+                    "deliverable": parse_failure or "no deliverable was produced",
+                    "gate": "not evaluated: there was nothing to evaluate",
+                },
             )
             self._close()
             return None
@@ -124,7 +126,7 @@ class BaselineRecorder:
             # Not fail-closed: there is nothing to close. An unavailable gate on
             # this arm means the pair cannot be scored, which the campaign must
             # see rather than have quietly resolved into a failing baseline.
-            self._append("gate-verdict", payload={"unavailable": str(exc)})
+            self._append("outcome-observed", payload={"gate_unavailable": str(exc)})
             self._close()
             raise
 

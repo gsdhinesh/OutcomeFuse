@@ -230,6 +230,53 @@ class TestTheBaselineIsScoredButNotSteered:
         assert "decision-recorded" in kinds
 
 
+class TestAnAgentThatNeverAnswers:
+    # Found live on doc-research, which ran out of turns. Every offline test had
+    # the model answering on turn one, so this whole path was unexercised.
+
+    def test_a_case_with_no_deliverable_still_pairs(self, contract, tmp_path):
+        report = run_campaign(
+            a_plan(contract, model=Model("I am thinking about it.")),
+            runs_dir=tmp_path,
+            max_cases=1,
+        )
+        assert len(report.results) == 1
+        assert report.results[0].baseline_passed is False
+
+    def test_no_gate_verdict_is_written_when_the_gate_did_not_run(self, contract, tmp_path):
+        # The record spine refuses a `gate-verdict` with no verification mode,
+        # which is what caught this: writing down a `fail` the gate never
+        # produced puts a verdict in the log that nothing evaluated.
+        report = run_campaign(
+            a_plan(contract, model=Model("not json at all")),
+            runs_dir=tmp_path,
+            max_cases=1,
+        )
+        case_id = report.results[0].case_id
+        with RecordStore(tmp_path / f"{case_id}-baseline.db", writer=False).open() as s:
+            events = s.events(f"{case_id}-baseline")
+        assert [e.kind for e in events].count("gate-verdict") == 0
+        assert [e.kind for e in events][-1] == "run-closed"
+
+    def test_the_run_is_still_sealed(self, contract, tmp_path):
+        report = run_campaign(
+            a_plan(contract, model=Model("not json at all")),
+            runs_dir=tmp_path,
+            max_cases=1,
+        )
+        assert len(report.results[0].baseline_seal) == 64
+
+    def test_a_gate_verdict_is_written_when_it_did_run(self, contract, tmp_path):
+        # The mirror: a recorder that never wrote a verdict at all would pass
+        # the test above and lose every real score.
+        report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
+        case_id = report.results[0].case_id
+        with RecordStore(tmp_path / f"{case_id}-baseline.db", writer=False).open() as s:
+            verdicts = [e for e in s.events(f"{case_id}-baseline") if e.kind == "gate-verdict"]
+        assert len(verdicts) == 1
+        assert verdicts[0].verification_mode
+
+
 class TestCostIsNeverInvented:
     def test_an_unpriced_campaign_reports_zero_cost_and_real_tokens(self, contract, tmp_path):
         report = run_campaign(a_plan(contract), runs_dir=tmp_path, max_cases=1)
