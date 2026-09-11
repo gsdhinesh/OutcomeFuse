@@ -119,7 +119,11 @@ class Arm(Protocol):
         """Returns a terminal reason where the run must stop."""
         ...
 
-    def finish(self, parsed: Parsed, *, answer_key: Any | None) -> str | None: ...
+    def observe_progress(self, *, task_state: Any, evidence_count: int) -> str | None:
+        """Tell the arm what changed this turn. Returns a terminal reason."""
+        ...
+
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None: ...
 
     def model_id(self) -> str: ...
 
@@ -158,11 +162,26 @@ class GovernedArm:
         )
         return verdict.terminal_reason if verdict is not None else None
 
-    def finish(self, parsed: Parsed, *, answer_key: Any | None) -> str | None:
+    def observe_progress(self, *, task_state: Any, evidence_count: int) -> str | None:
+        # FR27/FR28. Without this call the LoopFuse is wired to nothing and an
+        # agent going round in circles is stopped only by the iteration cap,
+        # having paid for every turn on the way.
+        verdict = self._driver.observe_progress(
+            task_state=task_state, evidence_count=evidence_count
+        )
+        return verdict.terminal_reason if verdict is not None else None
+
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None:
+        # `parsed is None` means the loop stopped for its own reasons. The run
+        # is still closed through the ladder: a governed run left open has no
+        # `run-closed`, cannot be sealed, and is not admissible evidence of
+        # anything — including of the governor having behaved correctly.
         verdict = self._driver.submit_deliverable(
-            parsed.deliverable if parsed.ok else None,
+            parsed.deliverable if parsed is not None and parsed.ok else None,
             answer_key=answer_key,
-            parse_failure=parsed.failure,
+            parse_failure=(
+                parsed.failure if parsed is not None else "the agent produced no answer"
+            ),
         )
         return verdict.terminal_reason
 
@@ -199,7 +218,12 @@ class BaselineArm:
         # proof card either way; the baseline simply has no budget to breach.
         return None
 
-    def finish(self, parsed: Parsed, *, answer_key: Any | None) -> str | None:
+    def observe_progress(self, *, task_state: Any, evidence_count: int) -> str | None:
+        # No fuse. The baseline goes round until it finishes or hits the cap,
+        # which is the behaviour the governed arm is measured against.
+        return None
+
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None:
         return None
 
 
@@ -270,6 +294,7 @@ def run_case(
     parsed: Parsed | None = None
     terminal: str | None = None
     stopped_by: str | None = None
+    finished = False
     iteration = 0
 
     while iteration < max_iterations:
@@ -317,6 +342,7 @@ def run_case(
                 break
             parsed = parse_deliverable(response.text)
             terminal = arm.finish(parsed, answer_key=answer_key)
+            finished = True
             break
 
         messages.append(
@@ -346,9 +372,28 @@ def run_case(
                 break
         if terminal is not None:
             break
+
+        # FR27/FR28: the host says what changed, the arm decides what it means.
+        # `task_state` is the conversation's own shape, so an agent repeating
+        # the same call with the same result produces the same fingerprint.
+        terminal = arm.observe_progress(
+            task_state=tuple(
+                (m.role, m.content[:200]) for m in messages[-len(response.tool_calls) * 2 :]
+            ),
+            evidence_count=spend.tool_calls,
+        )
+        if terminal is not None:
+            break
     else:
         # The `while` ran out rather than breaking: the agent never stopped.
         stopped_by = f"the agent did not finish within {max_iterations} turns"
+
+    if not finished and terminal is None:
+        # The loop gave up. The run is still closed through the arm: a governed
+        # run left open has no `run-closed`, cannot be sealed, and is not
+        # admissible evidence of anything — including of the governor having
+        # behaved correctly.
+        terminal = arm.finish(None, answer_key=answer_key)
 
     return Outcome(
         case_id=case.case_id,

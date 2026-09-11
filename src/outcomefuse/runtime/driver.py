@@ -485,20 +485,34 @@ class Driver:
         self._answer_key = answer_key
 
         if deliverable is None:
+            # Nothing to gate, and nothing further will produce one: the agent
+            # either stopped or emitted something unreadable. `floor_met=False`
+            # alone is not terminal — correctly, since an unmet floor mid-run is
+            # ordinary — so the situation put to the Policy is that no further
+            # progress toward the floor is possible.
             return self._resolve(
-                Situation(floor_met=False, quality_state=self.quality_state),
+                Situation(no_progress=True, quality_state=self.quality_state),
                 detail={"deliverable": parse_failure or "no deliverable was produced"},
             )
 
         verdict = self._run_gate()
         if verdict is not None:
             return verdict
-        # The gate ran and the floor was not met, and the agent has stopped
-        # asking for tools. Nothing further will change that.
+        # The gate ran, the floor was not met, and the agent has stopped asking
+        # for tools. FR103 hands this to the contract: return partial, or refer
+        # it to a human.
         return self._resolve(
-            Situation(floor_met=False, quality_state=self.quality_state),
+            Situation(
+                gate_failed=True,
+                quality_state=self.quality_state,
+                contract_directs=self._on_gate_fail(),
+            ),
             detail={"deliverable": "gate did not pass and the agent stopped"},
         )
+
+    def _on_gate_fail(self) -> str:
+        directive = getattr(self.contract.escalation, "on_gate_fail", None)
+        return directive if directive in ("return-partial", "request-human") else "return-partial"
 
     def deliverable(self) -> Mapping[str, Any] | None:
         """What the agent produced, once `submit_deliverable` has been called."""

@@ -31,7 +31,7 @@ from outcomefuse.harness.cases import load_case_set
 from outcomefuse.harness.costs import CostTableError, load_cost_table
 from outcomefuse.harness.runner import BaselineArm, GovernedArm, run_case
 from outcomefuse.runtime import Driver, ToolGovernor
-from outcomefuse.workloads import tool_port_for
+from outcomefuse.workloads import citable_index_for, tool_port_for
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
 COST_TABLE = "ct-1"
@@ -153,6 +153,13 @@ def main() -> int:
             tools=tools,
         )
         driver.open_run(build_manifest(driver.run_id, args.workload, args.split, model_id))
+        # AD-7: built, hashed and appended before any verifier runs. Without it
+        # a citation criterion cannot be evaluated and the run fail-closes,
+        # correctly, having spent its whole budget first.
+        index = citable_index_for(contract)
+        if index is not None:
+            digest = driver.bind_citable_index(index)
+            print(f"citable   {len(index.entries)} ids, {digest.sha256[:16]}…")
         arm = GovernedArm(driver, start_model=model_id)
     else:
         arm = BaselineArm(tools, model=model_id)

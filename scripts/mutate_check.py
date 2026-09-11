@@ -129,6 +129,21 @@ MUTATIONS = [
         "    if False:",
         "opening the evaluation split with no preregistration",
     ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "        verdict = self._driver.observe_progress(\n"
+        "            task_state=task_state, evidence_count=evidence_count\n"
+        "        )\n"
+        "        return verdict.terminal_reason if verdict is not None else None",
+        "        return None",
+        "never consulting the loop fuse",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        "    if not finished and terminal is None:",
+        "    if False:",
+        "leaving a run open when the loop gives up",
+    ),
 ]
 
 TESTS = [

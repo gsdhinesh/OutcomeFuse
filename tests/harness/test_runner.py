@@ -98,6 +98,19 @@ def a_call(tool="schema_describe", arguments=None, id="c1", malformed=None):
     return ToolInvocation(id=id, tool=tool, arguments=arguments or {}, malformed=malformed)
 
 
+class Delegating:
+    """Passes everything through to a real driver, so a subclass can override one method."""
+
+    def __init__(self, driver) -> None:
+        # Bound in `__init__` rather than read from the arm: the arm's own
+        # `_driver` is about to become this object, and reading it back would
+        # delegate to itself forever.
+        object.__setattr__(self, "_real", driver)
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_real"), name)
+
+
 def drive(case, contract, arm, *turns, **over):
     return run_case(
         case,
@@ -455,6 +468,84 @@ class TestTheLoopTerminates:
         outcome = drive(case, contract, baseline, answer('{"answer": "x"}'))
         assert outcome.stopped_by is None
         assert outcome.iterations == 1
+
+    def test_a_governed_run_that_runs_out_of_turns_is_still_closed(
+        self, case, contract, governed
+    ):
+        # Found live: doc-research used all eight of its contract's iterations,
+        # the loop gave up, and the run was left open. A governed run with no
+        # `run-closed` cannot be sealed and is not admissible evidence of
+        # anything — including of the governor having behaved correctly.
+        arm, driver = governed()
+        run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=Model(*[asks(a_call()) for _ in range(6)]),
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+            max_iterations=3,
+        )
+        assert driver.terminated is not None
+        kinds = [e.kind for e in driver.store.events(driver.run_id)]
+        assert kinds[-1] == "run-closed"
+
+    def test_a_governed_run_that_answers_is_closed_exactly_once(
+        self, case, contract, governed
+    ):
+        # The mirror: closing on every path, including after a normal finish,
+        # would append two `run-closed` events and pass the test above.
+        arm, driver = governed()
+        drive(case, contract, arm, answer('{"answer": "x"}'))
+        kinds = [e.kind for e in driver.store.events(driver.run_id)]
+        assert kinds.count("run-closed") == 1
+
+    def test_the_fuse_is_consulted_every_turn(self, case, contract, governed):
+        # FR27/FR28. The fuse was built, wired into the driver, and then called
+        # by nobody — an agent going round in circles would have been stopped
+        # only by the iteration cap, having paid for every turn on the way.
+        arm, _ = governed()
+        seen: list[int] = []
+
+        class Watching(Delegating):
+            def observe_progress(self, *, task_state, evidence_count):
+                seen.append(evidence_count)
+                return None
+
+        arm._driver = Watching(arm._driver)  # type: ignore[assignment]
+        run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=Model(asks(a_call()), asks(a_call(id="c2")), answer('{"answer": "x"}')),
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+        )
+        assert seen == [1, 2]
+
+    def test_a_fired_fuse_stops_the_loop(self, case, contract, governed):
+        arm, _ = governed()
+        model = Model(*[asks(a_call()) for _ in range(6)])
+
+        class Halting(Delegating):
+            def observe_progress(self, *, task_state, evidence_count):
+                return StepVerdict(
+                    action="terminate",
+                    decision_reason="no-progress",
+                    terminal_reason="halt-no-progress",
+                )
+
+        arm._driver = Halting(arm._driver)  # type: ignore[assignment]
+        outcome = run_case(
+            case,
+            contract=contract,
+            arm=arm,
+            model=model,
+            max_output_tokens=25000,
+            reasoning_effort="medium",
+        )
+        assert outcome.terminal_reason == "halt-no-progress"
+        assert len(model.requests) == 1
 
     def test_a_run_stopped_by_the_governor_stops_the_loop(self, case, contract, governed):
         arm, driver = governed(allocated_tokens=100)
