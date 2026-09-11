@@ -66,9 +66,12 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
             "It is reported rather than implied. FR62's breakdown names "
             "'agent-stopped-unaided' explicitly instead of crediting the gate for a "
             "saving it did not cause, and the cost split separates model routing from "
-            "token reduction. The other terminating mechanisms — the budget ledger and "
-            "the loop fuse — do cut runs short, are exercised by FR100's failure "
-            "paths, and simply had no occasion to fire on these cases."
+            "token reduction. The other governing mechanisms do act: the budget ledger "
+            "and the loop fuse cut runs short, and escalation retries on the stronger "
+            "model when the gate fails — observed live on code-triage, where "
+            "gpt-5-mini's answer was refused and the run continued on gpt-5. None of "
+            "those *save* tokens, which is why the breakdown still credits them with "
+            "none: escalation spends more to restore quality rather than less."
         ),
         direction="against",
     ),

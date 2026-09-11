@@ -107,6 +107,10 @@ class Outcome(BaseModel):
     #: what it ran on — and needs to refuse rather than guess once escalation
     #: makes this more than one.
     models_used: tuple[str, ...] = ()
+    #: How many times the gate failed and the contract directed a retry on a
+    #: stronger model. FR66 sets a threshold on the rate: an arm that escalates
+    #: on everything has no cheap path and its saving came from elsewhere.
+    escalations: int = Field(default=0, ge=0)
     parsed: Parsed | None = None
     terminal_reason: str | None = None
     #: A mechanism stopped the loop while the agent still wanted to continue.
@@ -117,6 +121,16 @@ class Outcome(BaseModel):
     iterations: int = Field(ge=0)
     #: Set where the loop stopped for its own reasons rather than the agent's.
     stopped_by: str | None = None
+
+
+class Finish(BaseModel):
+    """What the arm made of the agent's answer."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    terminal_reason: str | None = None
+    #: The contract directs a retry on this model. The run continues.
+    escalate_to: str | None = None
 
 
 class Arm(Protocol):
@@ -136,7 +150,7 @@ class Arm(Protocol):
         """Tell the arm what changed this turn. Returns a terminal reason."""
         ...
 
-    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None: ...
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> Finish: ...
 
     def model_id(self) -> str: ...
 
@@ -184,7 +198,7 @@ class GovernedArm:
         )
         return verdict.terminal_reason if verdict is not None else None
 
-    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None:
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> Finish:
         # `parsed is None` means the loop stopped for its own reasons. The run
         # is still closed through the ladder: a governed run left open has no
         # `run-closed`, cannot be sealed, and is not admissible evidence of
@@ -196,7 +210,11 @@ class GovernedArm:
                 parsed.failure if parsed is not None else "the agent produced no answer"
             ),
         )
-        return verdict.terminal_reason
+        if verdict.escalate_to is not None:
+            self._start_model = verdict.escalate_to
+        return Finish(
+            terminal_reason=verdict.terminal_reason, escalate_to=verdict.escalate_to
+        )
 
 
 class BaselineArm:
@@ -255,11 +273,13 @@ class BaselineArm:
         # which is the behaviour the governed arm is measured against.
         return None
 
-    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> str | None:
+    def finish(self, parsed: Parsed | None, *, answer_key: Any | None) -> Finish:
         # The gate runs here, once, after the agent has already stopped of its
         # own accord. It scores; it does not steer. Running it any earlier would
         # hand the baseline the sufficiency stop that is the mechanism under
         # test, and the experiment would compare the governor against itself.
+        #
+        # It never escalates either. FR52's baseline has one model and keeps it.
         if self._recorder is not None:
             self._recorder.score(
                 parsed.deliverable if parsed is not None and parsed.ok else None,
@@ -268,7 +288,7 @@ class BaselineArm:
                     parsed.failure if parsed is not None else "the agent produced no answer"
                 ),
             )
-        return None
+        return Finish()
 
 
 def _from_verdict(verdict: StepVerdict) -> ToolOutcome:
@@ -337,6 +357,7 @@ def run_case(
     spend = Spend()
     cost = 0.0
     models: list[str] = []
+    escalations = 0
     parsed: Parsed | None = None
     terminal: str | None = None
     stopped_by: str | None = None
@@ -393,7 +414,21 @@ def run_case(
                 stopped_by = "output budget exhausted before any answer"
                 break
             parsed = parse_deliverable(response.text)
-            terminal = arm.finish(parsed, answer_key=answer_key)
+            outcome_of_finish = arm.finish(parsed, answer_key=answer_key)
+            if outcome_of_finish.escalate_to is not None:
+                # FR35. The contract directs a retry on a stronger model, so the
+                # run continues. The transcript is dropped rather than carried:
+                # a fresh attempt is what the contract asks for, and handing the
+                # stronger model the weaker one's failed reasoning anchors it to
+                # exactly the answer that just failed the gate.
+                escalations += 1
+                messages = [
+                    Message(role="system", content=prompt.system),
+                    Message(role="user", content=prompt.user),
+                ]
+                parsed = None
+                continue
+            terminal = outcome_of_finish.terminal_reason
             finished = True
             break
 
@@ -445,7 +480,7 @@ def run_case(
         # run left open has no `run-closed`, cannot be sealed, and is not
         # admissible evidence of anything — including of the governor having
         # behaved correctly.
-        terminal = arm.finish(None, answer_key=answer_key)
+        terminal = arm.finish(None, answer_key=answer_key).terminal_reason
 
     return Outcome(
         case_id=case.case_id,
@@ -455,6 +490,7 @@ def run_case(
         models_used=tuple(models),
         parsed=parsed,
         terminal_reason=terminal,
+        escalations=escalations,
         # `finished` means the agent stopped asking for tools of its own accord.
         # Anything terminal recorded after that confirmed the run; it did not
         # shorten it.

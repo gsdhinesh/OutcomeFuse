@@ -197,6 +197,37 @@ MUTATIONS = [
         "asserting conformance instead of measuring it",
     ),
     (
+        "src/outcomefuse/runtime/driver.py",
+        "        escalated = self._escalate()\n"
+        "        if escalated is not None:\n"
+        "            return escalated",
+        "        pass",
+        "ignoring the contract's retry-then-escalate directive",
+    ),
+    (
+        "src/outcomefuse/runtime/driver.py",
+        "        if self.escalations >= escalation.max_escalations:\n"
+        "            return None",
+        "        if False:\n"
+        "            return None",
+        "escalating past the contract's limit",
+    ),
+    (
+        "src/outcomefuse/runtime/driver.py",
+        "        if escalation.never_breach_verification_reserve and not (",
+        "        if False and not (",
+        "escalating into the verification reserve",
+    ),
+    (
+        "src/outcomefuse/harness/runner.py",
+        '                messages = [\n'
+        '                    Message(role="system", content=prompt.system),\n'
+        '                    Message(role="user", content=prompt.user),\n'
+        "                ]",
+        "                pass",
+        "anchoring the retry to the answer that just failed",
+    ),
+    (
         "src/outcomefuse/submission/script.py",
         "        if self.disclosures:\n"
         '            lines.append("\\n## Disclosed (§8.2)")',
@@ -221,6 +252,7 @@ TESTS = [
     "tests/harness/test_campaign.py",
     "tests/harness/test_attribution.py",
     "tests/harness/test_preregistration_record.py",
+    "tests/runtime/test_escalation.py",
     "tests/submission/test_disclosures.py",
 ]
 

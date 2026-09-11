@@ -64,6 +64,10 @@ class StepVerdict(BaseModel):
     #: The tool was allowed and then failed. Distinct from a denial: the agent
     #: should read the error and try something else, not conclude it is barred.
     failed: bool = False
+    #: The run continues on this model instead. Not terminal: an escalated run
+    #: has not ended, and treating it as ended would make the retry a second run
+    #: that no comparison could pair.
+    escalate_to: str | None = None
 
     @property
     def terminates(self) -> bool:
@@ -105,6 +109,11 @@ class Driver:
         self._answer_key: Mapping[str, Any] | None = None
         self.quality_state = "not-evaluated"
         self.gate_qualifier: str | None = None
+        #: The model the run is currently on. Escalation moves it up the
+        #: contract's eligible list; the manifest declares the whole list.
+        self.model_id: str | None = contract.models.start if contract.models else None
+        self.escalations = 0
+        self._unmet: tuple[str, ...] = ()
         self.terminated: str | None = None
 
     # ------------------------------------------------------------- the log
@@ -427,6 +436,7 @@ class Driver:
 
         self.quality_state = verdict.verdict
         self.gate_qualifier = verdict.qualifier
+        self._unmet = verdict.unmet
         self._append(
             "gate-verdict",
             gate_verdict=verdict.verdict,
@@ -500,9 +510,16 @@ class Driver:
         verdict = self._run_gate()
         if verdict is not None:
             return verdict
-        # The gate ran, the floor was not met, and the agent has stopped asking
-        # for tools. FR103 hands this to the contract: return partial, or refer
-        # it to a human.
+
+        # The gate failed. The contract may direct a retry on a stronger model
+        # before anything terminal happens, and an escalated run has not ended —
+        # so this is checked before the FR103 ladder rather than inside it.
+        escalated = self._escalate()
+        if escalated is not None:
+            return escalated
+
+        # No escalation left, or none directed. FR103 hands this to the
+        # contract: return partial, or refer it to a human.
         return self._resolve(
             Situation(
                 gate_failed=True,
@@ -511,6 +528,85 @@ class Driver:
             ),
             detail={"deliverable": "gate did not pass and the agent stopped"},
         )
+
+    def _escalate(self) -> StepVerdict | None:
+        """FR35: retry on a stronger model when the contract says to.
+
+        Returns `None` where escalation is not available, leaving the caller on
+        the terminal ladder. The run is deliberately **not** closed here: an
+        escalated run continues, and closing it would make the retry a second
+        run that no comparison could pair.
+        """
+        escalation = self.contract.escalation
+        if escalation is None or escalation.on_gate_fail != "retry-then-escalate":
+            return None
+        if self.escalations >= escalation.max_escalations:
+            return None
+
+        stronger = self.next_model()
+        if stronger is None:
+            return None
+
+        # The verification reserve exists so a run can always afford to check
+        # its own work. An escalation that ate it would buy a better answer and
+        # lose the ability to tell whether it was better.
+        estimate = self._escalation_estimate()
+        if escalation.never_breach_verification_reserve and not (
+            self.ledger.escalation_leaves_reserve_intact(*estimate)
+        ):
+            self._append(
+                "decision-recorded",
+                policy_action="deny",
+                decision_reason="unaffordable",
+                payload={"escalation": "would breach the verification reserve"},
+            )
+            return None
+
+        self.escalations += 1
+        self._append(
+            "decision-recorded",
+            policy_action="escalate",
+            decision_reason="escalation-gate-fail",
+            model_used=stronger,
+            payload={
+                "from": self.model_id,
+                "to": stronger,
+                "escalation": self.escalations,
+                "unmet": sorted(self._unmet),
+            },
+        )
+        self.model_id = stronger
+        # The next attempt is a fresh one, so the failed answer must not be left
+        # standing: a gate run before the retry submits would otherwise re-read
+        # the deliverable that just failed.
+        self._deliverable = None
+        self.quality_state = "not-evaluated"
+        return StepVerdict(
+            action="escalate",
+            decision_reason="escalation-gate-fail",
+            escalate_to=stronger,
+        )
+
+    def next_model(self) -> str | None:
+        """The next model up the contract's eligible list, or `None` at the top."""
+        models = self.contract.models
+        if models is None:
+            return None
+        eligible = list(models.eligible)
+        try:
+            index = eligible.index(self.model_id or models.start)
+        except ValueError:
+            return None
+        return eligible[index + 1] if index + 1 < len(eligible) else None
+
+    def _escalation_estimate(self) -> tuple[int, float]:
+        """What a retry is expected to cost, from what this run has already spent.
+
+        Derived rather than declared: the run itself is the best available
+        estimate of what running it again costs, and a constant here would be a
+        number nobody could defend.
+        """
+        return self.ledger.spent_tokens, self.ledger.spent_cost
 
     def _on_gate_fail(self) -> str:
         directive = getattr(self.contract.escalation, "on_gate_fail", None)
