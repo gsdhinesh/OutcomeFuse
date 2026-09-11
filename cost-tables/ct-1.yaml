@@ -1,0 +1,39 @@
+# Cost table ct-1 — Azure Foundry, OutcomeFuse
+#
+# AD-13 pins a cost table into every run manifest so cost is computed from a
+# recorded, versioned rate rather than reconstructed later from memory. Two runs
+# priced with different tables are not comparable, which is why the version
+# travels in the manifest and a change means a new version rather than an edit.
+#
+# Rates are per 1,000,000 tokens, in the currency named below.
+#
+# **Reasoning tokens bill at the output rate.** They are a subset of completion
+# tokens, not an addition to them, so pricing completion tokens already prices
+# the reasoning. The smoke test measured gpt-5 spending 85% of its completion
+# tokens on reasoning for a prompt that asked for one word, so the output rate
+# is the one that decides what a run costs.
+#
+# `null` means the rate is unknown. Nothing will be priced from a null: the
+# loader refuses the whole table rather than defaulting to zero, because a zero
+# rate would produce a clean, plausible, entirely false savings figure and
+# nothing downstream would notice.
+
+version: ct-1
+currency: USD
+per_tokens: 1000000
+
+source: >-
+  Azure OpenAI pricing, to be read from the portal for the deployment's own
+  region and pasted here. Not transcribed from a model's recollection: a price
+  that is merely plausible is the failure this file exists to prevent.
+source_read_at: null
+
+rates:
+  gpt-5:
+    input: null
+    cached_input: null
+    output: null
+  gpt-5-mini:
+    input: null
+    cached_input: null
+    output: null

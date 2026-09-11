@@ -98,6 +98,8 @@ class Driver:
         self._iterations = 0
         self._citable_index: CitableIndex | None = None
         self._index_digest: Digest | None = None
+        self._deliverable: Mapping[str, Any] | None = None
+        self._answer_key: Mapping[str, Any] | None = None
         self.quality_state = "not-evaluated"
         self.terminated: str | None = None
 
@@ -240,6 +242,51 @@ class Driver:
         return StepVerdict(action="proceed", decision_reason=disposition.reason, result=result)
 
     # ------------------------------------------------------------ internals
+
+    def charge_model_turn(
+        self, *, step_id: str, tokens: int, cost: float, model_used: str
+    ) -> StepVerdict | None:
+        """A model call is a spend, and it is the largest one in the run.
+
+        `execute_step` is keyed on a `ToolCall` and cannot express this. Without
+        a primitive of its own the reasoning tokens — 85% of gpt-5's completion
+        on a one-word prompt, as measured — would never reach the ledger, and the
+        budget would govern the cheap half of the run while the expensive half
+        ran unmetered.
+
+        Returns a verdict only where the run must stop. Affordability is asked
+        first so exhaustion reaches the Policy as a decision input (FR92) rather
+        than as a rejected reservation, which is fail-closed and a different
+        thing entirely.
+        """
+        if self.terminated is not None:
+            raise RuntimeError(f"run already terminated: {self.terminated}")
+
+        if not self.ledger.can_afford(tokens, cost):
+            return self._resolve(
+                Situation(
+                    budget_remains=False,
+                    affordable_step_advances_floor=False,
+                    quality_state=self.quality_state,
+                ),
+                step_id=step_id,
+            )
+
+        hold_id = f"{step_id}-model-{self._seq}"
+        try:
+            self.ledger.hold(hold_id, step_id, "model-turn", tokens, cost)
+        except LedgerError as exc:
+            return self._fail_closed("terminate", f"ledger unusable: {exc}")
+
+        self._append("budget-reserved", step_id=step_id)
+        self.ledger.settle(hold_id)
+        self._append(
+            "spend-settled",
+            step_id=step_id,
+            tokens_consumed=tokens,
+            model_used=model_used,
+        )
+        return None
 
     def _resolve(
         self,
@@ -391,9 +438,49 @@ class Driver:
 
     # ------------------------------------------------- supplied by the host
 
+    def submit_deliverable(
+        self,
+        deliverable: Mapping[str, Any] | None,
+        *,
+        answer_key: Mapping[str, Any] | None = None,
+        parse_failure: str | None = None,
+    ) -> StepVerdict:
+        """The agent stopped calling tools and produced something. Gate it.
+
+        Without this the gate could only ever run *after a tool call*, which
+        means the one moment that matters — the agent claiming it is finished —
+        had no path to a verdict. A run could end with an ungated answer.
+
+        A deliverable that could not be parsed is a **recorded decision**, not an
+        exception. The agent emitting unreadable output is a failure of the arm
+        that produced it, and an exception here would lose the run rather than
+        score it.
+        """
+        if self.terminated is not None:
+            raise RuntimeError(f"run already terminated: {self.terminated}")
+
+        self._deliverable = deliverable
+        self._answer_key = answer_key
+
+        if deliverable is None:
+            return self._resolve(
+                Situation(floor_met=False, quality_state=self.quality_state),
+                detail={"deliverable": parse_failure or "no deliverable was produced"},
+            )
+
+        verdict = self._run_gate()
+        if verdict is not None:
+            return verdict
+        # The gate ran and the floor was not met, and the agent has stopped
+        # asking for tools. Nothing further will change that.
+        return self._resolve(
+            Situation(floor_met=False, quality_state=self.quality_state),
+            detail={"deliverable": "gate did not pass and the agent stopped"},
+        )
+
     def deliverable(self) -> Mapping[str, Any] | None:
-        """Overridden by a runner that actually builds one."""
-        return None
+        """What the agent produced, once `submit_deliverable` has been called."""
+        return self._deliverable
 
     def answer_key(self) -> Mapping[str, Any] | None:
-        return None
+        return self._answer_key
