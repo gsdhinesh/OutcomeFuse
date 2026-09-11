@@ -1,8 +1,11 @@
 """Smoke-test the live model port against the deployment. Costs money.
 
-    uv pip install openai azure-identity
+    pip install openai azure-identity
     az login
-    uv run python scripts/smoke_model.py
+    .venv/Scripts/python.exe scripts/smoke_model.py
+
+Run with the venv's interpreter rather than `uv run`: the two libraries above
+are not declared dependencies, so a sync would remove them.
 
 One call per deployment, tiny prompt. It exists to answer the questions a fake
 client cannot: does the credential work, does the endpoint accept what we send,
@@ -50,7 +53,8 @@ def main() -> int:
                 )
             )
         except ModelPortError as exc:
-            print(f"FAILED  {exc}")
+            # One line, not the credential chain's whole autobiography.
+            print(f"FAILED  {str(exc).splitlines()[0]}")
             failures += 1
             continue
 

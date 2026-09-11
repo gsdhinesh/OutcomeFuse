@@ -42,19 +42,33 @@ class ModelPortError(RuntimeError):
 def default_token_provider() -> Callable[[], str]:
     """A bearer-token provider from whatever credential the machine has.
 
+    The Azure CLI is tried **before** `DefaultAzureCredential`, which is not the
+    usual order and is deliberate. A machine can advertise a managed-identity
+    endpoint it cannot actually reach — `IDENTITY_ENDPOINT` and `MSI_ENDPOINT`
+    left pointing at localhost by some other tool — and the default chain then
+    fails on the connection and stops, never reaching the signed-in CLI. Both
+    are chained rather than either being chosen, so a deployment with a real
+    managed identity still works.
+
     Imported lazily: a machine running the deterministic suite needs neither
     `azure-identity` nor a credential, and requiring them would make the core's
     tests depend on being logged in to a cloud.
     """
     try:
-        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+        from azure.identity import (
+            AzureCliCredential,
+            ChainedTokenCredential,
+            DefaultAzureCredential,
+            get_bearer_token_provider,
+        )
     except ImportError as exc:  # pragma: no cover - exercised by not installing it
         raise ModelPortError(
             "azure-identity is not installed. It is imported lazily so the suite "
             "runs without a credential on the machine; to reach a live deployment "
-            "run: uv pip install openai azure-identity"
+            "run: pip install openai azure-identity"
         ) from exc
-    return get_bearer_token_provider(DefaultAzureCredential(), TOKEN_SCOPE)
+    chain = ChainedTokenCredential(AzureCliCredential(), DefaultAzureCredential())
+    return get_bearer_token_provider(chain, TOKEN_SCOPE)
 
 
 class AzureFoundryModelPort:
@@ -88,7 +102,7 @@ class AzureFoundryModelPort:
             raise ModelPortError(
                 "openai is not installed. It is imported lazily so the suite runs "
                 "without it; to reach a live deployment run: "
-                "uv pip install openai azure-identity"
+                "pip install openai azure-identity"
             ) from exc
         provider = token_provider or default_token_provider()
         return OpenAI(base_url=self.base_url, api_key=provider, timeout=self.timeout)
