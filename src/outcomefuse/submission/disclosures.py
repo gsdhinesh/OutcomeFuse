@@ -149,6 +149,38 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
         direction="unknown",
     ),
     Disclosure(
+        key="code-triage-fix-summary-is-a-vocabulary-lottery",
+        finding=(
+            "code-triage scored 0 of 8 on the evaluation set in BOTH arms, including "
+            "the gpt-5 baseline, so no proof card exists for it at all. The cause is "
+            "the instrument, not the models. `fix-summary-substantive` is a regex "
+            "requiring forty characters and one of ten literal verbs (add, remove, "
+            "guard, reorder, rename, clamp, await, close, validate, initialise), and "
+            "the frozen prompt asks only for 'what is wrong and what would correct "
+            "it' -- it never discloses the list. Sampling ten real deliverables, nine "
+            "failed, and all ten were accurate, specific diagnoses. Two further traps "
+            "compound it: the list spells `initialise` in British English while models "
+            "write `initialize`, and `\\bvalidate\\b` does not match `validate_lines` "
+            "because the underscore is a word character, so a summary naming the very "
+            "function at fault is rejected for naming it."
+        ),
+        why_not_fixed=(
+            "The contract, the rubric and the prompt are all inside the freeze, and "
+            "runs exist. This is precisely the defect §8.2 anticipated: one found by "
+            "measuring, whose fix would improve our own numbers."
+        ),
+        workaround=(
+            "code-triage is reported as measured and unscoreable, never dropped and "
+            "never re-scored. Its 0/8 must not be read as a capability result for "
+            "either model. It also inflates the escalation-rate counter-metric, since "
+            "runs escalated to gpt-5 over a spelling rule -- by contrast supply-chain's "
+            "escalations are genuine, driven by root-cause and recommended-action "
+            "mismatches against the key, so that workload's refusal stands on real "
+            "grounds and is not excused by this."
+        ),
+        direction="unknown",
+    ),
+    Disclosure(
         key="verdict-applied-never-emitted",
         finding=(
             "AD-2's canonical event order lists `verdict-applied` between "
