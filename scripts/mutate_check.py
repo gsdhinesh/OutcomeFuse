@@ -319,6 +319,7 @@ TESTS = [
     "tests/harness/test_preregistration_record.py",
     "tests/runtime/test_escalation.py",
     "tests/submission/test_disclosures.py",
+    "tests/submission/test_submission.py",
 ]
 
 
