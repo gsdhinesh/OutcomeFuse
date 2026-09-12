@@ -218,6 +218,12 @@ def main() -> int:
                 "cost_table": card_cost_table,
                 "proof_card_sha256": card.digest().sha256,
                 "headline": headline(card),
+                # A proof card's unit is the case, not the run: every figure on
+                # it is a paired comparison. The two run seals per case give
+                # run-level traceability, so naming the cases here says what the
+                # number rests on without implying a granularity it does not have.
+                "case_ids": [p.case_id for p in card.pairs],
+                "case_count": card.case_count,
                 "cost_attribution": cost_split,
                 "counter_metrics": [r.model_dump(mode="json") for r in counters.readings],
                 "counter_metric_breaches": [r.metric for r in counters.breaches],

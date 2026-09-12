@@ -42,6 +42,20 @@ REQUIRED_DEMONSTRATIONS: Final[frozenset[str]] = frozenset(
     {"outcome-contract", "decision-stream", "sufficiency-stop"}
 )
 
+#: A demonstration the freeze made impossible may be *replaced* by the
+#: disclosure that explains its absence, never simply dropped.
+#:
+#: FR84's minimum exists to stop a video showing results without showing the
+#: mechanism. When measurement proves a mechanism does not fire, neither
+#: available move is right: re-enacting it is the dishonesty the rule was
+#: written against, and refusing to build any submission at all just deletes
+#: the finding. Naming the disclosure is strictly stronger than silence -- it
+#: is registered, it renders in the script, and §8.2 will not let it be
+#: dropped -- so the gap has to be explained on camera rather than skipped.
+EXCUSED_BY: Final[dict[str, str]] = {
+    "sufficiency-stop": "sufficiency-stop-never-fires-early",
+}
+
 
 class SubmissionRefused(ValueError):
     """The submission would have shown something §8 does not permit."""
@@ -168,9 +182,17 @@ class Submission(BaseModel):
             )
 
         promised = {show for beat in self.beats for show in beat.shows}
+        filed = {d.key for d in self.disclosures}
         missing = sorted(REQUIRED_DEMONSTRATIONS - promised)
-        if missing:
-            raise ValueError(f"FR84's minimum is not shown: {missing}")
+        unexcused = [
+            show
+            for show in missing
+            if show not in EXCUSED_BY or EXCUSED_BY[show] not in filed
+        ]
+        if unexcused:
+            raise ValueError(f"FR84's minimum is not shown: {unexcused}")
+        # Promising it anyway is the failure the excuse exists to prevent, so
+        # the run still has to back anything actually claimed.
         unbacked = sorted(promised - self.mechanism.demonstrates)
         if unbacked:
             raise ValueError(
@@ -197,6 +219,12 @@ class Submission(BaseModel):
     def headlines(self) -> tuple[Figure, ...]:
         return tuple(f for f in self.figures if f.headline)
 
+    @property
+    def excused(self) -> tuple[str, ...]:
+        """FR84 demonstrations no run supports, and so must be spoken to instead."""
+        promised = {show for beat in self.beats for show in beat.shows}
+        return tuple(sorted(REQUIRED_DEMONSTRATIONS - promised))
+
     def digest(self) -> Digest:
         return hash_structure(self.model_dump(mode="json"))
 
@@ -211,6 +239,13 @@ class Submission(BaseModel):
             for figure in beat.figures:
                 marker = "HEADLINE " if figure.headline else ""
                 lines.append(f"- {marker}{figure.rendered()}")
+        if self.excused:
+            lines.append("\n## Not shown, and why (FR84)")
+            for show in self.excused:
+                lines.append(
+                    f"- **{show}** is not demonstrated: no recorded run exhibits it. "
+                    f"See the disclosure `{EXCUSED_BY[show]}`."
+                )
         if self.disclosures:
             lines.append("\n## Disclosed (§8.2)")
             for disclosure in self.disclosures:

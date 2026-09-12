@@ -238,6 +238,45 @@ class TestShowingTheMechanism:
                 workloads_completed=("data-sql",),
             )
 
+    def test_the_stop_may_be_excused_by_its_disclosure(self):
+        # Measurement showed the sufficiency stop never fires early. Both
+        # obvious moves are wrong: re-enacting it is the dishonesty FR84 was
+        # written against, and refusing to build anything deletes the finding.
+        # The disclosure is the third option, and it renders on camera.
+        built = Submission(
+            beats=tuple(beats(shows=("outcome-contract", "decision-stream"))),
+            mechanism=mechanism(),
+            workloads_completed=("data-sql",),
+        )
+        assert built.excused == ("sufficiency-stop",)
+        assert "sufficiency-stop-never-fires-early" in built.render()
+        assert "Not shown, and why" in built.render()
+
+    def test_the_excuse_does_not_extend_to_the_other_two(self):
+        # Otherwise it is a hole: any demonstration could be skipped by
+        # declining to promise it.
+        with pytest.raises(ValidationError, match=r"not shown: \['decision-stream'\]"):
+            Submission(
+                beats=tuple(beats(shows=("outcome-contract",))),
+                mechanism=mechanism(),
+                workloads_completed=("data-sql",),
+            )
+
+    def test_an_excused_demonstration_still_cannot_be_promised(self):
+        # Omitting it is honest; claiming it while no run backs it is not.
+        confirmed = [
+            e.model_copy(update={"payload": {"when": "at-submission"}})
+            if e.kind == "gate-verdict"
+            else e
+            for e in a_log()
+        ]
+        with pytest.raises(ValidationError, match="promised but not present"):
+            Submission(
+                beats=tuple(beats()),
+                mechanism=evidence_of_mechanism(confirmed, seal=SEAL_A),
+                workloads_completed=("data-sql",),
+            )
+
     def test_promising_a_stop_no_run_made_is_refused(self):
         # A demonstration is shown from an artifact, never re-enacted.
         without_stop = [e for e in a_log() if e.decision_reason != "sufficiency"]

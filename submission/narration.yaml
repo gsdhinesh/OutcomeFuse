@@ -1,0 +1,74 @@
+# The video's narration (FR84). Two minutes, four beats, in this order:
+# problem, artifact, proof, scale.
+#
+# EDIT THE `says` LINES. They are the only part of the submission a human is
+# supposed to write. Everything else -- the numbers, the labels, the digests,
+# which claims are even permitted -- is filled in from the evaluation cards by
+# scripts/build_submission.py and cannot be typed in by hand.
+#
+# Two rules the builder enforces rather than trusts:
+#
+#   1. `seconds` must total <= 120.
+#   2. `shows` names a mechanism that has to appear in a real recorded run.
+#      "sufficiency-stop" is currently NOT demonstrable -- see the disclosure
+#      `sufficiency-stop-never-fires-early`. The agent stops itself and the
+#      gate scores what it hands over, so no run has a gate verdict that
+#      shortened anything. Claiming it will fail the build, on purpose.
+#
+# Figures are referenced by key, not by value. The builder resolves each one
+# from the evaluation card for that workload and refuses any key it cannot
+# back. Available keys per workload:
+#
+#   net_token_fraction, net_cost_fraction, tool_call_fraction   (basis: net)
+#   baseline_passes, governed_passes, case_count                (basis: count)
+#   escalation_rate, quality_target_pass_rate                   (basis: rate)
+
+beats:
+  - name: problem
+    seconds: 25
+    says: >-
+      An agent with a budget spends it. It keeps calling tools until something
+      stops it, and what usually stops it is running out. You get a number at
+      the end and no way to know whether the work was done or merely paid for.
+    shows: []
+    figures: []
+
+  - name: artifact
+    seconds: 35
+    says: >-
+      OutcomeFuse makes the budget answer to a quality floor. Every run is
+      bound to an outcome contract, and every decision it takes is recorded
+      against that contract as it happens, so the run can be read back rather
+      than taken on trust.
+    shows:
+      - outcome-contract
+      - decision-stream
+    figures: []
+
+  - name: proof
+    seconds: 40
+    # Leave `figures` as-is unless you know what you are doing. The builder
+    # marks exactly one figure as the headline and refuses it outright if the
+    # workload's counter-metrics breached their preregistered thresholds.
+    says: >-
+      The benchmark was frozen before the governor existed, so it could not be
+      fitted to it. These are evaluation-set results, held back until the
+      configuration was fixed.
+    shows: []
+    figures:
+      - key: net_token_fraction
+        workload: supply-chain
+        headline: true
+      - key: governed_passes
+        workload: supply-chain
+      - key: baseline_passes
+        workload: supply-chain
+
+  - name: scale
+    seconds: 20
+    says: >-
+      The same contract runs unchanged across four workloads. Where the floor
+      is met more cheaply, it says so. Where it is not, it refuses to publish
+      the number rather than rounding it into a win.
+    shows: []
+    figures: []
