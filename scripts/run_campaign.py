@@ -55,6 +55,11 @@ def main() -> int:
     )
     parser.add_argument("--runs-dir", default="runs/campaign")
     parser.add_argument(
+        "--cards-dir",
+        default="runs/cards",
+        help="where the proof card and its counter-metrics are written",
+    )
+    parser.add_argument(
         "--governed-model",
         default=None,
         help="override the contract's start model, to separate governance from model choice",
@@ -104,6 +109,8 @@ def main() -> int:
             table = None
     except CostTableError as exc:
         print(f"! {exc}\n")
+    # Recorded even when unpriced, so a card says which table produced its cost.
+    card_cost_table = table.version if table else "ct-unpriced"
 
     study = None
     try:
@@ -194,6 +201,40 @@ def main() -> int:
         print(f"  ! {len(counters.breaches)} breached its preregistered threshold")
 
     print(f"\nproof card {card.digest().sha256[:16]}...")
+
+    # Persisted so a submission can cite the figure by digest rather than by
+    # someone retyping it from a terminal. Every run overwrites its own
+    # workload's card: the digest changes when the measurement does, so a stale
+    # citation stops matching rather than quietly ageing.
+    cards = Path(args.cards_dir)
+    cards.mkdir(parents=True, exist_ok=True)
+    written = cards / f"{args.split}-{args.workload}.json"
+    written.write_text(
+        json.dumps(
+            {
+                "workload": args.workload,
+                "split": args.split,
+                "preregistration": prereg_hash,
+                "cost_table": card_cost_table,
+                "proof_card_sha256": card.digest().sha256,
+                "headline": headline(card),
+                "cost_attribution": cost_split,
+                "counter_metrics": [r.model_dump(mode="json") for r in counters.readings],
+                "counter_metric_breaches": [r.metric for r in counters.breaches],
+                "adapter_conformance_passed": bool(battery and battery.passed),
+                "reportable": verdict.publishable if verdict else None,
+                "independence": verdict.independence if verdict else None,
+                "refusals": list(verdict.refusals) if verdict else [],
+                "excluded": [{"case": c, "why": w} for c, w in report.excluded],
+                "run_seals": list(card.run_seals),
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    print(f"written to {written}")
+
     if args.split != "evaluation":
         print(
             "This is a calibration campaign. It is a dry run of the measurement, "
