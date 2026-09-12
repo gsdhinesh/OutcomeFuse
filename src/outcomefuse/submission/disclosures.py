@@ -123,6 +123,32 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
         direction="against",
     ),
     Disclosure(
+        key="escalation-threshold-was-set-blind",
+        finding=(
+            "The preregistered escalation-rate threshold is 0.30, and every workload "
+            "measured breaches it: 0.43 on supply-chain and 0.63 on data-sql at "
+            "evaluation, 0.36 and 0.83 at calibration. That refusal is what stops the "
+            "savings figures being published. The threshold was chosen before any run "
+            "existed and therefore before anyone knew how often gpt-5-mini fails this "
+            "quality floor, so it encodes an assumption about the start model rather "
+            "than a measured property of the system."
+        ),
+        why_not_fixed=(
+            "FR66 fixes targets and thresholds before the evaluation set is touched, "
+            "and the whole value of doing that is lost the moment a threshold moves "
+            "because the result came back wrong. A threshold revised after seeing the "
+            "number it refuses is not a threshold."
+        ),
+        workaround=(
+            "It stands, and the headline stays refused. Reporting it this way keeps "
+            "two findings apart that a revision would have merged: the claim was not "
+            "supported, and the threshold may have been miscalibrated. The second is "
+            "a reason to preregister differently next time, never a reason to publish "
+            "this time."
+        ),
+        direction="unknown",
+    ),
+    Disclosure(
         key="verdict-applied-never-emitted",
         finding=(
             "AD-2's canonical event order lists `verdict-applied` between "
