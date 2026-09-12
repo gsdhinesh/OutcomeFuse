@@ -21,7 +21,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from outcomefuse.core.record import EventStore
+from outcomefuse.core.record import open_store
 from outcomefuse.harness.preregistration import load_preregistration
 from outcomefuse.harness.reportability import Reportability
 from outcomefuse.submission.figures import Figure, Provenance, required_labels
@@ -66,8 +66,10 @@ def make_figure(spec: dict[str, Any], card: dict[str, Any], *, split: str) -> Fi
         digest=card["proof_card_sha256"],
         run_ids=tuple(card["case_ids"]),
         split=split,
-        # Both arms really executed; nothing here is projected from a shadow.
-        mode="observed",
+        # A proof card is a paired comparison, and the figure is the governed
+        # arm's result against its baseline. Nothing here is projected from a
+        # shadow run, which is what the mode literal exists to catch.
+        mode="governed",
         case_count=card["case_count"],
         workload=card["workload"],
     )
@@ -86,23 +88,26 @@ def make_figure(spec: dict[str, Any], card: dict[str, Any], *, split: str) -> Fi
 
 
 def pick_run(runs_dir: Path) -> tuple[Any, str]:
-    """Any real governed run whose log opens with its manifest, plus its seal.
+    """A governed run whose log opens with its manifest and records decisions.
 
-    Skips databases that will not open or will not seal, and says which: a run
-    whose seal is unreadable is exactly the kind of thing that should be noticed
-    rather than silently passed over on the way to a nicer one.
+    Baseline runs are sealed and readable too, and they hold no policy at all,
+    so taking the first sealed run finds one that cannot demonstrate anything.
+    The demonstration has to come from the arm that governs.
     """
     for path in sorted(runs_dir.rglob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True):
         try:
-            store = EventStore(path)
-            events = list(store.read())
-            seal = store.seal()
+            with open_store(path, writer=False) as store:
+                for run_id in store.run_ids():
+                    events = store.events(run_id)
+                    seal = store.seal(run_id)
+                    if not seal or not events or events[0].kind != "run-manifest":
+                        continue
+                    if any(e.kind == "decision-recorded" and e.policy_action for e in events):
+                        return events, seal
         except (sqlite3.Error, ValueError, OSError) as err:
             print(f"  skipped {path.name}: {err}", file=sys.stderr)
             continue
-        if events and events[0].kind == "run-manifest":
-            return events, seal
-    raise SubmissionRefused(f"no readable run under {runs_dir}")
+    raise SubmissionRefused(f"no sealed governed run under {runs_dir}")
 
 
 def main() -> int:
@@ -154,8 +159,12 @@ def main() -> int:
     if headline_workloads:
         card = cards[sorted(headline_workloads)[0]]
         reportability = Reportability(
-            publishable=bool(card["reportable"]) and not card["counter_metric_breaches"],
+            # `publishable` is derived, not set: admissible and unrefused. The
+            # card already carries the harness's own verdict and its reasons, so
+            # this reconstructs them rather than re-deciding anything.
+            admissible=bool(card["reportable"]),
             independence=card["independence"] or "self-reported",
+            labels=(),
             refusals=tuple(card["refusals"])
             + tuple(
                 f"counter-metric {m} breached its preregistered threshold"
