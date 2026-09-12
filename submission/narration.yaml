@@ -47,28 +47,27 @@ beats:
 
   - name: proof
     seconds: 40
-    # Leave `figures` as-is unless you know what you are doing. The builder
-    # marks exactly one figure as the headline and refuses it outright if the
-    # workload's counter-metrics breached their preregistered thresholds.
+    # DELIBERATELY NO FIGURES. Every workload was refused: all four breached the
+    # preregistered escalation threshold, three fell below the minimum case
+    # count, and code-triage produced no proof card at all. Adding a figure here
+    # will not build -- `scripts/build_submission.py` checks the cards and
+    # refuses. That refusal is the result, so say it rather than work around it.
     says: >-
       The benchmark was frozen before the governor existed, so it could not be
-      fitted to it. These are evaluation-set results, held back until the
-      configuration was fixed.
+      fitted to it. Then we ran it, and it refused us. All four workloads
+      breached the escalation threshold we registered in advance. One produced
+      no score at all, because a rubric we can no longer change rejects correct
+      answers for using the wrong verb. None of that is fixable now, and all of
+      it is on the record.
     shows: []
-    figures:
-      - key: net_token_fraction
-        workload: supply-chain
-        headline: true
-      - key: governed_passes
-        workload: supply-chain
-      - key: baseline_passes
-        workload: supply-chain
+    figures: []
 
   - name: scale
     seconds: 20
     says: >-
-      The same contract runs unchanged across four workloads. Where the floor
-      is met more cheaply, it says so. Where it is not, it refuses to publish
-      the number rather than rounding it into a win.
+      The savings we did measure came from running a cheaper model, not from
+      governing. Every run is sealed and published, so you can check that
+      yourself rather than take our word for it. The apparatus works. What it
+      says is that the product does not, yet.
     shows: []
     figures: []
