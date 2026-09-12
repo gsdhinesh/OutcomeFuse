@@ -2,7 +2,7 @@
 
 ## The task
 
-Purchase order 5004 has been flagged for review. Classify the exception, identify its root cause, recommend a disposition, and cite the supplier policy clauses your recommendation rests on.
+Purchase order 5013 has been flagged for review. Classify the exception, identify its root cause, recommend a disposition, and cite the supplier policy clauses your recommendation rests on.
 
 
 ## The answer given
@@ -10,21 +10,18 @@ Purchase order 5004 has been flagged for review. Classify the exception, identif
 ```json
 {
   "alternatives": [
-    "escalate-to-buyer",
+    "partial-release",
     "expedite",
-    "partial-release"
+    "resource-alternate-supplier"
   ],
-  "est_delay_days": 7,
+  "est_delay_days": 14,
   "exception_type": "quality-hold",
   "impacted_orders": [
-    5004
+    5013
   ],
   "policy_refs": [
     {
       "id": "SP-7.1"
-    },
-    {
-      "id": "SP-4.1"
     }
   ],
   "recommended_action": "hold-for-quality",

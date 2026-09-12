@@ -1,7 +1,13 @@
-drawn_from: 4
+drawn_from: 25
 items:
 - item: 1
-  run_id: sc-c-001-governed
-sample_size: 2
+  run_id: sc-c-002-baseline
+- item: 2
+  run_id: sc-c-003-baseline
+- item: 3
+  run_id: sc-e-002-governed
+- item: 4
+  run_id: sc-e-006-governed
+sample_size: 4
 seed: 1
 workload: supply-chain

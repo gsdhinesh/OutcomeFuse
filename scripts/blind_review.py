@@ -114,7 +114,19 @@ def prepare(workload: str, *, sample_size: int, seed: int) -> Path:
         encoding="utf-8",
     )
     answers = out / "answers.yaml"
-    if not answers.exists():
+    expected = {i["item"] for i in items}
+    if answers.exists():
+        # Left from an earlier draw, it silently keeps slots for items nobody
+        # drew and omits ones somebody did. Overwriting would destroy a
+        # reviewer's work, so refuse and make them say which they meant.
+        existing = yaml.safe_load(answers.read_text(encoding="utf-8")) or {}
+        if {int(k) for k in existing} != expected:
+            raise SystemExit(
+                f"{answers} answers items {sorted(int(k) for k in existing)} but this "
+                f"draw is {sorted(expected)}. Delete the directory to start a fresh "
+                "review; keeping it lets a partial answer set be recorded as a whole one."
+            )
+    else:
         answers.write_text(
             "# accept or reject, one per item. Nothing here shows you the gate's\n"
             "# verdict; that is the point.\n"
@@ -142,6 +154,16 @@ def record(workload: str) -> BlindReview:
     unknown = sorted(v for v in verdicts.values() if v not in {"accept", "reject"})
     if unknown:
         raise SystemExit(f"answers must be accept or reject, got {unknown}")
+
+    # Scoring only the answered items would let a reviewer who dislikes the
+    # result leave the inconvenient ones blank, and the rate would still be
+    # reported against the full sample_size as though nothing were missing.
+    missing = sorted({i["item"] for i in sample["items"]} - set(verdicts))
+    if missing:
+        raise SystemExit(
+            f"items {missing} are unanswered; a rate over the answered subset is "
+            "not the rate this sample was drawn to measure"
+        )
 
     review = BlindReview(
         reviewed=len(verdicts),
