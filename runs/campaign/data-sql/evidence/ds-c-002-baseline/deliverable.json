@@ -1,0 +1,11 @@
+{
+  "assumptions": [],
+  "result_value": 2,
+  "row_count": 2,
+  "sql": "SELECT COUNT(DISTINCT p.product_id) AS product_count,\n       COUNT(*) AS contributing_rows\nFROM products p\nJOIN suppliers s ON p.supplier_id = s.supplier_id\nWHERE s.name = 'Kanto Precision';",
+  "tables_used": [
+    "products",
+    "suppliers"
+  ],
+  "units": "count"
+}

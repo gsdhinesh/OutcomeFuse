@@ -1,0 +1,18 @@
+{
+  "alternatives": [
+    "expedite",
+    "escalate-to-buyer"
+  ],
+  "est_delay_days": 12,
+  "exception_type": "late-shipment",
+  "impacted_orders": [
+    5012
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-4.1"
+    }
+  ],
+  "recommended_action": "accept-and-reschedule",
+  "root_cause_code": "rc-supplier-late-dispatch"
+}

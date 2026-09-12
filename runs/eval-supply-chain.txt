@@ -1,0 +1,52 @@
+preregistration prereg-1 -> 87b94e36fdc933c4...
+  net tokens >= 20%, pass rate >= 90%, minimum 6 cases
+
+case                   baseline            governed  matched
+sc-e-001        7510 tok  4 tools     3616 tok  3 tools      yes  (pass/pass)
+sc-e-002        5239 tok  3 tools     3458 tok  3 tools      yes  (pass/pass)
+sc-e-003        3847 tok  3 tools     7823 tok  3 tools       no  (fail/fail)
+sc-e-004        4686 tok  3 tools     7421 tok  3 tools      yes  (pass/pass)
+sc-e-005        4693 tok  3 tools     3452 tok  3 tools      yes  (pass/pass)
+sc-e-006        9483 tok  4 tools     4127 tok  3 tools      yes  (pass/pass)
+sc-e-007        4673 tok  3 tools     6885 tok  3 tools       no  (fail/fail)
+! excluded sc-e-008: gate unavailable: criterion 'exception-type-matches-key' could not be evaluated: answer key has no entry 'exception_type'
+
+{
+  "baseline_passes": 5,
+  "case_count": 7,
+  "gate_qualifiers": [
+    "constraint-backed"
+  ],
+  "governed_passes": 5,
+  "governor_overhead_share": 0.0,
+  "gross_token_reduction": 0.301699,
+  "median_net_token_reduction": 0.33995,
+  "net_cost_reduction": 0.759458,
+  "net_token_reduction": 0.301699,
+  "per_mechanism": {
+    "agent-stopped-unaided": 1.0
+  }
+}
+
+cost saving came from:
+  model-routing      50.2%
+  agent-stopped-unaided   49.8%
+
+adapter conformance passed (6 scenarios)
+reportable          False (self-reported)
+  refused: a tool-call reduction is reported without tool-suppression accuracy (FR70)
+  refused: the workload has 5 cases, below its declared minimum of 6 (FR59)
+  refused: the workload result carries no verification-mode coverage report
+  refused: counter-metrics breached their preregistered thresholds: escalation-rate
+
+counter-metrics (FR66)
+  false-sufficiency-rate: not measured (FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question)
+  tool-suppression-error-rate: not measured (the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked)
+  escalation-rate: 0.4286 (threshold 0.3)  BREACHED
+  governor-overhead-share: 0 (threshold 0.05)
+  added-latency: 3.947 (threshold 10.0)
+  budget-breach-rate: 0 (threshold 0.02)
+  ! 1 breached its preregistered threshold
+
+proof card e03b848eba9602e1...
+written to runs\cards\evaluation-supply-chain.json

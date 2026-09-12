@@ -1,0 +1,18 @@
+{
+  "alternatives": [
+    "accept-and-reschedule",
+    "expedite"
+  ],
+  "est_delay_days": 18,
+  "exception_type": "late-shipment",
+  "impacted_orders": [
+    5020
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-4.1"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-carrier-delay"
+}

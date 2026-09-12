@@ -1,0 +1,27 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/cache.py:9"
+    },
+    {
+      "id": "orderflow/cache.py:15"
+    },
+    {
+      "id": "orderflow/cache.py:16"
+    },
+    {
+      "id": "orderflow/cache.py:17"
+    },
+    {
+      "id": "orderflow/cache.py:18"
+    },
+    {
+      "id": "orderflow/cache.py:19"
+    }
+  ],
+  "fix_summary": "In TTLCache.put, eviction occurs only when len(_entries) > max_entries. This allows one extra entry (e.g., 129 when max is 128). Change the condition to use \">=\" so eviction happens when the cache is full before inserting the new item.",
+  "root_cause_file": "orderflow/cache.py",
+  "root_cause_line": 16,
+  "severity": "major",
+  "suggested_test": "Create a TTLCache with max_entries=2. Insert keys a and b, assert cache.size() == 2. Insert key c, then assert cache.size() == 2 and that the oldest of {a,b} has been evicted."
+}

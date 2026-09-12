@@ -1,0 +1,12 @@
+{
+  "assumptions": [
+    "Counted shipments with status = 'delivered' and delivered_date within [2026-05-01, 2026-06-01)."
+  ],
+  "result_value": 4,
+  "row_count": 4,
+  "sql": "SELECT COUNT(*) AS cnt\nFROM shipments\nWHERE status = 'delivered'\n  AND delivered_date >= '2026-05-01'\n  AND delivered_date < '2026-06-01';",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "count"
+}

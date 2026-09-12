@@ -1,0 +1,7 @@
+{
+  "insufficient_evidence": true,
+  "missing": [
+    "customer identifier (e.g., customer_id) on orders",
+    "customers table or any field mapping orders to specific customers"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "alternatives": [
+    "partial-release (rejected \u2014 policy SP-5.1 requires alternate sourcing be considered first)",
+    "accept-and-reschedule (rejected \u2014 shortfall >10% triggers sourcing consideration per SP-5.1)"
+  ],
+  "est_delay_days": 7,
+  "exception_type": "short-ship",
+  "impacted_orders": [
+    5010
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.1"
+    },
+    {
+      "id": "SP-9.1"
+    },
+    {
+      "id": "SP-5.2"
+    }
+  ],
+  "recommended_action": "resource-alternate-supplier",
+  "root_cause_code": "rc-supplier-capacity"
+}

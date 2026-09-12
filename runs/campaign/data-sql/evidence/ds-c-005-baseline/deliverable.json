@@ -1,0 +1,10 @@
+{
+  "result_value": 17046,
+  "row_count": 17,
+  "sql": "SELECT COALESCE(SUM(ol.quantity * ol.unit_price_cents),0) AS total_cents,\n       COALESCE(SUM(ol.quantity * ol.unit_price_cents),0) / 100.0 AS total_usd,\n       COUNT(*) AS row_count\nFROM order_lines ol\nJOIN orders o ON o.order_id = ol.order_id\nWHERE o.customer_region = 'EMEA'\n  AND o.status = 'closed';",
+  "tables_used": [
+    "order_lines",
+    "orders"
+  ],
+  "units": "usd"
+}

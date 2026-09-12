@@ -1,0 +1,28 @@
+{
+  "alternatives": [
+    "resource-alternate-supplier",
+    "expedite",
+    "accept-and-reschedule"
+  ],
+  "est_delay_days": 14,
+  "exception_type": "short-ship",
+  "impacted_orders": [
+    5003
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.1"
+    },
+    {
+      "id": "SP-5.2"
+    },
+    {
+      "id": "SP-9.1"
+    },
+    {
+      "id": "SP-4.1"
+    }
+  ],
+  "recommended_action": "partial-release",
+  "root_cause_code": "rc-supplier-capacity"
+}

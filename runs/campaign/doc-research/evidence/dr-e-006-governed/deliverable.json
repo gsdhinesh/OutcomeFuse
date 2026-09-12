@@ -1,0 +1,22 @@
+{
+  "answer": "200 days. As of 1 July 2026 the AMER Records Retention Standard is in force and governs AMER, taking precedence over the global standard once effective.",
+  "answer_code": "days-200",
+  "citations": [
+    {
+      "id": "doc-005"
+    },
+    {
+      "id": "doc-020"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [
+    {
+      "id": "doc-001"
+    },
+    {
+      "id": "doc-014"
+    }
+  ],
+  "primary_source_id": "doc-005"
+}

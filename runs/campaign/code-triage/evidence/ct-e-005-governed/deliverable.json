@@ -1,0 +1,27 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/validation.py:34"
+    },
+    {
+      "id": "orderflow/validation.py:36"
+    },
+    {
+      "id": "orderflow/validation.py:37"
+    },
+    {
+      "id": "orderflow/validation.py:40"
+    },
+    {
+      "id": "orderflow/validation.py:46"
+    },
+    {
+      "id": "orderflow/validation.py:47"
+    }
+  ],
+  "fix_summary": "validate_email uses '\"@\" in email' even when contact_email is missing (None), causing a TypeError. It should explicitly handle a missing or invalid email and raise a ValidationError, consistent with other validators. For example: email = order.get(\"contact_email\"); if not isinstance(email, str) or \"@\" not in email: raise ValidationError(\"invalid contact_email\"); return True.",
+  "root_cause_file": "orderflow/validation.py",
+  "root_cause_line": 37,
+  "severity": "major",
+  "suggested_test": "def test_missing_contact_email_raises_clear_error():\n    from orderflow.validation import validate_email, ValidationError\n    order = {\"region\": \"EMEA\", \"lines\": []}  # no contact_email provided\n    with pytest.raises(ValidationError):\n        validate_email(order)\n\n# Optionally, end-to-end:\n# def test_validate_missing_contact_email_is_invalid():\n#     from orderflow.validation import validate\n#     order = {\"region\": \"EMEA\", \"lines\": []}\n#     assert validate(order) is False"
+}

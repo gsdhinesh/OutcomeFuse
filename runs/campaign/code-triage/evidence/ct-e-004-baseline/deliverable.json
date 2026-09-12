@@ -1,0 +1,27 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/pricing.py:1"
+    },
+    {
+      "id": "orderflow/pricing.py:3"
+    },
+    {
+      "id": "orderflow/pricing.py:4"
+    },
+    {
+      "id": "orderflow/pricing.py:21"
+    },
+    {
+      "id": "orderflow/pricing.py:22"
+    },
+    {
+      "id": "orderflow/pricing.py:23"
+    }
+  ],
+  "fix_summary": "tier_rank uses TIER_ORDER.index(tier), which raises ValueError for unrecognised (legacy) tiers despite the docstring stating unknown tiers rank lowest. Handle unknown tiers by providing a default rank lower than any known tier, e.g., return -1 when the tier is not in TIER_ORDER.",
+  "root_cause_file": "orderflow/pricing.py",
+  "root_cause_line": 23,
+  "severity": "major",
+  "suggested_test": "def test_tier_rank_unknown_is_lowest():\n    from orderflow.pricing import tier_rank\n    assert tier_rank('legacy_tier') < tier_rank('bronze')  # and does not raise\n"
+}

@@ -1,0 +1,11 @@
+{
+  "result_value": 2687.5,
+  "row_count": 11,
+  "sql": "SELECT COALESCE(SUM(ol.quantity * (ol.unit_price_cents - p.unit_cost_cents)), 0) / 100.0 AS gross_margin_usd, COUNT(*) AS row_count FROM order_lines ol JOIN orders o ON o.order_id = ol.order_id JOIN products p ON p.product_id = ol.product_id WHERE o.status = 'closed' AND p.category = 'sensors';",
+  "tables_used": [
+    "order_lines",
+    "orders",
+    "products"
+  ],
+  "units": "usd"
+}

@@ -1,0 +1,19 @@
+{
+  "alternatives": [
+    "hold-for-quality \u2014 rejected (incoming inspection passed, no quality issue)",
+    "accept-and-reschedule \u2014 rejected (finance policy requires buyer escalation for invoiced price above agreed)",
+    "resource-alternate-supplier \u2014 rejected (single short shipment/price issue; no capacity or supply failure)"
+  ],
+  "est_delay_days": 0,
+  "exception_type": "price-variance",
+  "impacted_orders": [
+    5016
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-6.1"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-unapproved-price-uplift"
+}

@@ -1,0 +1,14 @@
+preregistration prereg-1 -> 87b94e36fdc933c4...
+  net tokens >= 20%, pass rate >= 90%, minimum 6 cases
+
+case                   baseline            governed  matched
+ct-e-001        5247 tok  2 tools     8324 tok  2 tools       no  (fail/fail)
+ct-e-002       11974 tok  3 tools    15198 tok  3 tools       no  (fail/fail)
+ct-e-003        4793 tok  2 tools     8809 tok  4 tools       no  (fail/fail)
+ct-e-004       11087 tok  5 tools    20046 tok  9 tools       no  (fail/fail)
+ct-e-005        6219 tok  4 tools     8940 tok  3 tools       no  (fail/fail)
+ct-e-006        9864 tok  6 tools    13048 tok  6 tools       no  (fail/fail)
+ct-e-007        4674 tok  2 tools     5706 tok  2 tools       no  (fail/fail)
+ct-e-008       12946 tok 10 tools    72984 tok 16 tools       no  (fail/fail)
+
+no proof card: no pair passed in both arms; comparing spend across different outcomes would report a saving that bought a worse answer

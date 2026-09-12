@@ -1,0 +1,23 @@
+{
+  "alternatives": [
+    "accept-and-reschedule",
+    "expedite",
+    "partial-release",
+    "resource-alternate-supplier"
+  ],
+  "est_delay_days": 0,
+  "exception_type": "price-variance",
+  "impacted_orders": [
+    5018
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-6.1"
+    },
+    {
+      "id": "SP-4.2"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-unapproved-price-uplift"
+}

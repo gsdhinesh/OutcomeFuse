@@ -1,0 +1,10 @@
+{
+  "assumptions": [],
+  "result_value": 60,
+  "row_count": 3,
+  "sql": "SELECT SUM(quantity) AS total_quantity, COUNT(*) AS row_count FROM returns WHERE reason_code = 'damaged';",
+  "tables_used": [
+    "returns"
+  ],
+  "units": "units"
+}

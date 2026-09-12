@@ -1,0 +1,13 @@
+{
+  "assumptions": [
+    "Supplier matched by exact name 'Kanto Precision' (case-sensitive as stored). The count is distinct product_id values in products linked to that supplier."
+  ],
+  "result_value": 2,
+  "row_count": 2,
+  "sql": "SELECT COUNT(DISTINCT p.product_id) AS distinct_products, COUNT(*) AS product_rows\nFROM products p\nJOIN suppliers s ON p.supplier_id = s.supplier_id\nWHERE s.name = 'Kanto Precision';",
+  "tables_used": [
+    "products",
+    "suppliers"
+  ],
+  "units": "count"
+}

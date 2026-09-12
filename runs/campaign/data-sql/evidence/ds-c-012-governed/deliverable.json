@@ -1,0 +1,7 @@
+{
+  "insufficient_evidence": true,
+  "missing": [
+    "Promised delivery date per order (or an SLA rule to derive it)",
+    "Rule/field to determine an order\u2019s delivery completion date when there are multiple shipments per order"
+  ]
+}

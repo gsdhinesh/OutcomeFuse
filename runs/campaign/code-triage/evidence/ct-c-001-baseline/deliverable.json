@@ -1,0 +1,54 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/cache.py:1"
+    },
+    {
+      "id": "orderflow/cache.py:7"
+    },
+    {
+      "id": "orderflow/cache.py:9"
+    },
+    {
+      "id": "orderflow/cache.py:10"
+    },
+    {
+      "id": "orderflow/cache.py:12"
+    },
+    {
+      "id": "orderflow/cache.py:14"
+    },
+    {
+      "id": "orderflow/cache.py:16"
+    },
+    {
+      "id": "orderflow/cache.py:17"
+    },
+    {
+      "id": "orderflow/cache.py:19"
+    },
+    {
+      "id": "orderflow/cache.py:21"
+    },
+    {
+      "id": "orderflow/cache.py:22"
+    },
+    {
+      "id": "orderflow/cache.py:23"
+    },
+    {
+      "id": "orderflow/cache.py:24"
+    },
+    {
+      "id": "orderflow/cache.py:26"
+    },
+    {
+      "id": "orderflow/cache.py:27"
+    }
+  ],
+  "fix_summary": "TTLCache.get returns the cached value without checking whether the entry has expired. Implement a TTL check comparing time.monotonic() - stored_at against self.ttl_seconds and return None (and optionally delete the entry) when expired.",
+  "root_cause_file": "orderflow/cache.py",
+  "root_cause_line": 27,
+  "severity": "blocker",
+  "suggested_test": "Create a TTLCache with ttl_seconds=1, put a key, assert get(key) returns the value immediately, then advance time past 1 second (sleep or mock time.monotonic) and assert get(key) returns None (and the entry is gone)."
+}

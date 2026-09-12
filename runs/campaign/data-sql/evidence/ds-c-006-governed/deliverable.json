@@ -1,0 +1,16 @@
+{
+  "assumptions": [
+    "Revenue is computed as gross line revenue: SUM(quantity * unit_price_cents) on closed orders only; returns not deducted.",
+    "Top supplier identified: Aravalli Metals (supplier_id 3)."
+  ],
+  "result_value": 13930,
+  "row_count": 9,
+  "sql": "WITH supplier_revenue AS (\n  SELECT\n    s.supplier_id,\n    s.name AS supplier_name,\n    SUM(ol.quantity * ol.unit_price_cents) AS revenue_cents,\n    COUNT(*) AS contributing_rows\n  FROM orders o\n  JOIN order_lines ol ON ol.order_id = o.order_id\n  JOIN products p ON p.product_id = ol.product_id\n  JOIN suppliers s ON s.supplier_id = p.supplier_id\n  WHERE o.status = 'closed'\n  GROUP BY s.supplier_id, s.name\n)\nSELECT supplier_id, supplier_name,\n       revenue_cents/100.0 AS revenue_usd,\n       contributing_rows\nFROM supplier_revenue\nORDER BY revenue_cents DESC\nLIMIT 1;",
+  "tables_used": [
+    "orders",
+    "order_lines",
+    "products",
+    "suppliers"
+  ],
+  "units": "usd"
+}

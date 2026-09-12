@@ -1,0 +1,10 @@
+{
+  "result_value": 16763.5,
+  "row_count": 20,
+  "sql": "WITH returned_orders AS (\n  SELECT DISTINCT order_id FROM returns\n)\nSELECT \n  SUM(ol.quantity * ol.unit_price_cents) / 100.0 AS revenue_usd,\n  COUNT(*) AS row_count\nFROM order_lines ol\nJOIN returned_orders ro ON ol.order_id = ro.order_id;",
+  "tables_used": [
+    "order_lines",
+    "returns"
+  ],
+  "units": "usd"
+}

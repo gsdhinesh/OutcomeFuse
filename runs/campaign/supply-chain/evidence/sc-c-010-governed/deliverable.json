@@ -1,0 +1,22 @@
+{
+  "alternatives": [
+    "escalate-to-buyer (rejected: SP-4.1 requires escalation only when delay >14 days)",
+    "expedite (rejected: SP-4.2 permits expedited freight only when delay >14 days and for committed builds)",
+    "resource-alternate-supplier (rejected: full ordered quantity was received; no shortfall)"
+  ],
+  "est_delay_days": 9,
+  "exception_type": "late-shipment",
+  "impacted_orders": [
+    5001
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-4.1"
+    },
+    {
+      "id": "SP-4.2"
+    }
+  ],
+  "recommended_action": "accept-and-reschedule",
+  "root_cause_code": "rc-carrier_delay"
+}

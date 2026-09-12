@@ -1,0 +1,42 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/cache.py:1"
+    },
+    {
+      "id": "orderflow/cache.py:9"
+    },
+    {
+      "id": "orderflow/cache.py:11"
+    },
+    {
+      "id": "orderflow/cache.py:15"
+    },
+    {
+      "id": "orderflow/cache.py:16"
+    },
+    {
+      "id": "orderflow/cache.py:17"
+    },
+    {
+      "id": "orderflow/cache.py:18"
+    },
+    {
+      "id": "orderflow/cache.py:19"
+    },
+    {
+      "id": "orderflow/cache.py:33"
+    },
+    {
+      "id": "orderflow/cache.py:34"
+    },
+    {
+      "id": "orderflow/cache.py:35"
+    }
+  ],
+  "fix_summary": "Eviction condition in TTLCache.put uses '>' instead of '>=' so the cache is allowed to grow to max_entries + 1 before evicting. Change the condition to 'if len(self._entries) >= self.max_entries:' (ideally guarded by 'and key not in self._entries' to avoid evicting on updates).",
+  "root_cause_file": "orderflow/cache.py",
+  "root_cause_line": 16,
+  "severity": "major",
+  "suggested_test": "Initialize TTLCache with max_entries=128. Insert 128 distinct keys and assert size()==128. Insert a 129th distinct key and assert size()==128 (the oldest was evicted). Also update an existing key when at capacity and assert size remains 128 and no unrelated key was evicted."
+}

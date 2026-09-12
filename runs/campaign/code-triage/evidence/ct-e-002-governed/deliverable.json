@@ -1,0 +1,36 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/retry.py:6"
+    },
+    {
+      "id": "orderflow/retry.py:21"
+    },
+    {
+      "id": "orderflow/retry.py:23"
+    },
+    {
+      "id": "orderflow/retry.py:30"
+    },
+    {
+      "id": "orderflow/retry.py:31"
+    },
+    {
+      "id": "orderflow/retry.py:32"
+    },
+    {
+      "id": "orderflow/retry.py:35"
+    },
+    {
+      "id": "orderflow/retry.py:39"
+    },
+    {
+      "id": "orderflow/retry.py:40"
+    }
+  ],
+  "fix_summary": "Off-by-one in the retry gate. The code checks `attempt > MAX_ATTEMPTS` after making the call, which allows one extra call beyond the configured maximum. Change the condition to account for the just-completed attempt: `if attempt + 1 >= MAX_ATTEMPTS: return False` so the total number of calls does not exceed MAX_ATTEMPTS.",
+  "root_cause_file": "orderflow/retry.py",
+  "root_cause_line": 23,
+  "severity": "major",
+  "suggested_test": "Create a test where an operation always returns {\"ok\": False, \"status\": 503}. Count invocations and assert call_with_retry makes exactly MAX_ATTEMPTS calls (default 5) and invokes on_giveup once. This will fail before the fix (6+ calls) and pass after."
+}

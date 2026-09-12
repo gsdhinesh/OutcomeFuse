@@ -1,0 +1,10 @@
+{
+  "assumptions": [],
+  "result_value": 3,
+  "row_count": 3,
+  "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE status = 'cancelled';",
+  "tables_used": [
+    "orders"
+  ],
+  "units": "count"
+}

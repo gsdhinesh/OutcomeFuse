@@ -1,0 +1,15 @@
+{
+  "answer": "AMER requires access reviews every 45 days as of 15 March 2026. This is set by the AMER Access Review Cycle; systems shared with EMEA must follow the stricter of the two regions\u2019 cycles.",
+  "answer_code": "days-45",
+  "citations": [
+    {
+      "id": "doc-008"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [
+    "doc-006",
+    "doc-007"
+  ],
+  "primary_source_id": "doc-008"
+}

@@ -1,0 +1,18 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/pricing.py:21"
+    },
+    {
+      "id": "orderflow/pricing.py:22"
+    },
+    {
+      "id": "orderflow/pricing.py:23"
+    }
+  ],
+  "fix_summary": "tier_rank uses TIER_ORDER.index(tier), which raises ValueError for unrecognized tiers despite the docstring stating they should rank lowest. Change it to return the index if present, otherwise a value larger than any known index (e.g., len(TIER_ORDER)).",
+  "root_cause_file": "orderflow/pricing.py",
+  "root_cause_line": 23,
+  "severity": "major",
+  "suggested_test": "def test_tier_rank_unknown_is_lowest():\n    from orderflow.pricing import tier_rank, TIER_ORDER\n    assert tier_rank('legacy_premium') == len(TIER_ORDER)\n    # and ensure sorting behavior places unknown last\n    tiers = ['gold', 'legacy_premium', 'silver']\n    assert sorted(tiers, key=tier_rank) == ['silver', 'gold', 'legacy_premium']"
+}

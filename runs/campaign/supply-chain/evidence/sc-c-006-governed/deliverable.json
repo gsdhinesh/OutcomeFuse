@@ -1,0 +1,25 @@
+{
+  "alternatives": [
+    "partial-release \u2014 rejected because shortfall (600 units = 30%) exceeds 10% threshold; SP-5.1 directs consideration of alternate sourcing before partial release.",
+    "expedite with original supplier \u2014 rejected because shipment already dispatched/arrived for partial qty and there is no evidence of >14 day delay to trigger SP-4.2; capacity constraint remains.",
+    "accept-and-reschedule remaining qty \u2014 rejected as first recourse because SP-5.1 calls for alternate sourcing when shortfall >10% to protect committed builds."
+  ],
+  "est_delay_days": 14,
+  "exception_type": "short-ship",
+  "impacted_orders": [
+    5003
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.1"
+    },
+    {
+      "id": "SP-5.2"
+    },
+    {
+      "id": "SP-9.1"
+    }
+  ],
+  "recommended_action": "resource-alternate-supplier",
+  "root_cause_code": "rc-supplier-capacity"
+}

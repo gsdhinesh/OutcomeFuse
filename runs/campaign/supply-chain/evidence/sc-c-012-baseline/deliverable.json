@@ -1,0 +1,12 @@
+{
+  "insufficient_evidence": true,
+  "missing": [
+    "Flag rationale for PO 5009",
+    "Evidence of late shipment (arrived_date > promised_date)",
+    "Evidence of short shipment (received_qty < ordered_qty)",
+    "Evidence of quality hold (qc_status fail, NCR, inspection notes)",
+    "Evidence of customs hold (broker notice, customs_hold_days > 0)",
+    "Evidence of price variance (invoice > agreed price, variance report)",
+    "Allocation conflict data across orders for part NC-BRG-08 (cross-order allocation plan)"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "alternatives": [
+    "expedite (rejected \u2014 SP-4.2 authorises expedited freight only where delay exceeds 14 days)",
+    "escalate-to-buyer (rejected \u2014 SP-4.1 requires escalation only for deliveries >14 days late)"
+  ],
+  "est_delay_days": 10,
+  "exception_type": "late-shipment",
+  "impacted_orders": [
+    5011
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-4.1"
+    },
+    {
+      "id": "SP-4.2"
+    }
+  ],
+  "recommended_action": "accept-and-reschedule",
+  "root_cause_code": "rc-carrier-delay"
+}

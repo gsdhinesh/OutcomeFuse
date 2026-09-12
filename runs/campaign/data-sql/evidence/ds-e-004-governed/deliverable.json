@@ -1,0 +1,15 @@
+{
+  "assumptions": [
+    "Order placement date taken as orders.order_date",
+    "Date range inclusive: 2026-04-01 through 2026-06-30",
+    "Revenue computed as sum of quantity * unit_price across order lines; not net of returns"
+  ],
+  "result_value": 3895,
+  "row_count": 5,
+  "sql": "SELECT COUNT(*) AS row_count,\n       COALESCE(SUM(ol.quantity * ol.unit_price_cents), 0) AS total_cents\nFROM order_lines ol\nJOIN orders o ON o.order_id = ol.order_id\nWHERE o.customer_region = 'APAC'\n  AND o.status = 'closed'\n  AND o.order_date >= '2026-04-01'\n  AND o.order_date <= '2026-06-30';",
+  "tables_used": [
+    "order_lines",
+    "orders"
+  ],
+  "units": "usd"
+}

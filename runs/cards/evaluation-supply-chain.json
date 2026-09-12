@@ -1,0 +1,109 @@
+{
+  "adapter_conformance_passed": true,
+  "case_count": 7,
+  "case_ids": [
+    "sc-e-001",
+    "sc-e-002",
+    "sc-e-003",
+    "sc-e-004",
+    "sc-e-005",
+    "sc-e-006",
+    "sc-e-007"
+  ],
+  "cost_attribution": {
+    "agent-stopped-unaided": 0.497626,
+    "model-routing": 0.502374
+  },
+  "cost_table": "ct-2",
+  "counter_metric_breaches": [
+    "escalation-rate"
+  ],
+  "counter_metrics": [
+    {
+      "basis": "FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question",
+      "metric": "false-sufficiency-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked",
+      "metric": "tool-suppression-error-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "3 of 7 governed runs escalated to a stronger model after a gate failure",
+      "metric": "escalation-rate",
+      "threshold": 0.3,
+      "value": 0.428571
+    },
+    {
+      "basis": "the ledger's overhead holds as a share of governed tokens; zero while every registered mechanism is deterministic (E12 cut)",
+      "metric": "governor-overhead-share",
+      "threshold": 0.05,
+      "value": 0.0
+    },
+    {
+      "basis": "p95 milliseconds per governed decision, calibration study fc2e369d1728\u2026, of which 100% is durable writes",
+      "metric": "added-latency",
+      "threshold": 10.0,
+      "value": 3.9468
+    },
+    {
+      "basis": "0 of 7 governed runs exceeded the contract ceiling; the ledger holds before it spends, so a non-zero rate means the ledger is wrong",
+      "metric": "budget-breach-rate",
+      "threshold": 0.02,
+      "value": 0.0
+    }
+  ],
+  "excluded": [
+    {
+      "case": "sc-e-008",
+      "why": "gate unavailable: criterion 'exception-type-matches-key' could not be evaluated: answer key has no entry 'exception_type'"
+    }
+  ],
+  "headline": {
+    "baseline_passes": 5,
+    "case_count": 7,
+    "gate_qualifiers": [
+      "constraint-backed"
+    ],
+    "governed_passes": 5,
+    "governor_overhead_share": 0.0,
+    "gross_token_reduction": 0.301699,
+    "median_net_token_reduction": 0.33995,
+    "net_cost_reduction": 0.759458,
+    "net_token_reduction": 0.301699,
+    "per_mechanism": {
+      "agent-stopped-unaided": 1.0
+    }
+  },
+  "independence": "self-reported",
+  "preregistration": "87b94e36fdc933c471e97c9df32452d830a8f62e942c6b9daf2451eb045c0c30",
+  "proof_card_sha256": "e03b848eba9602e1ade5abab15f53f8c6f1f167ff00e945fdbb82a780da4bc4f",
+  "refusals": [
+    "a tool-call reduction is reported without tool-suppression accuracy (FR70)",
+    "the workload has 5 cases, below its declared minimum of 6 (FR59)",
+    "the workload result carries no verification-mode coverage report",
+    "counter-metrics breached their preregistered thresholds: escalation-rate"
+  ],
+  "reportable": false,
+  "run_seals": [
+    "00cc285511dfc6d62074ed6eda2ec76c96b37998a9692c1c34ac529c97138ca5",
+    "0d9fa88d5563c2d3eeb1a150e0b45c839ca5e346845892a9da4cb07d82dfe17f",
+    "1a84c0841fd4dd85db00ad6d47ff8803fd7a97e859251397d5a25b514fd4cade",
+    "2660411db4eb4f14678200c0ffad26ba94fffbcf5385f911663db31d9b446912",
+    "51bc9268588bec969b1845aad69b4cdcebfa0d1d08c805bcbaa886b2663879eb",
+    "53ec1c03e3df90fa6f10cb94aaae6ea98013592332f94b51a9232858929ae0d6",
+    "56fbea32e527c3ebc71a45ae42c7cbfdaf74162133047ce699d2bb231906187a",
+    "6dd81b9deae7f676528c996980c43b900436d8a8e3d8aa03003937242beca064",
+    "758d039dcadf16b7afef2a8bc195f7e6075ddf6e78ee2b0470066689563ad960",
+    "79cd7d5664741123809fe6df05ba8fed27ddae6aaf213aafd044a2a84c2e1fe9",
+    "896928939fd7466f9de9247fff0a2bae3d4271dce2a780b8c1682c5f1114f2a4",
+    "b313274e1009a724822f410d98b784e702c593b6cefe3d8e660d19e9479182c9",
+    "ca14467c30e53cf5d18e6a7182885fb7b0f71b3c8a174f452c2f70fce053960a",
+    "f522ef175c2fc1a4de43a0dc426b3ec8d099fad4de5e104f7e2d3cf9679b0905"
+  ],
+  "split": "evaluation",
+  "workload": "supply-chain"
+}

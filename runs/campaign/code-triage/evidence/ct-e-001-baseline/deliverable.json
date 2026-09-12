@@ -1,0 +1,33 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/validation.py:19"
+    },
+    {
+      "id": "orderflow/validation.py:20"
+    },
+    {
+      "id": "orderflow/validation.py:21"
+    },
+    {
+      "id": "orderflow/validation.py:23"
+    },
+    {
+      "id": "orderflow/validation.py:28"
+    },
+    {
+      "id": "orderflow/validation.py:31"
+    },
+    {
+      "id": "orderflow/validation.py:40"
+    },
+    {
+      "id": "orderflow/validation.py:49"
+    }
+  ],
+  "fix_summary": "validate_lines() claims to reject empty orders but only checks for too many lines and then returns True. It should also reject when the lines list is empty. Add a check like `if not lines: raise ValidationError(\"no lines\")` (or `if len(lines) == 0`) before returning.",
+  "root_cause_file": "orderflow/validation.py",
+  "root_cause_line": 23,
+  "severity": "major",
+  "suggested_test": "Create an order dict with a valid region and contact_email but lines as an empty list. Assert that validate(order) returns False (or that validate_lines(order) raises ValidationError). Example: order={'region':'EMEA','lines':[],'contact_email':'a@b.com'} -> validate(order) is False."
+}

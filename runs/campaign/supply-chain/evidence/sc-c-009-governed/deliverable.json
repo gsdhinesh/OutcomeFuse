@@ -1,0 +1,22 @@
+{
+  "alternatives": [
+    "resource-alternate-supplier - rejected: SP-5.1 threshold for considering alternate sourcing applies only when shortfall >10%; this shortfall is 5%",
+    "expedite - rejected: shipment arrived on 2026-04-18 (before promised 2026-04-20) so no carrier delay to remedy",
+    "escalate-to-buyer - rejected: invoiced price matches agreed price and QC passed, escalation not required"
+  ],
+  "est_delay_days": 0,
+  "exception_type": "short-ship",
+  "impacted_orders": [
+    5019
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.1"
+    },
+    {
+      "id": "SP-9.1"
+    }
+  ],
+  "recommended_action": "partial-release",
+  "root_cause_code": "rc-partial-allocation"
+}

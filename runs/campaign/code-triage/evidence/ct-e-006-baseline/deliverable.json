@@ -1,0 +1,18 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/shipping.py:38"
+    },
+    {
+      "id": "orderflow/shipping.py:39"
+    },
+    {
+      "id": "orderflow/shipping.py:40"
+    }
+  ],
+  "fix_summary": "parse_ship_date claims to parse a carrier timestamp but only accepts a plain date format (\"%Y-%m-%d\"). When carriers send full timestamps, strptime raises ValueError due to unconverted data. Update it to handle ISO 8601 timestamps (and date-only) e.g., using datetime.fromisoformat(raw.replace('Z', '+00:00')) or by trying formats including \"%Y-%m-%dT%H:%M:%S%z\" and falling back to date-only.",
+  "root_cause_file": "orderflow/shipping.py",
+  "root_cause_line": 40,
+  "severity": "blocker",
+  "suggested_test": "Add tests for parse_ship_date: assert parse_ship_date('2024-05-10') == datetime(2024, 5, 10); assert parse_ship_date('2024-05-10T14:23:55Z') == datetime(2024, 5, 10, 14, 23, 55, tzinfo=timezone.utc) or equivalent naive time if tz handling is standardized in code."
+}

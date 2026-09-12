@@ -1,0 +1,9 @@
+{
+  "result_value": 5,
+  "row_count": 5,
+  "sql": "SELECT COUNT(DISTINCT order_id) AS distinct_orders, COUNT(*) AS shipment_rows FROM shipments WHERE status = 'delivered' AND shipped_date IS NOT NULL AND delivered_date IS NOT NULL AND julianday(delivered_date) - julianday(shipped_date) > 14;",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "count"
+}

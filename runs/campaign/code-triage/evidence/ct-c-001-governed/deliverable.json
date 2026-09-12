@@ -1,0 +1,36 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/cache.py:1"
+    },
+    {
+      "id": "orderflow/cache.py:9"
+    },
+    {
+      "id": "orderflow/cache.py:10"
+    },
+    {
+      "id": "orderflow/cache.py:12"
+    },
+    {
+      "id": "orderflow/cache.py:19"
+    },
+    {
+      "id": "orderflow/cache.py:21"
+    },
+    {
+      "id": "orderflow/cache.py:23"
+    },
+    {
+      "id": "orderflow/cache.py:26"
+    },
+    {
+      "id": "orderflow/cache.py:27"
+    }
+  ],
+  "fix_summary": "TTLCache.get() returns cached values without checking whether the entry has expired. Compare the current time against the stored timestamp and self.ttl_seconds; if expired, delete the entry and return None. For example: in get(), after unpacking stored_at, value, check if time.monotonic() - stored_at >= self.ttl_seconds; if so, remove the key and return None; otherwise return value.",
+  "root_cause_file": "orderflow/cache.py",
+  "root_cause_line": 27,
+  "severity": "blocker",
+  "suggested_test": "Create a TTLCache with ttl_seconds=1, put a key, assert get(key) returns the value immediately, sleep for >1s, then assert get(key) returns None. Also verify that after expiration, a subsequent put updates the value and get returns the new value."
+}

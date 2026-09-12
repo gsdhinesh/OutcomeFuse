@@ -1,0 +1,42 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/retry.py:6"
+    },
+    {
+      "id": "orderflow/retry.py:21"
+    },
+    {
+      "id": "orderflow/retry.py:23"
+    },
+    {
+      "id": "orderflow/retry.py:25"
+    },
+    {
+      "id": "orderflow/retry.py:28"
+    },
+    {
+      "id": "orderflow/retry.py:30"
+    },
+    {
+      "id": "orderflow/retry.py:31"
+    },
+    {
+      "id": "orderflow/retry.py:32"
+    },
+    {
+      "id": "orderflow/retry.py:35"
+    },
+    {
+      "id": "orderflow/retry.py:39"
+    },
+    {
+      "id": "orderflow/retry.py:40"
+    }
+  ],
+  "fix_summary": "Off-by-one in the retry limit: the guard uses `attempt > MAX_ATTEMPTS` and is evaluated after making the call, allowing one extra call beyond the configured maximum. Correct by enforcing the limit before making the next call (e.g., base the loop on `attempt < MAX_ATTEMPTS`) or, with current post-call check semantics, stop when `attempt >= MAX_ATTEMPTS - 1` so total calls do not exceed MAX_ATTEMPTS.",
+  "root_cause_file": "orderflow/retry.py",
+  "root_cause_line": 23,
+  "severity": "major",
+  "suggested_test": "Create a stub operation that always returns {\"ok\": false, \"status\": 500} and count invocations. Verify that call_with_retry invokes it exactly MAX_ATTEMPTS times (not more) and returns after the final attempt."
+}

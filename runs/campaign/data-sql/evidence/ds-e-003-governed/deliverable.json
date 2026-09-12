@@ -1,0 +1,15 @@
+{
+  "assumptions": [
+    "Closed orders are identified by orders.status = 'closed'",
+    "Quantity is summed from order_lines without adjustments for returns or shipments"
+  ],
+  "result_value": 5250,
+  "row_count": 9,
+  "sql": "SELECT SUM(ol.quantity) AS total_quantity, COUNT(*) AS row_count\nFROM order_lines ol\nJOIN orders o USING(order_id)\nJOIN products p USING(product_id)\nWHERE p.category = 'fasteners' AND o.status = 'closed'",
+  "tables_used": [
+    "order_lines",
+    "orders",
+    "products"
+  ],
+  "units": "units"
+}

@@ -1,0 +1,14 @@
+{
+  "assumptions": [
+    "Only rows with status = 'delivered' were considered.",
+    "Rows with NULL shipped_date or NULL delivered_date were excluded.",
+    "Lead time in whole days was computed as CAST(julianday(delivered_date) - julianday(shipped_date) AS INTEGER), i.e. the difference in Julian days truncated to an integer."
+  ],
+  "result_value": 21,
+  "row_count": 21,
+  "sql": "SELECT\n  MAX(CAST(julianday(delivered_date) - julianday(shipped_date) AS INTEGER)) AS max_days,\n  COUNT(*) AS row_count\nFROM shipments\nWHERE status = 'delivered'\n  AND shipped_date IS NOT NULL\n  AND delivered_date IS NOT NULL;",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "days"
+}

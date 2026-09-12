@@ -1,0 +1,19 @@
+{
+  "answer": "USD 50,000. The governing source is the EMEA Vendor Approval Threshold, which took effect on 1 June 2026 and raises the EMEA threshold; therefore it applies on 1 July 2026.",
+  "answer_code": "usd-50000",
+  "citations": [
+    {
+      "id": "doc-015"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [
+    {
+      "id": "doc-013"
+    },
+    {
+      "id": "doc-014"
+    }
+  ],
+  "primary_source_id": "doc-015"
+}

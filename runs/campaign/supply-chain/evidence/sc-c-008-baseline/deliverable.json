@@ -1,0 +1,22 @@
+{
+  "alternatives": [
+    "partial-release",
+    "accept-and-reschedule",
+    "expedite"
+  ],
+  "est_delay_days": 21,
+  "exception_type": "short-ship",
+  "impacted_orders": [
+    5017
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.1"
+    },
+    {
+      "id": "SP-9.1"
+    }
+  ],
+  "recommended_action": "resource-alternate-supplier",
+  "root_cause_code": "rc-partial-allocation"
+}

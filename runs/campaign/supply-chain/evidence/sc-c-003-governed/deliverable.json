@@ -1,0 +1,19 @@
+{
+  "alternatives": [
+    "hold-for-quality - rejected: incoming inspection passed (qc_status = pass).",
+    "expedite - rejected: shipment already delivered on 2026-02-18; no logistics delay.",
+    "accept-and-reschedule - rejected: financial escalation required for price variance before payment."
+  ],
+  "est_delay_days": 0,
+  "exception_type": "price-variance",
+  "impacted_orders": [
+    5006
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-6.1"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-unapproved-price-uplift"
+}

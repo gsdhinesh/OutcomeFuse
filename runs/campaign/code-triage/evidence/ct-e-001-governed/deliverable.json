@@ -1,0 +1,45 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/validation.py:18"
+    },
+    {
+      "id": "orderflow/validation.py:19"
+    },
+    {
+      "id": "orderflow/validation.py:20"
+    },
+    {
+      "id": "orderflow/validation.py:21"
+    },
+    {
+      "id": "orderflow/validation.py:22"
+    },
+    {
+      "id": "orderflow/validation.py:23"
+    },
+    {
+      "id": "orderflow/validation.py:26"
+    },
+    {
+      "id": "orderflow/validation.py:28"
+    },
+    {
+      "id": "orderflow/validation.py:40"
+    },
+    {
+      "id": "orderflow/validation.py:44"
+    },
+    {
+      "id": "orderflow/validation.py:45"
+    },
+    {
+      "id": "orderflow/validation.py:49"
+    }
+  ],
+  "fix_summary": "validate_lines promises to reject empty orders but only checks for orders exceeding MAX_LINES, letting an empty list of lines pass. Add an explicit check to raise ValidationError when lines is empty (e.g., if not lines: raise ValidationError(\"no lines\")).",
+  "root_cause_file": "orderflow/validation.py",
+  "root_cause_line": 21,
+  "severity": "major",
+  "suggested_test": "Create an order with {'region': 'EMEA', 'lines': [], 'contact_email': 'test@example.com'} and assert validation.validate(order) returns False (or that validation.validate_lines(order) raises ValidationError). Also verify that a non-empty order passes."
+}

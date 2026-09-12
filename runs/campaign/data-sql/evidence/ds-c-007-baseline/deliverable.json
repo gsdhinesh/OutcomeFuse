@@ -1,0 +1,13 @@
+{
+  "assumptions": [
+    "Included only shipments with status = 'delivered' and non-null shipped and delivered dates",
+    "Computed whole days by truncating the julianday difference to an integer"
+  ],
+  "result_value": 21,
+  "row_count": 21,
+  "sql": "SELECT\n  MAX(CAST(julianday(delivered_date) - julianday(shipped_date) AS INTEGER)) AS max_lead_days,\n  COUNT(*) AS row_count\nFROM shipments\nWHERE status = 'delivered'\n  AND shipped_date IS NOT NULL\n  AND delivered_date IS NOT NULL;",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "days"
+}

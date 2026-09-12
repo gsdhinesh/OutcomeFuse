@@ -1,0 +1,12 @@
+{
+  "result_value": 0,
+  "row_count": 0,
+  "sql": "SELECT CAST(COALESCE(SUM(ol.quantity * p.unit_cost_cents), 0)/100 AS INTEGER) AS total_usd,\n       COUNT(*) AS row_count\nFROM order_lines ol\nJOIN orders o ON ol.order_id = o.order_id\nJOIN products p ON ol.product_id = p.product_id\nJOIN suppliers s ON p.supplier_id = s.supplier_id\nWHERE o.status = 'closed'\n  AND s.country = 'India';",
+  "tables_used": [
+    "order_lines",
+    "orders",
+    "products",
+    "suppliers"
+  ],
+  "units": "usd"
+}

@@ -1,0 +1,13 @@
+{
+  "assumptions": [
+    "Date range is inclusive of both 2026-01-01 and 2026-03-31",
+    "All order statuses are included as 'orders placed'"
+  ],
+  "result_value": 16,
+  "row_count": 16,
+  "sql": "SELECT COUNT(*) AS cnt FROM orders WHERE order_date >= '2026-01-01' AND order_date <= '2026-03-31';",
+  "tables_used": [
+    "orders"
+  ],
+  "units": "count"
+}

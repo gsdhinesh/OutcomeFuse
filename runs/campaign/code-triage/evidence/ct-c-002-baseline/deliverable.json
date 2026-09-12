@@ -1,0 +1,21 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/validation.py:27"
+    },
+    {
+      "id": "orderflow/validation.py:29"
+    },
+    {
+      "id": "orderflow/validation.py:30"
+    },
+    {
+      "id": "orderflow/validation.py:45"
+    }
+  ],
+  "fix_summary": "validate_quantities only rejects negative quantities (quantity < 0), allowing zero to pass despite the requirement for a positive quantity. Change the check to `<= 0` to reject zero-quantity lines.",
+  "root_cause_file": "orderflow/validation.py",
+  "root_cause_line": 29,
+  "severity": "major",
+  "suggested_test": "Create an order with a single line having quantity 0 and assert that validate(order) returns False (or raises ValidationError if calling validate_quantities directly). Example: order = {\"region\":\"EMEA\",\"contact_email\":\"a@b\",\"lines\":[{\"sku\":\"X\",\"quantity\":0}]}; assert not validate(order)."
+}

@@ -1,0 +1,18 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/inventory.py:8"
+    },
+    {
+      "id": "orderflow/inventory.py:10"
+    },
+    {
+      "id": "orderflow/inventory.py:11"
+    }
+  ],
+  "fix_summary": "available() assumes stock.get(sku) returns a record and immediately subscripts it. When the SKU is missing (e.g., discontinued), stock.get(sku) returns None and record[\"on_hand\"] raises a TypeError. Update available() to handle a missing SKU by treating it as zero available, e.g., use a default of {\"on_hand\": 0, \"reserved\": 0} in stock.get or return 0 when record is None.",
+  "root_cause_file": "orderflow/inventory.py",
+  "root_cause_line": 11,
+  "severity": "major",
+  "suggested_test": "def test_available_returns_zero_for_missing_sku():\n    stock = {\"SKU1\": {\"on_hand\": 5, \"reserved\": 2}}\n    assert available(stock, \"DISCONTINUED\") == 0"
+}

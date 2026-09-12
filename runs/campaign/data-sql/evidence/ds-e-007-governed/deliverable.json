@@ -1,0 +1,14 @@
+{
+  "assumptions": [
+    "Counted shipments with status = 'delivered' and delivered_date in May 2026 (>= '2026-05-01' and < '2026-06-01').",
+    "delivered_date is stored as ISO date text (YYYY-MM-DD) so string comparison by date boundaries is appropriate.",
+    "Excluded shipments with NULL delivered_date or statuses other than 'delivered'."
+  ],
+  "result_value": 4,
+  "row_count": 4,
+  "sql": "SELECT COUNT(*) AS cnt FROM shipments WHERE status = 'delivered' AND delivered_date >= '2026-05-01' AND delivered_date < '2026-06-01';",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "count"
+}

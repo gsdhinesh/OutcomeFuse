@@ -1,0 +1,52 @@
+preregistration prereg-1 -> 87b94e36fdc933c4...
+  net tokens >= 20%, pass rate >= 90%, minimum 6 cases
+
+case                   baseline            governed  matched
+sc-c-001        5066 tok  3 tools     3652 tok  3 tools      yes  (pass/pass)
+sc-c-002        6277 tok  4 tools     3312 tok  3 tools      yes  (pass/pass)
+sc-c-003        4352 tok  3 tools     2955 tok  3 tools      yes  (pass/pass)
+sc-c-004        3406 tok  3 tools     2814 tok  3 tools      yes  (pass/pass)
+sc-c-005        7500 tok  4 tools     7231 tok  3 tools       no  (fail/fail)
+sc-c-006        5105 tok  3 tools     3910 tok  3 tools       no  (fail/pass)
+sc-c-007        6947 tok  4 tools     7377 tok  3 tools      yes  (pass/pass)
+sc-c-008        5725 tok  3 tools     9111 tok  3 tools       no  (fail/fail)
+sc-c-009        8932 tok  4 tools     3878 tok  3 tools      yes  (pass/pass)
+sc-c-010        5944 tok  3 tools     6233 tok  4 tools       no  (pass/fail)
+sc-c-011        7745 tok  3 tools     3774 tok  3 tools       no  (fail/pass)
+! excluded sc-c-012: gate unavailable: criterion 'exception-type-matches-key' could not be evaluated: answer key has no entry 'exception_type'
+
+{
+  "baseline_passes": 7,
+  "case_count": 11,
+  "gate_qualifiers": [
+    "constraint-backed"
+  ],
+  "governed_passes": 8,
+  "governor_overhead_share": 0.0,
+  "gross_token_reduction": 0.314237,
+  "median_net_token_reduction": 0.300059,
+  "net_cost_reduction": 0.745983,
+  "net_token_reduction": 0.314237,
+  "per_mechanism": {
+    "agent-stopped-unaided": 1.0
+  }
+}
+
+cost saving came from:
+  model-routing      56.8%
+  agent-stopped-unaided   43.2%
+
+adapter conformance passed (6 scenarios)
+reportable          True (self-reported)
+
+counter-metrics (FR66)
+  false-sufficiency-rate: not measured (FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question)
+  tool-suppression-error-rate: not measured (the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked)
+  escalation-rate: 0.3636 (threshold 0.3)  BREACHED
+  governor-overhead-share: 0 (threshold 0.05)
+  added-latency: 3.947 (threshold 10.0)
+  budget-breach-rate: 0 (threshold 0.02)
+  ! 1 breached its preregistered threshold
+
+proof card ed2ab373823dd1eb...
+This is a calibration campaign. It is a dry run of the measurement, not a result, and cannot support a headline claim.

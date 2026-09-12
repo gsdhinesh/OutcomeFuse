@@ -1,0 +1,22 @@
+{
+  "alternatives": [
+    "accept-and-reschedule",
+    "expedite",
+    "resource-alternate-supplier"
+  ],
+  "est_delay_days": 13,
+  "exception_type": "customs-hold",
+  "impacted_orders": [
+    5007
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-8.1"
+    },
+    {
+      "id": "SP-4.1"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-customs-documentation"
+}

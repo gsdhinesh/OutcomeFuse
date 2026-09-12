@@ -1,0 +1,21 @@
+{
+  "alternatives": [
+    "partial-release \u2014 considered and rejected: SP-9.1 allows partial release only where received quantity covers the committed build and material can be released; receipt shows qc_status = 'fail' for the shipment (no accepted qty reported), so no QA-passing quantity is available to release.",
+    "escalate-to-buyer \u2014 considered and rejected as primary action: SP-7.1 directs that material failing incoming inspection is held and not released; buyer escalation is not mandated unless supplier dispute or corrective action/chargeback is required."
+  ],
+  "est_delay_days": 7,
+  "exception_type": "quality-hold",
+  "impacted_orders": [
+    5013
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-7.1"
+    },
+    {
+      "id": "SP-9.1"
+    }
+  ],
+  "recommended_action": "hold-for-quality",
+  "root_cause_code": "rc-qc-defect"
+}

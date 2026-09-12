@@ -1,0 +1,21 @@
+{
+  "evidence_refs": [
+    {
+      "id": "orderflow/validation.py:34"
+    },
+    {
+      "id": "orderflow/validation.py:36"
+    },
+    {
+      "id": "orderflow/validation.py:37"
+    },
+    {
+      "id": "orderflow/validation.py:46"
+    }
+  ],
+  "fix_summary": "validate_email uses \"@\" in email without guarding against a missing contact_email, so when partners omit it (email is None) this triggers a TypeError. Also, unlike other validators, it returns a boolean instead of raising ValidationError. Fix by checking for presence and format and raising ValidationError (e.g., 'missing contact email' or 'invalid contact email') instead of performing membership on None.",
+  "root_cause_file": "orderflow/validation.py",
+  "root_cause_line": 37,
+  "severity": "blocker",
+  "suggested_test": "Add a test that submits an order dict without 'contact_email' and asserts that validate_email(order) raises ValidationError('missing contact email'). Optionally also assert that validate(order) returns False when 'contact_email' is missing."
+}

@@ -1,0 +1,7 @@
+drawn_from: 4
+items:
+- item: 1
+  run_id: sc-c-001-governed
+sample_size: 2
+seed: 1
+workload: supply-chain

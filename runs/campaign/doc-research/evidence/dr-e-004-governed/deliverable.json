@@ -1,0 +1,15 @@
+{
+  "answer": "As of 1 July 2026, the AMER region applies a vendor approval threshold of USD 10,000, per the AMER Vendor Approval Threshold policy.",
+  "answer_code": "usd-10000",
+  "citations": [
+    {
+      "id": "doc-014"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [
+    "doc-013",
+    "doc-015"
+  ],
+  "primary_source_id": "doc-014"
+}

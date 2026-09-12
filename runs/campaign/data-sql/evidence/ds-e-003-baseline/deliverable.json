@@ -1,0 +1,15 @@
+{
+  "assumptions": [
+    "Matched category case-insensitively using LOWER(p.category) = 'fasteners'.",
+    "Closed orders identified by orders.status = 'closed'."
+  ],
+  "result_value": 5250,
+  "row_count": 9,
+  "sql": "SELECT COALESCE(SUM(ol.quantity), 0) AS total_units,\n       COUNT(*) AS contributing_rows\nFROM order_lines ol\nJOIN orders o ON o.order_id = ol.order_id\nJOIN products p ON p.product_id = ol.product_id\nWHERE o.status = 'closed'\n  AND LOWER(p.category) = 'fasteners';",
+  "tables_used": [
+    "order_lines",
+    "orders",
+    "products"
+  ],
+  "units": "units"
+}

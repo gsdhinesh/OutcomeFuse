@@ -1,0 +1,14 @@
+{
+  "assumptions": [
+    "Considered only shipments with non-null shipped_date and delivered_date",
+    "An order is counted if any of its shipments took more than 14 days from shipped_date to delivered_date",
+    "Used julianday date difference in days"
+  ],
+  "result_value": 5,
+  "row_count": 5,
+  "sql": "SELECT\n  COUNT(DISTINCT order_id) AS distinct_orders_over_14,\n  COUNT(*) AS matching_rows\nFROM shipments\nWHERE shipped_date IS NOT NULL\n  AND delivered_date IS NOT NULL\n  AND (julianday(delivered_date) - julianday(shipped_date)) > 14;",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "count"
+}

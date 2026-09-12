@@ -1,0 +1,19 @@
+{
+  "alternatives": [
+    "partial-release",
+    "expedite",
+    "escalate-to-buyer"
+  ],
+  "est_delay_days": 14,
+  "exception_type": "quality-hold",
+  "impacted_orders": [
+    5004
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-7.1"
+    }
+  ],
+  "recommended_action": "hold-for-quality",
+  "root_cause_code": "rc-qc-defect"
+}

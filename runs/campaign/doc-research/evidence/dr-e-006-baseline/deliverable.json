@@ -1,0 +1,17 @@
+{
+  "answer": "200 days. As of 1 July 2026, the AMER Records Retention Standard is in effect (effective from 2026-05-01) and sets the retention period at 200 days. The prior global 365-day standard applied only until the regional standard took effect.",
+  "answer_code": "days-200",
+  "citations": [
+    {
+      "id": "doc-005"
+    },
+    {
+      "id": "doc-001"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [
+    "doc-001"
+  ],
+  "primary_source_id": "doc-005"
+}

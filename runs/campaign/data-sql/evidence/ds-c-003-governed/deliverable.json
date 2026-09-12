@@ -1,0 +1,9 @@
+{
+  "result_value": 10.4,
+  "row_count": 1,
+  "sql": "SELECT unit_cost_cents/100.0 AS unit_cost_usd FROM products WHERE sku = 'AM-PLT-06'",
+  "tables_used": [
+    "products"
+  ],
+  "units": "usd"
+}

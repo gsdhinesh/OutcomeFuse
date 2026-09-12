@@ -1,0 +1,14 @@
+{
+  "assumptions": [
+    "Revenue computed from all order_lines for the SKU without filtering by order status.",
+    "No adjustments for returns or cancellations; sum reflects gross line amounts."
+  ],
+  "result_value": 5492.5,
+  "row_count": 7,
+  "sql": "SELECT COALESCE(SUM(ol.quantity * ol.unit_price_cents),0) AS total_cents,\n       COUNT(*) AS row_count\nFROM order_lines ol\nJOIN products p ON p.product_id = ol.product_id\nWHERE p.sku = 'NC-BRG-08';",
+  "tables_used": [
+    "order_lines",
+    "products"
+  ],
+  "units": "usd"
+}

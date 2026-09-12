@@ -1,0 +1,15 @@
+{
+  "assumptions": [
+    "Booked revenue is calculated as the sum of quantity * unit_price for order lines.",
+    "Q1 2026 is defined as 2026-01-01 through 2026-03-31 inclusive (implemented as < 2026-04-01).",
+    "Returns are not netted against booked revenue; only cancelled orders are excluded."
+  ],
+  "result_value": 8202,
+  "row_count": 9,
+  "sql": "SELECT COALESCE(SUM(ol.quantity * ol.unit_price_cents),0) AS sum_cents, COUNT(*) AS line_count\nFROM order_lines ol\nJOIN orders o ON o.order_id = ol.order_id\nWHERE o.customer_region = 'EMEA'\n  AND o.status <> 'cancelled'\n  AND o.order_date >= '2026-01-01'\n  AND o.order_date < '2026-04-01';",
+  "tables_used": [
+    "order_lines",
+    "orders"
+  ],
+  "units": "usd"
+}

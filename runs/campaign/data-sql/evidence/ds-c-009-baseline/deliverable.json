@@ -1,0 +1,11 @@
+{
+  "assumptions": [],
+  "result_value": 16763.5,
+  "row_count": 8,
+  "sql": "WITH returned_orders AS (\n  SELECT DISTINCT order_id\n  FROM returns\n),\norder_revenue AS (\n  SELECT ro.order_id, SUM(ol.quantity * ol.unit_price_cents) AS revenue_cents\n  FROM returned_orders ro\n  JOIN order_lines ol ON ol.order_id = ro.order_id\n  GROUP BY ro.order_id\n)\nSELECT SUM(revenue_cents)/100.0 AS total_revenue_usd,\n       COUNT(*) AS order_count\nFROM order_revenue;",
+  "tables_used": [
+    "returns",
+    "order_lines"
+  ],
+  "units": "usd"
+}

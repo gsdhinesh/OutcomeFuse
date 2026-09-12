@@ -1,0 +1,12 @@
+{
+  "assumptions": [
+    "Defined 'currently in transit' as shipments with status = 'in_transit'; no date filters applied"
+  ],
+  "result_value": 3,
+  "row_count": 3,
+  "sql": "SELECT count(*) AS in_transit_count FROM shipments WHERE status = 'in_transit';",
+  "tables_used": [
+    "shipments"
+  ],
+  "units": "count"
+}

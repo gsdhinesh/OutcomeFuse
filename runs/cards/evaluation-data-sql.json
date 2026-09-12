@@ -1,0 +1,106 @@
+{
+  "adapter_conformance_passed": true,
+  "case_count": 8,
+  "case_ids": [
+    "ds-e-001",
+    "ds-e-002",
+    "ds-e-003",
+    "ds-e-004",
+    "ds-e-005",
+    "ds-e-006",
+    "ds-e-007",
+    "ds-e-008"
+  ],
+  "cost_attribution": {
+    "agent-stopped-unaided": 0.13223,
+    "model-routing": 0.86777
+  },
+  "cost_table": "ct-2",
+  "counter_metric_breaches": [
+    "escalation-rate"
+  ],
+  "counter_metrics": [
+    {
+      "basis": "FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question",
+      "metric": "false-sufficiency-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked",
+      "metric": "tool-suppression-error-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "5 of 8 governed runs escalated to a stronger model after a gate failure",
+      "metric": "escalation-rate",
+      "threshold": 0.3,
+      "value": 0.625
+    },
+    {
+      "basis": "the ledger's overhead holds as a share of governed tokens; zero while every registered mechanism is deterministic (E12 cut)",
+      "metric": "governor-overhead-share",
+      "threshold": 0.05,
+      "value": 0.0
+    },
+    {
+      "basis": "p95 milliseconds per governed decision, calibration study fc2e369d1728\u2026, of which 100% is durable writes",
+      "metric": "added-latency",
+      "threshold": 10.0,
+      "value": 3.9468
+    },
+    {
+      "basis": "0 of 8 governed runs exceeded the contract ceiling; the ledger holds before it spends, so a non-zero rate means the ledger is wrong",
+      "metric": "budget-breach-rate",
+      "threshold": 0.02,
+      "value": 0.0
+    }
+  ],
+  "excluded": [],
+  "headline": {
+    "baseline_passes": 6,
+    "case_count": 8,
+    "gate_qualifiers": [
+      "constraint-backed"
+    ],
+    "governed_passes": 6,
+    "governor_overhead_share": 0.0,
+    "gross_token_reduction": -0.233094,
+    "median_net_token_reduction": -0.194385,
+    "net_cost_reduction": 0.469124,
+    "net_token_reduction": -0.233094,
+    "per_mechanism": {
+      "agent-stopped-unaided": 1.0
+    }
+  },
+  "independence": "self-reported",
+  "preregistration": "87b94e36fdc933c471e97c9df32452d830a8f62e942c6b9daf2451eb045c0c30",
+  "proof_card_sha256": "248736f0689a21b619edaf7023d9a84b01a930c45fdf166011001dc875e6d6b3",
+  "refusals": [
+    "a tool-call reduction is reported without tool-suppression accuracy (FR70)",
+    "the workload result carries no verification-mode coverage report",
+    "counter-metrics breached their preregistered thresholds: escalation-rate"
+  ],
+  "reportable": false,
+  "run_seals": [
+    "131f51e4fc19a71bd70244b0c102d373fcd6688bf84ca3293e8d639cc459072f",
+    "1e5d2afbb6a0fba7a3fdfb036066c489b4d43717cf2040bacf1c96932fd74d32",
+    "27a7ed43302f0fb8453aabc0c44831610370e38fe5f401586f9efcc7401669bc",
+    "3ca0456da1e0587f10f505c6acf8f34ca04c6634b0cc537e8b0a405d08ade364",
+    "78b6b31360a7e4991a082928d38dcbbcdaf98cf21313a5f2fde46bb8ee69a962",
+    "7c194b987c5bde6c30998ff9567be873f8715246ddcf95d838bbf68350dfbf12",
+    "7daf27c8add77784564181444b613e04e142cc57e4737c05403b84b1117a603b",
+    "83d1d042f5438ef1c81b50c7e69795c200edf76f016840585489d1678cc20410",
+    "8e175774ab74c038eb6b84d6c6da6b6e118c12cfd034a039e9d0b72de9e48075",
+    "948fd7bb1e09e315ca55cc554c8653654b8e113fa476da004772bfa2409b2281",
+    "9744025c8a43edfccfbefdc2ba5013240c52e7505aca12a6f869a9fd8d66e6a9",
+    "9ba9c5fb7eaed752feb90a88dc5c852d7cfcecd05742c4c6404e9a31c1517b31",
+    "9f1893d784160362c72688155586baf87080d5c390f5f7d2b2513160909b8266",
+    "cb7fb1143f6750d3a5668a52e95a014244085320b3220e35a6aaad410c84db37",
+    "cfa69cea8138d4644f217e6fa7915d590dc0a6d0c086ed2df3f257d564ab01f1",
+    "d5ce197e947c0a1d069ec12e31a4841925d2374af23edc6dc8a1826f51df949f"
+  ],
+  "split": "evaluation",
+  "workload": "data-sql"
+}

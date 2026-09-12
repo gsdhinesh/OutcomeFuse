@@ -1,0 +1,12 @@
+{
+  "answer": "EMEA uses a 30-day access review (recertification) cycle. This is specified in the document titled \"EMEA Access Review Cycle\" (doc-007), effective 1 September 2025 and active as of 15 March 2026.",
+  "answer_code": "days-30",
+  "citations": [
+    {
+      "id": "doc-007"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [],
+  "primary_source_id": "doc-007"
+}
