@@ -20,4 +20,12 @@ _bmad/render/
 # Source research summarising internal decks and third-party internal proposals.
 # Kept locally, deliberately not published. See README note.
 doc/
-runs/
+
+# Run evidence IS published. The submission cites run seals and proof-card
+# digests, and an integrity claim nobody outside this machine can check is not
+# an integrity claim. Only the transient files are excluded: a lock is not an
+# artifact, and a -wal/-shm pair committed mid-run yields a database missing the
+# very events its seal covers.
+runs/**/*.writer-lock
+runs/**/*.db-wal
+runs/**/*.db-shm
