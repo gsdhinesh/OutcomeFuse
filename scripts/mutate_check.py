@@ -232,6 +232,18 @@ MUTATIONS = [
     ),
     (
         "src/outcomefuse/submission/script.py",
+        "    stopped_early = any(",
+        "    stopped_early = True or any(",
+        "counting a gate that only confirmed as a sufficiency stop",
+    ),
+    (
+        "src/outcomefuse/submission/script.py",
+        '            if show not in EXCUSED_BY or EXCUSED_BY[show] not in filed',
+        "            if False",
+        "excusing every missing demonstration, not just the disclosed one",
+    ),
+    (
+        "src/outcomefuse/submission/script.py",
         "        if self.disclosures:\n"
         '            lines.append("\\n## Disclosed (§8.2)")',
         "        if False:\n"
