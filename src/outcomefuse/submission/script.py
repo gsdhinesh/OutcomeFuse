@@ -257,10 +257,30 @@ class Submission(BaseModel):
         return "\n".join(lines)
 
 
+class CardRef(BaseModel):
+    """All a submission needs from a proof card: what it admits as citable.
+
+    Traceability is a digest question, not a statistics question -- the card's
+    own numbers are re-derived nowhere here, only matched against what a figure
+    claims to cite. Keeping this narrow means a submission can be assembled from
+    the persisted card summary without reconstructing the card, and a figure
+    still cannot cite an artifact nobody supplied.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    run_seals: tuple[str, ...] = ()
+
+    @classmethod
+    def of(cls, card: ProofCard) -> CardRef:
+        return cls(sha256=card.digest().sha256, run_seals=tuple(card.run_seals))
+
+
 def check_submission(
     submission: Submission,
     *,
-    cards: Sequence[ProofCard],
+    cards: Sequence[ProofCard | CardRef],
     preregistration: Preregistration | None,
     reportability: Reportability | None,
 ) -> list[str]:
@@ -270,9 +290,10 @@ def check_submission(
     rather than fixing them one screening at a time.
     """
     refusals: list[str] = []
-    admitted = {card.digest().sha256 for card in cards}
-    for card in cards:
-        admitted.update(card.run_seals)
+    refs = [c if isinstance(c, CardRef) else CardRef.of(c) for c in cards]
+    admitted = {ref.sha256 for ref in refs}
+    for ref in refs:
+        admitted.update(ref.run_seals)
     admitted.add(submission.mechanism.seal)
 
     for figure in submission.figures:
@@ -322,7 +343,7 @@ def build_submission(
     *,
     mechanism: MechanismEvidence,
     workloads_completed: Sequence[str],
-    cards: Sequence[ProofCard] = (),
+    cards: Sequence[ProofCard | CardRef] = (),
     preregistration: Preregistration | None = None,
     reportability: Reportability | None = None,
 ) -> Submission:
