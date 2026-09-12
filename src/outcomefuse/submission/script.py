@@ -60,6 +60,11 @@ class MechanismEvidence(BaseModel):
     seal: str = Field(pattern=r"^[0-9a-f]{64}$")
     contract_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     decisions: tuple[tuple[str, str], ...] = Field(min_length=1)
+    #: True only where the gate was consulted while the agent still wanted to
+    #: continue, so stopping actually shortened the run. A gate consulted after
+    #: the agent had stopped confirms a result it did not cause; FR84 asks the
+    #: video to *demonstrate* the mechanism, and showing a confirmation as a
+    #: stop would be true of the event and false about the behaviour.
     sufficiency_stop: bool
 
     @property
@@ -89,12 +94,20 @@ def evidence_of_mechanism(events: Iterable[Event], *, seal: str) -> MechanismEvi
     if not decisions:
         raise SubmissionRefused(f"run {rows[0].run_id!r} has no decision stream to show")
 
+    # A gate consulted mid-run could stop the agent; one consulted at submission
+    # could not, because the agent had already stopped. Measured live, every
+    # stop-sufficient on these workloads is the second kind.
+    stopped_early = any(
+        e.kind == "gate-verdict" and (e.payload or {}).get("when") == "mid-run"
+        for e in rows
+    )
     return MechanismEvidence(
         run_id=rows[0].run_id,
         seal=seal,
         contract_hash=contract_hash,
         decisions=decisions,
-        sufficiency_stop=any(
+        sufficiency_stop=stopped_early
+        and any(
             e.decision_reason == "sufficiency" and e.terminal_reason == "stop-sufficient"
             for e in rows
         ),

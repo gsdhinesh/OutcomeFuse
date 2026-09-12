@@ -71,7 +71,11 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
             "model when the gate fails — observed live on code-triage, where "
             "gpt-5-mini's answer was refused and the run continued on gpt-5. None of "
             "those *save* tokens, which is why the breakdown still credits them with "
-            "none: escalation spends more to restore quality rather than less."
+            "none: escalation spends more to restore quality rather than less. The "
+            "video cannot paper over it either: a confirming verdict and a real stop "
+            "leave identical decision events, so each gate verdict now records whether "
+            "it was consulted mid-run or at submission, and FR84's sufficiency-stop "
+            "demonstration is refused unless a run shows the former."
         ),
         direction="against",
     ),

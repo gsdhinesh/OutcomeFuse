@@ -272,7 +272,7 @@ class Driver:
         self._append("spend-settled", step_id=call.step_id, tokens_consumed=estimated_tokens)
 
         if should_evaluate(step_class):
-            verdict = self._run_gate()
+            verdict = self._run_gate(mid_run=True)
             if verdict is not None:
                 return verdict
 
@@ -425,7 +425,16 @@ class Driver:
         )
         return StepVerdict(action="deny", decision_reason=disposition.reason)
 
-    def _run_gate(self) -> StepVerdict | None:
+    def _run_gate(self, *, mid_run: bool) -> StepVerdict | None:
+        """Evaluate the deliverable, recording whether this could shorten the run.
+
+        `mid_run` is the difference between the mechanism working and the
+        mechanism agreeing. A gate consulted while the agent still wants tools
+        can stop it early, which is the product's claim. A gate consulted after
+        the agent has already stopped confirms a result it did not cause, and
+        showing that as a sufficiency stop would be true of the event and false
+        about the behaviour.
+        """
         deliverable = self.deliverable()
         if deliverable is None:
             return None
@@ -447,6 +456,7 @@ class Driver:
             gate_verdict=verdict.verdict,
             verification_mode=verdict.qualifier,
             quality_state=verdict.verdict,
+            payload={"when": "mid-run" if mid_run else "at-submission"},
         )
         if verdict.passed:
             return self._resolve(
@@ -517,7 +527,7 @@ class Driver:
                 detail={"deliverable": parse_failure or "no deliverable was produced"},
             )
 
-        verdict = self._run_gate()
+        verdict = self._run_gate(mid_run=False)
         if verdict is not None:
             return verdict
 

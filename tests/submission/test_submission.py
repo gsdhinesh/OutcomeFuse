@@ -86,16 +86,29 @@ def a_log() -> list[Event]:
             policy_action="deny",
             decision_reason="duplicate",
         ),
+        # Consulted mid-run, so stopping here actually shortened the run. A
+        # verdict recorded at submission confirms an agent that had already
+        # stopped, and FR84 asks the video to demonstrate the mechanism rather
+        # than an event that resembles it.
         Event(
             run_id="run-g",
             seq=2,
+            kind="gate-verdict",
+            recorded_at=WHEN,
+            gate_verdict="pass",
+            verification_mode="reference-backed",
+            payload={"when": "mid-run"},
+        ),
+        Event(
+            run_id="run-g",
+            seq=3,
             kind="decision-recorded",
             recorded_at=WHEN,
             policy_action="terminate",
             decision_reason="sufficiency",
             terminal_reason="stop-sufficient",
         ),
-        Event(run_id="run-g", seq=3, kind="run-closed", recorded_at=WHEN),
+        Event(run_id="run-g", seq=4, kind="run-closed", recorded_at=WHEN),
     ]
 
 
@@ -232,6 +245,30 @@ class TestShowingTheMechanism:
             Submission(
                 beats=tuple(beats()),
                 mechanism=mechanism(without_stop),
+                workloads_completed=("data-sql",),
+            )
+
+    def test_a_gate_that_only_confirmed_is_not_a_sufficiency_stop(self):
+        # The defect this guards is the one measurement actually found: on every
+        # live run the agent stopped itself and the gate scored what it handed
+        # over. The events are identical to a real stop -- terminate, on
+        # sufficiency, reason stop-sufficient -- so the log alone cannot tell
+        # them apart, and a video narrating the second as the first would be
+        # accurate about the record and wrong about the product.
+        confirmed = [
+            e.model_copy(update={"payload": {"when": "at-submission"}})
+            if e.kind == "gate-verdict"
+            else e
+            for e in a_log()
+        ]
+        evidence = evidence_of_mechanism(confirmed, seal=SEAL_A)
+        assert not evidence.sufficiency_stop
+        assert "sufficiency-stop" not in evidence.demonstrates
+
+        with pytest.raises(ValidationError, match="promised but not present"):
+            Submission(
+                beats=tuple(beats()),
+                mechanism=evidence,
                 workloads_completed=("data-sql",),
             )
 
