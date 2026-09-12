@@ -1,0 +1,107 @@
+{
+  "adapter_conformance_passed": true,
+  "case_count": 8,
+  "case_ids": [
+    "dr-e-001",
+    "dr-e-002",
+    "dr-e-003",
+    "dr-e-004",
+    "dr-e-005",
+    "dr-e-006",
+    "dr-e-007",
+    "dr-e-008"
+  ],
+  "cost_attribution": {
+    "agent-stopped-unaided": -0.031848,
+    "model-routing": 1.031848
+  },
+  "cost_table": "ct-2",
+  "counter_metric_breaches": [
+    "escalation-rate"
+  ],
+  "counter_metrics": [
+    {
+      "basis": "FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question",
+      "metric": "false-sufficiency-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked",
+      "metric": "tool-suppression-error-rate",
+      "threshold": 0.05,
+      "value": null
+    },
+    {
+      "basis": "8 of 8 governed runs escalated to a stronger model after a gate failure",
+      "metric": "escalation-rate",
+      "threshold": 0.3,
+      "value": 1.0
+    },
+    {
+      "basis": "the ledger's overhead holds as a share of governed tokens; zero while every registered mechanism is deterministic (E12 cut)",
+      "metric": "governor-overhead-share",
+      "threshold": 0.05,
+      "value": 0.0
+    },
+    {
+      "basis": "p95 milliseconds per governed decision, calibration study fc2e369d1728\u2026, of which 100% is durable writes",
+      "metric": "added-latency",
+      "threshold": 10.0,
+      "value": 3.9468
+    },
+    {
+      "basis": "0 of 8 governed runs exceeded the contract ceiling; the ledger holds before it spends, so a non-zero rate means the ledger is wrong",
+      "metric": "budget-breach-rate",
+      "threshold": 0.02,
+      "value": 0.0
+    }
+  ],
+  "excluded": [],
+  "headline": {
+    "baseline_passes": 1,
+    "case_count": 8,
+    "gate_qualifiers": [
+      "constraint-backed"
+    ],
+    "governed_passes": 1,
+    "governor_overhead_share": 0.0,
+    "gross_token_reduction": -0.326732,
+    "median_net_token_reduction": -0.326732,
+    "net_cost_reduction": 0.416786,
+    "net_token_reduction": -0.326732,
+    "per_mechanism": {
+      "agent-stopped-unaided": 1.0
+    }
+  },
+  "independence": "self-reported",
+  "preregistration": "87b94e36fdc933c471e97c9df32452d830a8f62e942c6b9daf2451eb045c0c30",
+  "proof_card_sha256": "a72c5edfbd67d985c55676aa9145655cbc9b212ed2a483f2871cc1f56f50b681",
+  "refusals": [
+    "a tool-call reduction is reported without tool-suppression accuracy (FR70)",
+    "the workload has 1 cases, below its declared minimum of 6 (FR59)",
+    "the workload result carries no verification-mode coverage report",
+    "counter-metrics breached their preregistered thresholds: escalation-rate"
+  ],
+  "reportable": false,
+  "run_seals": [
+    "29bd6c004c61224a8466e65012c32c3888498b80b89ebb8761c74b0cf5fd2eaa",
+    "412a9187446a4636507b7d4a28031ecb6607fa10a7b60b74c36cc5ed47360e12",
+    "46b09d71c56852faedb0327cbf76494651d7e292c420424175440864e6f002b4",
+    "4cbb96032bfc90fcf1c291e7e6d545af1a24d9f463847822924b135b111f3ee0",
+    "50d2ef6fbed68c2f264dc0a2d2cac152b785dc83f07acef96e58d7b98ff1d914",
+    "53d00d60b7f1c62bf008cefcc691fcb754860d4a069f1a7b7594c5963dc962f4",
+    "5fcb61667680358821a2a3ac4719e91f2d277f19e183d444fd6b781a36dc9701",
+    "638d129db2e5d284b06cb5b91e37f14bd9e2388b2d8924c464db6ae8c4dc1e0c",
+    "6ea7d505c4ce56b085ca84596b8e08228c5b72984f159850755a450593dd6481",
+    "a036b048fc47326284fe9b237f0b13d30fed3c116cd1c4004ab57532736359fb",
+    "a313a9c4109e468b2448615bacb44d43c643f23c0dcaa16ca76aff9e088eaf6a",
+    "b026f9b8361fcc8d099519faf125c5fff574b098b921aef30328da68f8fa2d93",
+    "c80d2807cbdc9bcdae09eddb4ada2742aab3c3ddf1504dcea7194dd781fedc15",
+    "dec55813d3d6266dea6b6fc8a792215d43fbd68b2793252d035a832ef6ff2bff",
+    "f009c8041a1a97d3e936e91bfd6fed0c29728c79bce6eace4f07859126a8c7a9",
+    "f7f8d3b9c818711471234585ed903b891d4844c23caab70930f03432fb74ceca"
+  ],
+  "split": "evaluation",
+  "workload": "doc-research"
+}

@@ -1,0 +1,52 @@
+preregistration prereg-1 -> 87b94e36fdc933c4...
+  net tokens >= 20%, pass rate >= 90%, minimum 6 cases
+
+case                   baseline            governed  matched
+dr-e-001        9613 tok  8 tools    17236 tok 11 tools       no  (fail/fail)
+dr-e-002        9267 tok  8 tools    28044 tok 16 tools       no  (fail/fail)
+dr-e-003        9439 tok  8 tools    13022 tok  7 tools       no  (fail/fail)
+dr-e-004        7703 tok  8 tools     7985 tok  4 tools       no  (fail/fail)
+dr-e-005        7465 tok  8 tools    10023 tok 10 tools       no  (fail/fail)
+dr-e-006       10654 tok  7 tools    14135 tok  9 tools      yes  (pass/pass)
+dr-e-007       10630 tok  8 tools    18282 tok 11 tools       no  (fail/fail)
+dr-e-008        9867 tok  8 tools    42169 tok 16 tools       no  (fail/fail)
+
+{
+  "baseline_passes": 1,
+  "case_count": 8,
+  "gate_qualifiers": [
+    "constraint-backed"
+  ],
+  "governed_passes": 1,
+  "governor_overhead_share": 0.0,
+  "gross_token_reduction": -0.326732,
+  "median_net_token_reduction": -0.326732,
+  "net_cost_reduction": 0.416786,
+  "net_token_reduction": -0.326732,
+  "per_mechanism": {
+    "agent-stopped-unaided": 1.0
+  }
+}
+
+cost saving came from:
+  model-routing     103.2%
+  agent-stopped-unaided   -3.2%
+
+adapter conformance passed (6 scenarios)
+reportable          False (self-reported)
+  refused: a tool-call reduction is reported without tool-suppression accuracy (FR70)
+  refused: the workload has 1 cases, below its declared minimum of 6 (FR59)
+  refused: the workload result carries no verification-mode coverage report
+  refused: counter-metrics breached their preregistered thresholds: escalation-rate
+
+counter-metrics (FR66)
+  false-sufficiency-rate: not measured (FR69 requires a blind human review, which no campaign can produce: the gate is the thing under suspicion, so asking it to grade itself answers a different question)
+  tool-suppression-error-rate: not measured (the governor suppressed nothing, so there is no rate. Not a rate of zero: nothing was checked)
+  escalation-rate: 1 (threshold 0.3)  BREACHED
+  governor-overhead-share: 0 (threshold 0.05)
+  added-latency: 3.947 (threshold 10.0)
+  budget-breach-rate: 0 (threshold 0.02)
+  ! 1 breached its preregistered threshold
+
+proof card a72c5edfbd67d985...
+written to runs\cards\evaluation-doc-research.json
