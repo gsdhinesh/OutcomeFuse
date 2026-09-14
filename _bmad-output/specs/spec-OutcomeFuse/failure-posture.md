@@ -24,6 +24,7 @@ These terminate through the precedence ladder in [decision-model.md](decision-mo
 | Quality Gate cannot produce a verdict | No pass is reported; the run halts and escalates per the contract, or requests a human |
 | Ledger state lost or unreliable | The run halts rather than continuing to spend against an unknown budget |
 | Approval **channel** unavailable | The gated call is not made |
+| Decision **stream** port raises, or has no subscriber | Nothing. Execution is untouched — this is the fail-**open** side, and it is why the stream and the approval are two ports rather than one |
 
 ## Approval: two distinct states
 
@@ -36,7 +37,11 @@ These are ranked differently by the ladder and are never merged. Collapsing the 
 
 Where `on_timeout` is unspecified, the default is exactly: `decision_reason = approval-timeout`, `policy_action = terminate`, `terminal_reason = approval-timeout`, and **the gated call is not made**. Contracts that want the run to survive a timeout must say so. An unbounded pause is not a safe default — it is an outage wearing a governance costume.
 
-Approval is obtained through a port. The MVP implementation is a **scripted decider driven by the case definition** (approve · deny · never respond), so the fail-closed path is exercised rather than asserted.
+Approval is obtained through a port with **two implementations**. The **scripted decider driven by the case definition** (approve · deny · never respond) is the harness's, and every reported benchmark run uses it, so the fail-closed path is exercised rather than asserted. The **boundary adapter** is how a human answers, across a same-host connection.
+
+**The driver owns the clock in both cases.** An adapter able to hold a pause open would be able to extend `approval_timeout`, moving a contract term into whoever wrote the client.
+
+**No transport or client event resolves a pause.** A closed window, a refresh, a dropped connection, a reconnect into fresh state or a crashed client is none of approval, denial or timeout. An unanswered pause resolves only through `on_timeout`. A boundary that is unreachable, unconfigured, or lost mid-pause is `channel-unavailable` — the row above, not the row below it.
 
 ## Shadow mode applies neither posture
 

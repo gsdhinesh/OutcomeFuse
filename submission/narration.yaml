@@ -54,11 +54,12 @@ beats:
     # refuses. That refusal is the result, so say it rather than work around it.
     says: >-
       The benchmark was frozen before the governor existed, so it could not be
-      fitted to it. Then we ran it, and it refused us. All four workloads
-      breached the escalation threshold we registered in advance. One produced
-      no score at all, because a rubric we can no longer change rejects correct
-      answers for using the wrong verb. None of that is fixable now, and all of
-      it is on the record.
+      fitted to it. Then we ran it, and it refused us. Every workload we
+      measured breached the escalation threshold we registered in advance —
+      three on the sealed evaluation set, the fourth on calibration. One
+      produced no score at all, because a rubric we can no longer change
+      rejects correct answers for using the wrong verb. None of that is
+      fixable now, and all of it is on the record.
     shows: []
     figures: []
 

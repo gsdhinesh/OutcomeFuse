@@ -26,8 +26,13 @@ Companion to [SPEC.md](SPEC.md). Terms carry these meanings everywhere in the co
 | **False sufficiency** | A run the gate passed that blind human review fails. The counter-metric to the headline claim |
 | **Shadow mode** | The governor observing and logging without enforcing. The ungoverned path is executed and observed; the governed path is an estimated counterfactual |
 | **First divergence** | The earliest decision at which the governed counterfactual departs from the observed path. Everything after it is inference |
-| **Proof card** | The recorded comparison artifact computed by the harness and rendered by the view. Computation belongs to the harness; the view only displays it |
+| **Proof card** | The recorded comparison artifact computed by the harness and rendered by a client. Computation belongs to the harness; a client only displays it |
 | **Run manifest** | The first entry of every run's log, carrying the run's full configuration. No comparison may be published from a run without one |
 | **Campaign / workspace** | Two words for one thing: the unit a record store covers and the unit a seal closes. Sealing is refused while any run is unsealed |
 | **Degraded** | A run in which an advisor was deregistered mid-run after raising. Distinct from disabled, which means never registered |
+| **Client** | Any experience consuming the ports — tree view, chat, IDE panel, static comparison generator. Always outside the library, depended on by nothing, and never holding a channel the ports do not offer every other client |
+| **Step tree** | Execution presented as one node per step, each carrying its action, reason, clause, ledger state, gate verdict and approval state. The port guarantees the published decisions suffice to derive it; drawing it is the client's job |
+| **Subscriber drop** | What happens to a stream consumer that cannot keep up. Its channel closes with a terminal truncation signal; it is never granted back-pressure, and nothing about it enters the decision log |
+| **Approval authorisation** | The single-use token accompanying a pending approval, bound to its run and step and dead at pause close. An envelope field — boundary-generated, carrying no run content, never persisted as record |
+| **`authorization-unchecked`** | The label a run carries while no contract declares which principals may satisfy an approval clause. The approver's *identity* is verified from the connection's peer credential; their *entitlement* is not established, and no authorisation claim may rest on the record while it applies |
 | **Protected core** | Capabilities and apparatus that survive every cut |

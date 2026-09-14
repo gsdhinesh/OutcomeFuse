@@ -1,0 +1,11 @@
+{
+  "decision": "deny",
+  "order_id": "ORD-4419",
+  "policy_refs": [
+    {
+      "id": "RP-5"
+    }
+  ],
+  "reason_code": "outside-return-window",
+  "refund_amount": 0.0
+}

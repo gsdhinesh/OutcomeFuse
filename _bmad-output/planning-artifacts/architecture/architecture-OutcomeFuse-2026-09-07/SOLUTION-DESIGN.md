@@ -56,9 +56,12 @@ flowchart TD
   subgraph outside["Adapters and drivers"]
     HOST["Host adapters"]
     RT["Runtime drivers: enforcing, shadow"]
-    IMPL["Port implementations: model, record, approval, metering"]
+    IMPL["Port implementations: model, record, approval, metering, stream"]
     HARNESS["Benchmark harness"]
-    VIEW["Static viewer generator"]
+  end
+  subgraph clients["Clients - outside the distribution"]
+    VIEW["Static comparison generator"]
+    TREE["Reference tree view"]
   end
   subgraph inside["Pure core"]
     CORE["Contract, Ledger, Gate, Policy, Fuse, advisors, canonicaliser"]
@@ -72,10 +75,14 @@ flowchart TD
   HARNESS --> RT
   HARNESS --> STORE[("Record store")]
   HARNESS --> EV[("Evidence store")]
+  IMPL -. "publishes, one-way" .-> TREE
+  TREE -. "approves" .-> IMPL
   VIEW --> STORE
 ```
 
 Dependencies point inward only. No host-framework type may appear above the adapter layer, which is what keeps NFR8 domain neutrality and FR51 multi-framework support from being a promise about discipline.
+
+**Note the two dotted arrows and what they are not.** They cross the distribution boundary, and nothing inside it points outward: the library has no reference to any client, ships none, and behaves identically when none exists. The publish arrow is one-way and droppable; the approve arrow is the only inbound path in the whole system. `VIEW --> STORE` is solid because the static generator reads a **sealed** log directly, which a live subscriber never does.
 
 ### The flow of one decision
 
@@ -163,11 +170,29 @@ As a separate driver, the Policy is unchanged and always decides as if enforcing
 
 **Cost.** During a shadow run the real ledger and an estimated counterfactual ledger both exist, so the estimated one must be structurally barred from admissibility. It is.
 
-### AD-17 — The viewer is generated, not served
+### AD-17 — No experience ships inside the library
 
-**Alternatives.** Streamlit is the fastest interactive build but leaves a running server, so FR77's "no path to influence execution" degrades to a discipline. React with Vite looks best and spends days on the component that sits *first* in the cut order.
+**What changed, and why the old answer stopped working.** The original rule was *generated, not served*. Streamlit was rejected as leaving a running server, so FR77's "no path to influence execution" would degrade to a discipline; React with Vite would spend days on the component sitting *first* in the cut order. A generated self-contained HTML file made FR77 structural, because no live process existed that could touch execution.
 
-A generated self-contained HTML file makes FR77 structural — no live process exists that could touch execution — is the cheapest of the three by a wide margin, and hands to a judge as a file with no server to stand up. Its known limit: embedding the record inline does not scale to large production runs. Acceptable because NFR9 confines MVP evaluation to synthetic cases.
+FR113 now requires a live process that deliberately **can** touch execution — a human approving a gated call. The grounds for *generated, not served* are gone.
+
+**The intent survives in a stronger form.** The library ships no rendering code at all. Read-only is enforced by the **package boundary** — the wheel contains `src/outcomefuse` and nothing else — rather than by choosing not to write a server. There is no viewer in the distribution for a future contributor to quietly wire back into the execution path, which is a harder guarantee than the generated file ever gave. Static generation survives as one valid client among any number.
+
+**Alternatives still rejected.** A viewer inside the library with a discipline forbidding it from reaching execution: that is the discipline the original AD existed to avoid, and adding an approval path would have made it load-bearing. A privileged approval channel for the first-party client: it would make every other experience second-class and put the governance obligation behind the thing that gets cut first.
+
+**Known limit, unchanged.** Embedding the record inline does not scale to large production runs. Acceptable because NFR9 confines MVP evaluation to synthetic cases.
+
+### AD-22, AD-23, AD-24 — two ports, and why they are two
+
+**The finding that produced them.** "Push the logs and approval generically" is one sentence describing two mechanisms that agree on nothing. The stream is constant, one-way, needs no listener, and silence costs nothing. Approval is rare, blocking, must be heard, bounded in minutes, and silence kills the run. Their failure postures are **opposite** — the stream fails open and is dropped, the approval fails closed and halts. A single combined port would have to pick one, and either choice is wrong for half of what it covers; the likely outcome is a firehose that acquires a blocking failure mode for no reason.
+
+**AD-22 — publication is one-way and off the critical path.** Added latency is the binding threshold here, not overhead share: ~3.5ms p50 per decision, ~93% of it the durable appends. A synchronous publish on the decision path was the cheapest available way to destroy the measurement. So the driver appends to the log first, then enqueues and returns. A slow subscriber is **dropped**, never allowed to push back, and every published decision carries a monotonic per-run sequence so a client detects its own gaps rather than being told about them. *Rejected:* writing a `subscriber-dropped` event to the log — `EventKind` is a closed literal and AD-3's lane carries decisions, so a viewer's health would have become a fact about the run. *Rejected:* letting clients tail the store — it reads behind the writer and welds every future experience to SQLite.
+
+**AD-23 — wire types are record types.** The strongest rule in the delta and the cheapest to enforce. A boundary is egress: whatever a client receives, it may persist, outside every retention rule this design sets. Redaction-by-review must be got right on every field anyone ever adds; redaction-by-construction is got right once and a violation becomes a type error. It costs nothing today because the shapes are already safe — `ApprovalRequest` is `run_id · step_id · tool · clause · timeout_seconds` with `extra="forbid"`, and decision events carry `canonical_key` rather than arguments. The one refinement the adversarial pass forced: the constraint is on **content, not envelope**, or AD-24's bound authorisation would have been unimplementable.
+
+**AD-24 — same-host, and where the honest limit actually sits.** Loopback with a local token, authorisation bound to `(run_id, step_id)` and single-use. Without binding, a captured approval authorises a *later* gated call — the confused-deputy shape, whose audit trail looks perfect. Single-use is checked against recorded state rather than adapter memory, because the memory version silently accepts a replay after a restart. **Identity is read off the connection** — the operating system's peer credential, never the payload, which is refused. Same-host earns its place twice here: it sizes the authorisation obligation *and* hands verified identity over for free, with no identity provider, no token validation and no secret. **The limit is entitlement, not identity.** No contract declares which principals may satisfy an approval clause, so the runtime knows who approved and not whether they were allowed to; runs carry `authorization-unchecked`, and a valid user is not a valid approver. *Deferred:* an approver role or principal list on the contract, which reaches AD-7's closed loader. *Stated for the demo:* on one host the run operator and the approver are the same account, so the mechanism is proven and separation of duties is not.
+
+> **A consequence worth catching early.** Peer-credential identity is nearly free over a named pipe or Unix socket and awkward over loopback TCP, where HTTP carries no peer identity and the server would have to resolve the owning process through the connection table — fragile, racy against port reuse, and wrong silently. AD-24 therefore constrains the approval transport in a way AD-22 does not constrain the stream, which is a second and independent reason these are two ports rather than one.
 
 ### Three host adapters, not two
 
@@ -234,9 +259,11 @@ Together: AD-9 fixes what a run *is*, AD-10 decides what may be *said* about it,
 
 **Prompt injection is bounded, not eliminated.** Tool output reaches model-derived advisors — the FR20 rubric signal, FR22's advisory tool-quality signal, the marginal-value estimator — so poisoned content could try to induce an early sufficiency stop, which is precisely the attack this product's incentives invite. The existing architecture bounds it without new machinery: FR20 makes deterministic criterion-level validation the authoritative gate, FR22 bars the model-judged signal from altering a verdict, and the closed registry means no contract-declared check can be steered by tool content beyond its declared extraction. Stated here so the bound is maintained deliberately rather than by accident.
 
-**Untrusted record content reaching a third party (AD-17).** The viewer renders decision-record content into HTML handed to a judge. Jinja2 autoescaping is **opt-in, not the default**, so it is enabled explicitly at environment construction. The generator reads the decision log and proof card only, never the evidence store, closing the in-spec path from raw customer content to an externally distributed file.
+**Untrusted record content reaching a third party (AD-17, AD-23).** A client renders decision-record content into HTML handed to a judge. Jinja2 autoescaping is **opt-in, not the default**, so it is enabled explicitly at environment construction. Two structural bounds sit behind that: a client reads the decision log and proof card only, never the evidence store; and AD-23 means the ports **cannot** serialize a content field the record does not already hold, so raw tool arguments and results have no path to an externally distributed file even if a client asked for them. Redaction survives the process boundary as a type constraint rather than as a review.
 
-**Human control is enforced and bounded (AD-12).** Approval is a real port. Its MVP implementation is a scripted decider driven by the case definition — approve, deny, never respond — because FR100 requires deterministic timeout cases under both postures, and a blocking interactive prompt would make them untestable without a person sitting in front of a harness whose entire value is reproducibility. FR89's fail-closed path is therefore exercised rather than asserted.
+**A boundary is an attack surface (AD-24).** The approval port is the only inbound path in the system and the only thing outside the library that can change a run. It is loopback-only with a local token, its authorisations are bound to `(run_id, step_id)` and single-use — validated against recorded state, not adapter memory, so a restart cannot accept a replay — and no transport event ever counts as a decision. **Identity comes from the operating system's peer credential and a payload-asserted identity is refused**, so the approver cannot be spoofed by the client. What is *not* established is entitlement: no contract says who may approve what, the run carries `authorization-unchecked`, and no authorisation claim rests on the record. That gap is labeled rather than closed, because closing it means putting an approver role on the contract and reaching the closed loader.
+
+**Human control is enforced and bounded (AD-12, AD-24).** Approval is a real port with two implementations. The **scripted decider** driven by the case definition — approve, deny, never respond — remains **the harness's**, and every reported benchmark run uses it, because FR100 requires deterministic timeout cases under both postures and a blocking interactive prompt would make them untestable without a person sitting in front of a harness whose entire value is reproducibility. The **boundary adapter** is how a human answers. FR89's fail-closed path is exercised rather than asserted, and the driver keeps the clock in both cases — an adapter able to hold a pause open would be an adapter able to extend `approval_timeout`, moving a contract term into whoever wrote the client.
 
 An earlier version of this decision defined "unavailable" at the port as *either* the decider being unreachable *or* it not responding within `approval_timeout`. That was a defect, and it is corrected. The two are distinct states with different routes. **`channel-unavailable`** — the adapter cannot accept or create the request, or loses the decision channel of one it had accepted — routes to FR89 fail-closed. **`no-response`** — the request was accepted, the channel stayed up, no decision arrived in time — routes to FR95's contract-declared `on_timeout`. Collapsing the second into the first sends an ordinary timeout to fail-closed, which sits **above** the approval gate in FR2's ladder: the run's terminal reason changes, and so does what the caller receives. Recorded here because a conflation of two states that merely *look* alike at a port is exactly the class of bug that reads as correct in review and only surfaces as an inexplicable terminal reason in a benchmark.
 

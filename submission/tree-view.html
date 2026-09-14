@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>OutcomeFuse tree &mdash; sc-e-001-governed</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:2.5rem;background:#0f1115;color:#d7dae0;
+font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+h1{font-size:1.4rem;margin:0 0 .5rem}
+h2{font-size:.85rem;margin:2.5rem 0 1rem;color:#8b93a1;text-transform:uppercase;
+letter-spacing:.08em}
+.sub{color:#8b93a1;margin-bottom:2rem;font-size:.9rem}
+.seal{display:inline-block;padding:.3rem .65rem;border-radius:3px;font-size:.8rem}
+.ok{background:#12301d;color:#5dd98c;border:1px solid #1e5233}
+.bad{background:#3a1418;color:#ff8391;border:1px solid #6b2028}
+.step{border-left:2px solid #2a3140;margin:0 0 .35rem;padding:.1rem 0 .1rem 1rem}
+.step.sup{border-left-color:#e0af68}
+.step.term{border-left-color:#ff8391}
+.step.gate{border-left-color:#5dd98c}
+.hdr{color:#7aa2f7}
+.hdr .n{color:#5a6270;margin-right:.6rem}
+.act{color:#e0af68}
+.leaf{padding-left:1.4rem;color:#8b93a1;font-size:.9rem}
+.leaf .kind{color:#565e6c;display:inline-block;min-width:11rem}
+.tool{color:#9ece6a}
+.why{color:#c0c5ce}
+.gloss{color:#6b7280;font-style:italic}
+.gate-pass{color:#5dd98c;font-weight:600}.gate-fail{color:#ff8391;font-weight:600}
+.termr{color:#ff8391;font-weight:600}
+.k{color:#8b93a1}.v{color:#d7dae0}
+.legend{margin:1rem 0 0;color:#6b7280;font-size:.85rem}
+.legend b{color:#e0af68;font-weight:600}
+.note{margin-top:2.5rem;padding:1rem 1.2rem;border-left:3px solid #2a3140;color:#8b93a1;
+font-size:.9rem;max-width:62rem}
+</style>
+<h1>sc-e-001-governed</h1>
+<div class="sub">
+  <span class="seal ok">hash chain verified</span>
+  &nbsp; <span class="k">seal</span> <span class="v">7e1e66cd3bd1c1d61bf4bbd8d3b0a2a2&hellip;</span><br>
+  <span class="k">contract</span> <span class="v">00000000000000000000000000000000&hellip;</span>
+  &nbsp; <span class="k">models</span> <span class="v">gpt-5-mini, gpt-5</span>
+  &nbsp; <span class="k">source</span> <span class="v">runs/demo-compare/supply-chain/sc-e-001-governed.db</span>
+</div>
+
+<h2>Step tree &mdash; 7 steps, 28 events, 3 withheld</h2>
+<div class="step"><span class="n">0</span><span class="hdr">run</span><div class="leaf"><span class="kind">run-manifest</span></div><div class="leaf"><span class="kind">evidence-observed</span></div></div><div class="step"><span class="n">2</span><span class="hdr">s0</span> <span class="act">proceed</span> <span class="why">justified</span> <span class="gloss">&mdash; worth its budget</span><div class="leaf"><span class="kind">budget-reserved</span></div><div class="leaf"><span class="kind">spend-settled</span><span class="k">700 tokens</span> <span class="k">gpt-5-mini</span></div><div class="leaf"><span class="kind">decision-proposed</span><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></div><div class="leaf"><span class="kind">budget-reserved</span></div><div class="leaf"><span class="kind">decision-recorded</span></div><div class="leaf"><span class="kind">outcome-observed</span><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></div><div class="leaf"><span class="kind">spend-settled</span><span class="k">10 tokens</span></div><div class="leaf"><span class="kind">budget-reserved</span></div><div class="leaf"><span class="kind">spend-settled</span><span class="k">600 tokens</span> <span class="k">gpt-5-mini</span></div></div><div class="step sup"><span class="n">11</span><span class="hdr">s1</span> <span class="act">proceed-with-substitution</span> <span class="why">cache-hit</span> <span class="gloss">&mdash; already called with these arguments, so the stored result was reused and the tool was never invoked</span><div class="leaf"><span class="kind">decision-proposed</span><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></div><div class="leaf"><span class="kind">decision-recorded</span></div></div><div class="step sup"><span class="n">13</span><span class="hdr">s2</span> <span class="act">proceed-with-substitution</span> <span class="why">cache-hit</span> <span class="gloss">&mdash; already called with these arguments, so the stored result was reused and the tool was never invoked</span><div class="leaf"><span class="kind">decision-proposed</span><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></div><div class="leaf"><span class="kind">decision-recorded</span></div></div><div class="step sup"><span class="n">15</span><span class="hdr">s3</span> <span class="act">proceed-with-substitution</span> <span class="why">cache-hit</span> <span class="gloss">&mdash; already called with these arguments, so the stored result was reused and the tool was never invoked</span><div class="leaf"><span class="kind">decision-proposed</span><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></div><div class="leaf"><span class="kind">decision-recorded</span></div></div><div class="step"><span class="n">17</span><span class="hdr">s4</span> <span class="act">proceed</span> <span class="why">justified</span> <span class="gloss">&mdash; worth its budget</span><div class="leaf"><span class="kind">decision-proposed</span><span class="tool">shipment_trace</span> <span class="k">226896dd4ad0</span></div><div class="leaf"><span class="kind">budget-reserved</span></div><div class="leaf"><span class="kind">decision-recorded</span></div><div class="leaf"><span class="kind">outcome-observed</span><span class="tool">shipment_trace</span> <span class="k">226896dd4ad0</span></div><div class="leaf"><span class="kind">spend-settled</span><span class="k">10 tokens</span></div><div class="leaf"><span class="kind">budget-reserved</span></div><div class="leaf"><span class="kind">spend-settled</span><span class="k">600 tokens</span> <span class="k">gpt-5-mini</span></div></div><div class="step term"><span class="n">24</span><span class="hdr">run</span> <span class="act">terminate</span> <span class="why">sufficiency</span> <span class="gloss">&mdash; the quality floor was met</span><div class="leaf"><span class="kind">evidence-observed</span></div><div class="leaf"><span class="kind">gate-verdict</span><span class="gate-pass">pass</span> <span class="k">(constraint-backed)</span> <span class="gloss">consulted after the agent had already stopped, so it confirmed</span></div><div class="leaf"><span class="kind">decision-recorded</span><span class="termr">stop-sufficient</span></div><div class="leaf"><span class="kind">run-closed</span></div></div>
+<p class="legend"><b>Amber</b> marks a step where the governor withheld work &mdash;
+a cache hit, a duplicate, a denial, a refused approval. Those steps are the
+mechanism; a tree that hid them would show an ordinary agent doing ordinary
+work.</p>
+
+<div class="note">
+Drawn from the sealed log and nothing else. The tree is grouped by the
+<code>step_id</code> already on each event &mdash; no parent/child field was added
+to the record to make this render, so the same tree draws from a live stream or a
+sealed one. This page computes no savings, rates or comparisons. The hash chain
+was verified before it was written; had it not verified, the page would say so
+rather than not exist.
+</div>
+</html>

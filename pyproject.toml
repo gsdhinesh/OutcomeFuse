@@ -31,8 +31,10 @@ dev = ["pytest>=8", "ruff>=0.6"]
 testpaths = ["tests"]
 # Without this the suite only runs after an install, an undeclared precondition.
 # freeze/ is on the path because the scripts that decide whether every answer
-# key is correct are themselves under test.
-pythonpath = ["src", "freeze"]
+# key is correct are themselves under test. clients/ is on it because a client
+# that imports the library the way a stranger would is the only test that can
+# fail when the public surface breaks.
+pythonpath = ["src", "freeze", "clients"]
 addopts = "--strict-markers --strict-config"
 xfail_strict = true
 filterwarnings = ["error"]

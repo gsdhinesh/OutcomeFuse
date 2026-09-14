@@ -27,7 +27,7 @@ Recorded on every decision. A stable code from a **versioned, extensible registr
 | Denial | `unaffordable` · `low-value` · `duplicate` · `semantic-duplicate` · `optional-satisfied` · `unsafe` |
 | Substitution | `cache-hit` · `context-compressed` · `cheaper-model-eligible` |
 | Escalation | `escalation-complexity` · `escalation-low-confidence` · `escalation-criticality` · `escalation-gate-fail` |
-| Governance | `approval-required` · `approval-granted` · `approval-denied` · `approval-timeout` |
+| Governance | `approval-required` · `approval-granted` · `approval-denied` · `approval-timeout` · `approval-channel-unavailable` |
 | Termination | `sufficiency` · `exhaustion` · `no-progress` · `fail-closed` |
 
 `justified` means the step advances an unmet mandatory criterion within budget.
@@ -70,6 +70,7 @@ Authoritative. Encode as a mapping; do not re-derive per call site.
 | Gate fails, budget remains, contract directs partial return | `escalation-gate-fail` | `return-partial` | `returned-partial` |
 | Approval gate elapsed, `on_timeout` terminates | `approval-timeout` | `terminate` | `approval-timeout` |
 | Approval gate elapsed, `on_timeout` escalates | `approval-timeout` | `escalate` | *none — the run continues* |
+| Approval channel unavailable — no client reachable, none configured, or channel lost mid-pause | `approval-channel-unavailable` | `request-human` or `terminate` as the contract directs | `fail-closed` |
 | Gate cannot produce a verdict | `fail-closed` | `request-human` | `fail-closed` |
 | Ledger state lost | `fail-closed` | `terminate` | `fail-closed` |
 

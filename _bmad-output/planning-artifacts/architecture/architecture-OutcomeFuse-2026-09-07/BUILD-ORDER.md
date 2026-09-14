@@ -37,7 +37,8 @@ flowchart LR
   E9 --> E11["E11 Shadow mode"]
   E8 --> E12["E12 Conditional mechanisms"]
   E9 --> E13["E13 Gateway metering"]
-  E9 --> E14["E14 Static viewer"]
+  E9 --> E14["E14 Outward ports"]
+  E14 --> E16["E16 Clients (outside the library)"]
   E9 --> E15["E15 Submission"]
 ```
 
@@ -159,13 +160,23 @@ FR32 semantic dedup (5), F8 Model Governor (6), F7 Context Governor (7), F9 Pref
 
 F15, AD-13. APIM on a tier that supports `llm-token-limit`. Reconcile the combined count against governor-side; label self-reported on fallback.
 
-### E14 — Static viewer · **cut position 1**
+### E14 — Outward ports · **near-core, not cuttable for value**
 
-F14, AD-17. Jinja2 generator, autoescaping explicitly on, reads log and proof card only.
+F17, F18. AD-17, AD-22, AD-23, AD-24. Two small things and they are not the same thing.
+
+**Stream publisher (F17, AD-22).** Append to the log first, then enqueue — never the reverse, or a client can see a decision the record does not hold. Bounded per-subscriber buffer; overflow drops the subscriber and closes its channel with a terminal truncation signal. Monotonic per-run sequence on every published decision, so a client detects its own gaps. Nothing about a subscriber enters the log. Publication cost is never governor overhead.
+
+**Approval boundary (F18, AD-24).** A second `ApprovalPort` implementation beside the scripted decider, which stays the harness's. **Named pipe on Windows / Unix domain socket** — not loopback HTTP — because identity is read off the connection's peer credential and TCP carries none. A payload-asserted identity is refused. Authorisation bound to `(run_id, step_id)`, single-use, validated **against recorded state and not adapter memory** so a restart cannot accept a replay. The driver keeps the clock. Adapter raising is `channel-unavailable`, fail-closed. Entitlement is **not** checked — runs carry `authorization-unchecked`.
+
+> Cutting this saves almost nothing — a one-way publish and one blocking ask — and it carries FR34's channel. The cuttable thing is E16.
+
+### E16 — Clients · **cut position 1, and outside the library**
+
+F19, AD-17. The static comparison generator (today `scripts/compare.py` + `scripts/render_run.py`) and the reference tree view. Nothing under `src/` imports from here and the wheel does not ship it, so cutting E16 removes a directory and leaves no hole. Jinja2 generator keeps autoescaping explicitly on and reads log and proof card only.
 
 ### E15 — Submission artifact · **protected**
 
-F16. Every figure traceable to an evaluation-set run; depends on E2, E8 and E9, never on E14.
+F16. Every figure traceable to an evaluation-set run; depends on E2, E8 and E9, never on E14 or E16.
 
 ---
 

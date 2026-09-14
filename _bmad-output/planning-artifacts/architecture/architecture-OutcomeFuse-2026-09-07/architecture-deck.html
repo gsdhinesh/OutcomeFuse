@@ -177,7 +177,7 @@ td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
   <p class="kicker">Architecture working session &middot; 2026-09-07</p>
   <h1>OutcomeFuse<br><span style="color:var(--cyan)">Architecture Spine</span></h1>
   <div class="title-rule"></div>
-  <p class="lead">Twenty-one decisions, one paradigm, one build order. This deck is not a summary &mdash; it is a place to argue. Eight slides are marked <span class="badge badge-push">PUSH BACK HERE</span> because the call could reasonably have gone the other way.</p>
+  <p class="lead">Twenty-four decisions, one paradigm, one build order. This deck is not a summary &mdash; it is a place to argue. Eight slides are marked <span class="badge badge-push">PUSH BACK HERE</span> because the call could reasonably have gone the other way.</p>
   <div class="cols c3" style="margin-top:1.2em">
     <div class="card"><h3>What is fixed</h3><p class="tiny">Ports-and-adapters. Append-only decision log as system of record. Pure core.</p></div>
     <div class="card gold"><h3>What is arguable</h3><p class="tiny">AD-1, AD-3, AD-7, AD-10, AD-14, AD-16, AD-19, and the third host adapter.</p></div>
@@ -312,7 +312,7 @@ td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
   <div class="notes"><h3>Notes</h3>
     <p>Read the table in the spine alongside this: <code>outcomefuse.core</code> and <code>outcomefuse.ports</code> may depend on <em>nothing in this project</em>. That is enforceable with an import-linter rule, and it should be, on day one &mdash; the rule is worth more than the diagram.</p>
     <p>Note where the harness sits: it depends on everything, including the store. That is deliberate. The harness is allowed to be the messy top of the stack because it is the only component allowed to compute a reportable figure (AD-10).</p>
-    <p>The viewer reads the store only &mdash; not the runtime, not the evidence store. AD-17 and AD-19 both lean on that single arrow.</p>
+    <p>The static comparison generator reads the store only &mdash; not the runtime, not the evidence store. AD-17 and AD-19 both lean on that single arrow. The live tree view does not appear on this diagram at all, and that is the point: it is outside the distribution, reaching the system only through the two dotted port arrows.</p>
   </div>
 </section>
 
@@ -583,7 +583,7 @@ td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
 <!-- 11 -->
 <section class="slide">
   <p class="kicker">10 &middot; The invariant map</p>
-  <h2>Twenty-one decisions, six jobs</h2>
+  <h2>Twenty-four decisions, six jobs</h2>
   <p class="lead tiny">Grouped by what they stop, not by number. Each AD&rsquo;s <em>Prevents</em> clause is the reason it exists &mdash; if you cannot state the divergence, the rule is ceremony.</p>
   <div class="cols c3">
     <div class="card"><h3>Ordering &amp; state</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-2 &middot; AD-3</p><p class="tiny">The log is the truth; one decision lane. Stops drift and stops an unreplayable partial order.</p></div>
@@ -591,7 +591,7 @@ td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
     <div class="card"><h3>Identity &amp; hashing</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-6 &middot; AD-8</p><p class="tiny">One canonicaliser; project-owned schema and reason registry. Stops silent hash disagreement and borrowed promises.</p></div>
     <div class="card red"><h3>Safety</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-7 &middot; AD-12 &middot; AD-18 &middot; AD-20 &middot; AD-21</p><p class="tiny">Contracts execute nothing and the registry is breadth-gated before the freeze; approval separates a timeout from an outage; the floor lives in Policy; failure posture is placed; non-synthetic data is refused, never inherited.</p></div>
     <div class="card green"><h3>Evidence &amp; honesty</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-9 &middot; AD-10 &middot; AD-16</p><p class="tiny">Manifest opens every run; one reportability predicate; one workspace database, hash-chained per run. Stops unciteable figures and undetectable tampering.</p></div>
-    <div class="card purple"><h3>Modes &amp; surfaces</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-11 &middot; AD-13 &middot; AD-14 &middot; AD-15 &middot; AD-17</p><p class="tiny">Shadow is a driver; the model seam is owned; the cache is run-scoped; adapters pass conformance; the viewer is generated. Stops flags in safety paths and cut-first dependencies.</p></div>
+    <div class="card purple"><h3>Modes &amp; surfaces</h3><p class="tiny mono" style="background:none;border:0;padding:0;color:var(--gold)">AD-11 &middot; AD-13 &middot; AD-14 &middot; AD-15 &middot; AD-17 &middot; AD-22 &middot; AD-23 &middot; AD-24</p><p class="tiny">Shadow is a driver; the model seam is owned; the cache is run-scoped; adapters pass conformance; no experience ships inside the library. The two outward ports fail in opposite directions &mdash; the stream drops, the approval halts. Stops flags in safety paths and cut-first dependencies.</p></div>
   </div>
   <div class="notes"><h3>Notes</h3>
     <p>Use this slide as the navigation contract for the next five. Ask the room which group they want opened first &mdash; if they pick Safety or Evidence, that tells you where their scepticism is, and those are the slides worth spending time on.</p>
@@ -917,8 +917,15 @@ td.m{font-family:var(--mono);color:var(--gold);white-space:nowrap}
     <div>
       <div class="card"><span class="ad">AD-13 &mdash; The model seam is owned</span>
         <p class="tiny">LiteLLM sits <strong>behind</strong> a project-owned <code>ModelPort</code>. No LiteLLM type, exception or cost table appears above it. The cost table is <em>pinned and recorded in the manifest</em> &mdash; a pricing change between calibration and evaluation would silently move the cost figure.</p></div>
-      <div class="card" style="margin-top:.5em"><span class="ad">AD-17 &mdash; The side-by-side view is generated, not served</span>
-        <p class="tiny">One self-contained static HTML file per comparison. Reads the <strong>decision log and proof card only, never the evidence store</strong>. Computes no proof figures. Autoescaping enabled <em>explicitly</em> at environment construction &mdash; it is opt-in, and record content is untrusted. There is no running viewer process, so FR77&rsquo;s &ldquo;no path to influence execution&rdquo; is structural.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-17 &mdash; No experience ships inside the library</span>
+        <p class="tiny">The library contains <strong>no rendering code and no viewer process</strong>. It publishes decisions and asks for approvals; every experience is a client built <em>outside the distribution</em>, depended on by nothing. A client may subscribe to the stream while a run executes, but reads the decision log only once that run is <strong>sealed</strong>, and never touches the evidence store. The static comparison generator survives as one valid client &mdash; autoescaping enabled <em>explicitly</em>, since record content is untrusted.</p>
+        <p class="tiny"><strong>Amended.</strong> The old rule was &ldquo;generated, not served&rdquo;, chosen because no live process existed that could touch execution. FR113 now requires one that deliberately can. Read-only is enforced by the <em>package boundary</em> instead &mdash; there is no viewer in the wheel for anyone to wire back into the execution path.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-22 &mdash; Publication is one-way and off the critical path</span>
+        <p class="tiny"><strong>Append to the log first, then enqueue.</strong> The reverse order lets a client observe a decision the record never contains. A slow subscriber is <strong>dropped</strong>, never allowed to push back; every published decision carries a monotonic per-run sequence so a client detects its own gaps. No subscriber is required. Publication cost is never governor overhead &mdash; added latency is the binding threshold at ~3.5ms p50, and a synchronous publish was the cheapest way to destroy it. <em>Fail-open.</em></p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-23 &mdash; Wire types are record types</span>
+        <p class="tiny">The ports may serialize <strong>only types the record schema and the approval port already define</strong>. No wire-only DTO, no content field the record lacks &mdash; so tool arguments and results are unpublishable <em>by construction, not by review</em>. A boundary is egress, and whatever a client receives it may persist outside every retention rule here. The constraint is on <em>content, not envelope</em>: a sequence number or an approval authorisation may cross, provided it is boundary-generated and never persisted as record.</p></div>
+      <div class="card" style="margin-top:.5em"><span class="ad">AD-24 &mdash; The approval boundary is same-host, and its authorisation is bound</span>
+        <p class="tiny">Loopback with a local token. Every authorisation is bound to <code>(run_id, step_id)</code>, single-use, dead at pause close &mdash; validated against <strong>recorded state, not adapter memory</strong>, or a restart accepts a replay. No transport or client event is ever a decision. <strong>Identity is read off the connection&rsquo;s OS peer credential, never the payload, which is refused.</strong> What is not checked is <em>entitlement</em> &mdash; no contract says who may approve what, so runs carry <code>authorization-unchecked</code>. A valid user is not a valid approver. <em>Fail-closed.</em></p></div>
       <div class="alt"><h3>AD-14 &mdash; the alternative we rejected, and what it would cost you</h3>
         <p class="tiny"><strong>A persistent, cross-run tool cache.</strong> It looks like a free win and it is a real post-MVP lever. What it costs today: FR68 re-executability starts depending on <em>cache warmth</em>, two supposedly identical runs differ, FR64&rsquo;s frozen baseline is no longer a fixed thing, and NFR6 tenant partitioning lands on the hot path. Run-scoped discharges NFR6 structurally &mdash; a run belongs to one tenant and one use case, so cross-user reuse is impossible by construction.</p></div>
     </div>

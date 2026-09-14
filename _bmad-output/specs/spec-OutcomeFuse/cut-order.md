@@ -23,7 +23,7 @@ The evidence apparatus is as protected as the runtime, because the claim itself 
 
 ## Cut order under schedule pressure — first to go
 
-1. The side-by-side execution view and any admin surfaces — **not** the submission video, which is protected
+1. **The reference experience (CAP-14) and any admin surfaces** — it lives outside the library, so cutting it removes a directory and leaves no hole in the product. **Not** the submission video, which is protected, and **not** the two outward ports (CAP-19, CAP-20): a one-way publish and one blocking ask cost almost nothing, and the approval port carries the contract's human-approval channel
 2. **The third host adapter.** Three host frameworks are committed where two dissimilar ones are required. The third goes first among mechanisms because it multiplies the benchmark matrix — a wrapper, conformance passage, four workloads of tools rebound, a frozen baseline definition, and a share of the required failure cases — without adding an argument two adapters do not already carry
 3. Automated contract authoring
 4. Multi-agent capabilities

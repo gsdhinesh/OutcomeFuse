@@ -75,7 +75,9 @@ Evaluated by the harness alone. No other component re-derives any of them.
 
 **Admissibility — hard; a failing run is refused, not labelled.** Non-streaming; adapter has passed conformance; manifest present and complete; and, for a headline claim, drawn from the sealed evaluation set with the preregistration hash present. The two arms of a comparison are **manifest-identical except for the run id and the fields the comparison exists to vary** — mode, and the enabled-mechanism registry. The harness compares manifests field by field and refuses on any other difference: route, model version, cost-table version, seed and adapter version included.
 
-**Independence — graded; degrades the label, never refuses.** Gateway-metered figures are labelled *measured*. Where metering is unavailable the run falls back to governor-side counting and every figure it yields is labelled **self-reported**. Shadow figures are labelled *projected*. Degraded runs carry their degradation. Constraint-backed passes carry their qualifier.
+**Independence — graded; degrades the label, never refuses.** Gateway-metered figures are labelled *measured*. Where metering is unavailable the run falls back to governor-side counting and every figure it yields is labelled **self-reported**. Shadow figures are labelled *projected*. Degraded runs carry their degradation. Constraint-backed passes carry their qualifier. A run containing an interactively granted approval is labelled **`human-approved`** — and, while no contract declares who may satisfy an approval clause, **`authorization-unchecked`** alongside it, on which no authorisation claim may rest.
+
+**One labelling rule is hard rather than graded:** a `human-approved` run is publishable **only where its approval transcript was recorded**, because that transcript is what restores re-executability — replaying it through the scripted port reproduces the run deterministically. A run whose approvals were not recorded is refused, not labelled.
 
 **Publication accompaniment — hard.** The harness refuses to emit:
 

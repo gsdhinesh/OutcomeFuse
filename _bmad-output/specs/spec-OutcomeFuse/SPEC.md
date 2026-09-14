@@ -67,7 +67,7 @@ sources:
 
 - **CAP-11 — Integration surface**
   - **intent:** An existing tool-using agent loop becomes governed by wrapping it and declaring a contract, with no re-architecture.
-  - **success:** Integration consists of wrapping the loop and declaring a contract. The governor is demonstrated against at least two dissimilar agent implementations across the committed workloads. An OFF state runs the host exactly as its baseline with the governor out of the call path entirely. No run from an adapter is reportable until that adapter passes the conformance battery — denial honoured, substitution applied, approval pause observed, sufficiency stop terminating, fail-closed halting, shadow decisions not applied — asserted against the resulting decision log, plus an out-of-band probe in which scripted tools assert for themselves whether they were invoked.
+  - **success:** Integration consists of wrapping the loop and declaring a contract. The governor is demonstrated against at least two dissimilar agent implementations across the committed workloads. An OFF state runs the host exactly as its baseline with the governor out of the call path entirely. No run from an adapter is reportable until that adapter passes the conformance battery — denial honoured, substitution applied, approval pause observed, sufficiency stop terminating, fail-closed halting, shadow decisions not applied — asserted against the resulting decision log, plus an out-of-band probe in which scripted tools assert for themselves whether they were invoked. **The same battery and the same probe gate the approval port and every client that answers through it** (CAP-20): a client that renders a clean pause, returns `approved`, and sits in front of a call that had already gone out produces an audit trail that is plausible, internally consistent and false, and only the probe catches it.
 
 - **CAP-12 — Decision record and audit trail**
   - **intent:** A reviewer can reconstruct why a run stopped where it did without trusting or re-invoking the model.
@@ -77,9 +77,17 @@ sources:
   - **intent:** The savings claim is produced as a measured, reproducible artifact that can be shown to be wrong.
   - **success:** The harness executes a frozen case set baseline-versus-governed with the same tools, model versions and settings; repeats runs per case and reports mean, median and absolute pass counts; ablates every savings-producing policy and mechanism including the protected ones; computes the proof card as a recorded artifact; runs the overhead break-even study; measures tool-suppression accuracy by re-execution, compression fidelity, and every marginal-value denial with its floor-protection compliance; supports blind human review of passed runs; and refuses any comparison failing the admissibility, independence or accompaniment gates in [evidence-standards.md](evidence-standards.md). Any reported run is re-executable from its recorded configuration.
 
-- **CAP-14 — Side-by-side execution view** *(conditional — cut position 1)*
-  - **intent:** A viewer watches a governed and an ungoverned run of the same case side by side and sees why each decision was made.
-  - **success:** A self-contained static artifact per comparison replays both recorded runs in execution order with human-readable reasons and the ledger state at each replayed decision, renders the proof card without computing any figure of its own, and supports drilling into a single run's decision record offline. It is read-only, consumes only recorded output, and disabling it changes neither governed behaviour nor realized savings.
+- **CAP-14 — Reference experience** *(conditional — cut position 1, and outside the library)*
+  - **intent:** One client proves the ports are real by consuming them, and gives a viewer the step tree, the recorded side-by-side comparison and the proof card.
+  - **success:** It presents a live run's execution as a tree of step nodes derived from the published stream, presents a recorded run identically through the same view model, replays baseline against governed for one case from recorded runs with the ledger state at each decision, renders the proof card without computing any figure of its own, and supports drilling into a single run's decision record. It is built **outside the distribution**, nothing in the library imports it, and **deleting it changes no governed behaviour, no reported figure, and does not stop the submission building**.
+
+- **CAP-19 — Decision Stream Port**
+  - **intent:** The library publishes every governor decision outward as it is recorded, so any experience — tree view, chat, IDE panel, log shipper — can consume the run without the library knowing that experience exists.
+  - **success:** The log is appended **before** the decision is enqueued, so no client can observe a decision the record does not hold. Publication requires no subscriber, never blocks, delays or reorders execution, and never counts as governor overhead. A subscriber that cannot keep up is dropped and its channel closed with a terminal truncation signal; every published decision carries a monotonic per-run sequence, so a client detects its own gaps without being told. Each published decision carries enough to reconstruct the step tree — step, action, reason, clause, ledger state, quality state and approval state — with **no parent/child field added to the record**. A run with ten subscribers, one, or none yields byte-identical decision logs, the same reported figures and unchanged added latency.
+
+- **CAP-20 — Approval Port**
+  - **intent:** A human authorises a contract-gated call across a same-host boundary — the only inbound path in the system, and the only thing outside the library that can change what a run does.
+  - **success:** A pause is emitted carrying the tool, the triggering clause and the time remaining, and a decision is accepted in return. The port is **one channel among several and never the only one** — the scripted decider remains the harness's, and every reported benchmark run uses it. The **driver keeps the clock**, so no client can shorten, extend or restart the timeout. Each pending approval carries an authorisation **bound to its run and step, single-use, dead at pause close**, validated against recorded state rather than adapter memory so a restart cannot accept a replay; a reused, expired or mismatched authorisation is refused and recorded as refused. **The approver is taken from the connection's operating-system peer credential and a payload-asserted identity is refused.** No transport or client event — close, refresh, drop, reconnect, crash — ever counts as approval or denial. No reachable client is `channel-unavailable` and fail-closed, never a timeout and never consent.
 
 - **CAP-15 — Gateway token metering** *(conditional — cut position 10)*
   - **intent:** The headline token figure is measured by something other than the system being evaluated.
@@ -87,7 +95,7 @@ sources:
 
 - **CAP-16 — Submission artifact**
   - **intent:** The work is presented as a two-minute video showing the mechanism running and the proof behind it.
-  - **success:** The video covers problem, artifact, proof and scale in that order within two minutes; shows at minimum an Outcome Contract, a governor decision stream, and a stop caused by sufficiency; presents no projected, shadow-mode or single-run cherry-picked figure as realized saving; and draws every figure from a recorded evaluation-set run carrying its full labelling. It depends on the harness and the decision record, never on CAP-14.
+  - **success:** The video covers problem, artifact, proof and scale in that order within two minutes; shows at minimum an Outcome Contract, a governor decision stream, and a stop caused by sufficiency; presents no projected, shadow-mode or single-run cherry-picked figure as realized saving; and draws every figure from a recorded evaluation-set run carrying its full labelling — including `authorization-unchecked` where an approval was interactive. It depends on the harness and the decision record, never on CAP-14.
 
 - **CAP-17 — Failure posture**
   - **intent:** The governor's own failures degrade in the direction each failure's cost demands, and a degraded run is never mistaken for a clean one.
@@ -119,6 +127,12 @@ sources:
 - Shadow mode alters nothing the host would otherwise do, and is exempt from fail-closed.
 - A protected component may not take its meaning or its output from a cuttable one.
 - Tool-result reuse is scoped to a single run and a single process. No cross-run, cross-process or persistent cache exists.
+- **No experience ships inside the library.** It holds no rendering code and no viewer process; the wheel packages `src/outcomefuse` only and nothing under it imports a client. A client may subscribe to the published stream while a run executes, but reads the decision log only once that run is **sealed**, and never touches the evidence store.
+- **The ports serialize only types the record schema and the approval port already define** — no wire-only DTO, and no *content* field the record does not hold, so tool arguments and results are unpublishable by construction rather than by review. Envelope fields (sequence number, correlation id, approval authorisation) may cross provided each is boundary-generated, carries no run content, and is never persisted as record. **Publication is egress, so the non-synthetic refusal extends to it.**
+- **Publication never blocks, delays or reorders governed execution, and its cost is never governor overhead** — watching a run must not change its number. A slow subscriber is dropped rather than granted back-pressure, and nothing about a subscriber is written to the decision log.
+- **No transport or client event is ever an approval or a denial.** An unanswered pause resolves only through the contract's `on_timeout`. The approval boundary is loopback same-host with a local token; single-use is validated against recorded state, not adapter memory.
+- **Contract validation refuses any contract whose `side_effecting: true` tool carries no human-approval condition** — a human approves every write, enforced by the loader rather than by an author remembering. The frozen code-triage contract predates this and gates `run_tests` only after three calls; the deviation is disclosed, not corrected.
+- **Approver identity is read off the connection's operating-system peer credential, never from the payload** — a payload-asserted identity is refused, not recorded. **Entitlement is not checked:** no contract declares which principals may satisfy an approval clause, so an interactively approved run is labelled `human-approved` and `authorization-unchecked`, and **no claim that an approval was properly authorised rests on the record**. Such a run is reportable only where its approval transcript was recorded, and satisfies re-executability by replaying that transcript through the scripted port.
 - Solo build inside a one-month window. A requirement not demonstrable in that window moves out of scope rather than being carried unmet, and scope reduction follows the declared order in [cut-order.md](cut-order.md).
 - No credential appears in a contract, and tool access operates under least-privilege identity.
 
@@ -132,6 +146,9 @@ sources:
 - Post-run reporting as the deliverable. The output is a cheaper completed run, not analysis a human must act on.
 - Policy DSL for reusable contracts, learned marginal-value estimation, multi-agent budget transfer, CI cost-regression gates.
 - A persistent or cross-run tool cache, and any multi-process or distributed governor.
+- A **networked** approval boundary. The MVP is loopback, same-host. Remote clients need an authenticated principal, transport security, rate limiting and a threat model for the approval authorisation — none of which the same-host posture has to answer.
+- **Approver authorization** — declaring which principals may satisfy which approval clause. Identity is verified; entitlement is labelled as unchecked rather than established, and closing it means putting an approver role on the Outcome Contract.
+- Subscriber replay or backfill. A dropped stream consumer re-reads the sealed log afterwards; a resumable cursor is a different design.
 - OpenTelemetry export. Attribute names may be borrowed as convention; the record schema depends on no external specification.
 - Solving production ground truth without hand-authored answer keys. The MVP states the limit rather than closing it.
 
@@ -148,6 +165,8 @@ The demonstrable moment is a single run terminating `stop-sufficient` with budge
 - Unmet-criterion targeting is adequate as the MVP marginal-value estimator. Its quality is unknown; it is pluggable if it performs poorly, and every denial it makes is reported with its floor-protection compliance.
 - The seven-type verifier registry is sufficient, with at most three deterministic additions admissible on demonstrated need before the freeze.
 - The pinned LangGraph release declares Python classifiers only to 3.13 and is assumed to work on 3.14, pending validation before that adapter is committed.
+- Peer-credential identity is assumed available and reliable on the target platform — the client's SID via named-pipe impersonation on Windows, `SO_PEERCRED` on a Unix domain socket. It constrains the approval transport away from loopback TCP, which carries no peer identity. Unvalidated until the boundary adapter is built.
+- A single development host cannot demonstrate separation of duties: the account running the benchmark and the account approving are the same. The mechanism is assumed sufficient to prove itself anyway, and no demonstration on one machine may be presented as more than that.
 
 ## Open Questions
 
@@ -158,4 +177,5 @@ The demonstrable moment is a single run terminating `stop-sufficient` with budge
 - What decision-latency bound applies per step, measured against baseline step latency?
 - Who authors the quality floor in a real deployment, and at what effort per task type? This is the main threat to the scale story, and the MVP does not address it.
 - How does a production deployment establish ground truth without hand-authored answer keys? Without them, mandatory criteria collapse toward `constraint-backed` verification.
+- Which principals may satisfy a given approval clause, and where is that declared? Identity is closed — taken from the verified OS peer credential. **Entitlement is not**: a valid user is not a valid approver, and until a contract can name one, every interactive run carries `authorization-unchecked`.
 - Is an API Management instance on a tier that supports `llm-token-limit` provisioned? It is a critical-path dependency before any evaluation-set run, and its absence silently downgrades every figure to self-reported.

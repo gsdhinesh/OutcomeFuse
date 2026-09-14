@@ -299,6 +299,116 @@ FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
         ),
         direction="neutral",
     ),
+    Disclosure(
+        key="doc-research-citations-minimum-was-never-requested",
+        finding=(
+            "The doc-research contract makes `citations-sufficient` mandatory and "
+            "requires at least two distinct citations. The frozen baseline prompt "
+            "asks only for 'citations array objects {\"id\": \"<doc_id>\"} supporting "
+            "the answer' and states no minimum anywhere. On the evaluation split the "
+            "consequence is measurable: dr-e-001, 003, 004 and 005 each returned the "
+            "CORRECT answer_code and the CORRECT primary_source_id with exactly one "
+            "citation and were failed; dr-e-006, the only case passing either arm, is "
+            "the only deliverable carrying two. Six of eight cases were answered "
+            "correctly and the gate passed one. The requirement also sits awkwardly "
+            "with the task itself, which exists to identify the single document that "
+            "governs -- rejected documents already have their own field."
+        ),
+        why_not_fixed=(
+            "Contract and prompt are both inside the freeze and runs exist, so "
+            "FREEZE.md makes both final. Correcting either now would be done in full "
+            "knowledge of which way it moves the result, which is the contamination "
+            "the rule exists to prevent."
+        ),
+        workaround=(
+            "doc-research is reported as defective and supports no claim. The "
+            "measured gate failures are reported as what they are -- a floor failing "
+            "correct answers on an unannounced structural requirement -- rather than "
+            "as evidence about model capability. This also supersedes the earlier "
+            "reading recorded under `doc-research-iteration-cap`: on the evaluation "
+            "split the runs DO reach answers and the answers are largely right."
+        ),
+        direction="against",
+    ),
+    Disclosure(
+        key="false-sufficiency-threshold-is-unreachable-at-n-4",
+        finding=(
+            "The preregistration sets false-sufficiency-rate at 0.05 and the blind "
+            "review sample at 4. The smallest non-zero rate expressible from four "
+            "items is 1/4 = 0.25, so the threshold can be met only by zero "
+            "rejections and is breached five-fold by a single one. The metric is a "
+            "pass/fail on 'did the reviewer reject anything', not a rate. The "
+            "supply-chain review recorded 4 reviewed and 1 rejected."
+        ),
+        why_not_fixed=(
+            "Both numbers were preregistered before any evaluation result was "
+            "executed or inspected, which is the property that makes them worth "
+            "anything. Enlarging the sample or loosening the threshold now would be "
+            "done knowing the result, and a target adjusted after the fact cannot be "
+            "reported as met."
+        ),
+        workaround=(
+            "The rate is reported with its denominator visible, so a reader can see "
+            "it is one rejection out of four rather than a stable rate. No claim "
+            "rests on false-sufficiency being below threshold, because on this design "
+            "it could not have been demonstrated."
+        ),
+        direction="unknown",
+    ),
+    Disclosure(
+        key="write-tools-were-gated-by-authoring-habit-not-validation",
+        finding=(
+            "Contract validation checks that a human-approval condition names a "
+            "declared tool, but never checked the converse: that a tool declared "
+            "`side_effecting: true` carries a condition at all. Three of the four "
+            "contracts gate every write on `always` and doc-research declares none "
+            "because it has no write tools. The fourth does not: code-triage gates "
+            "`run_tests` at `call_index_exceeds: 3`, so its first three invocations "
+            "proceed with no human asked."
+        ),
+        why_not_fixed=(
+            "The contracts are frozen and runs exist. The validation rule itself is "
+            "code rather than a frozen artefact and has been tightened (FR122), but "
+            "the code-triage contract it would now refuse cannot be amended."
+        ),
+        workaround=(
+            "The rule is stated as a requirement so it binds every future contract, "
+            "and the code-triage deviation travels with any claim drawn from that "
+            "workload. No headline figure depends on it: code-triage produced no "
+            "campaign card."
+        ),
+        direction="neutral",
+    ),
+    Disclosure(
+        key="a-blind-review-verdict-was-revised-after-its-result-was-seen",
+        finding=(
+            "The data-sql blind review was answered, recorded, and then changed. The "
+            "reviewer first accepted all four items, which recorded 0 of 4 rejected "
+            "and a false-sufficiency rate of 0.000 -- a pass. The reviewer was shown "
+            "that number, then revised items 3 and 4 to reject, which re-recorded as "
+            "2 of 4 and a rate of 0.500. The drawn sample and its seed never changed; "
+            "`prepare` refuses to re-draw over an existing answer set, so only the "
+            "judgements moved. The record cannot distinguish honest reconsideration "
+            "from a verdict adjusted to taste, and it should not be asked to."
+        ),
+        why_not_fixed=(
+            "Nothing here is repairable by re-running: a reviewer who has seen a "
+            "result cannot be made not to have seen it, and re-drawing the sample "
+            "would destroy the one property the two-phase design exists to protect. "
+            "The blind review is a single human judgement on four items and always "
+            "was."
+        ),
+        workaround=(
+            "The sequence is published rather than the final number alone. Two facts "
+            "weigh against the obvious reading: the revision moved the result "
+            "*against* the project, from a pass to a ten-fold breach, which is the "
+            "opposite direction from tuning; and items 3 and 4 carry defensible "
+            "grounds -- item 4 reports a USD figure its cited SQL does not compute, "
+            "selecting only cents and a row count. Both figures are stated wherever "
+            "this workload's review is cited, and no claim rests on either."
+        ),
+        direction="unknown",
+    ),
 )
 
 DISCLOSURE_KEYS: Final[frozenset[str]] = frozenset(d.key for d in FROZEN_DEFECTS)
