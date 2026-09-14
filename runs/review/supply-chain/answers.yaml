@@ -1,6 +1,6 @@
 # accept or reject, one per item. Nothing here shows you the gate's
 # verdict; that is the point.
-1: ''
-2: ''
-3: ''
-4: ''
+1: accept
+2: reject
+3: accept
+4: accept

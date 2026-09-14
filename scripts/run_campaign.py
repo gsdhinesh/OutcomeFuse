@@ -21,8 +21,11 @@ import argparse
 import json
 from pathlib import Path
 
+import yaml
+
 from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
 from outcomefuse.core.contract import load_path
+from outcomefuse.evidence.counter_metrics import BlindReview
 from outcomefuse.harness.campaign import CampaignError, Plan, run_campaign
 from outcomefuse.harness.costs import CostTableError, load_cost_table
 from outcomefuse.harness.overhead import OverheadRefused, load_study
@@ -68,6 +71,12 @@ def main() -> int:
         "--overhead-study",
         default="preregistration/overhead-study-1.yaml",
         help="the study the added-latency counter-metric is read from",
+    )
+    parser.add_argument(
+        "--blind-review",
+        action="store_true",
+        help="fold in runs/review/<workload>.review.yaml; without it "
+        "false-sufficiency-rate reports as not measured",
     )
     args = parser.parse_args()
 
@@ -118,6 +127,17 @@ def main() -> int:
     except OverheadRefused as exc:
         print(f"! {exc}; added-latency will report as not measured\n")
 
+    # Opt-in on purpose. This is the one counter-metric no machine can produce,
+    # so a human judgement enters the record by someone asking for it by name,
+    # never by a file happening to be on disk.
+    review = None
+    if args.blind_review:
+        path = Path("runs/review") / f"{args.workload}.review.yaml"
+        if not path.exists():
+            raise SystemExit(f"{path} does not exist; run scripts/blind_review.py first")
+        review = BlindReview(**yaml.safe_load(path.read_text(encoding="utf-8")))
+        print(f"blind review: {review.rejected} of {review.reviewed} rejected\n")
+
     plan = Plan(
         workload=args.workload,
         split=args.split,
@@ -133,6 +153,7 @@ def main() -> int:
         counter_metric_thresholds=dict(prereg.counter_metric_thresholds) if prereg else {},
         preregistration=prereg,
         overhead_study=study,
+        blind_review=review,
     )
 
     try:

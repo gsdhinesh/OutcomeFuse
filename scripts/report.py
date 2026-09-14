@@ -30,7 +30,7 @@ def _load(split: str, cards_dir: Path) -> list[dict[str, Any]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--split", default="calibration")
+    parser.add_argument("--split", default="evaluation")
     parser.add_argument("--cards-dir", default=str(CARDS))
     args = parser.parse_args()
 
