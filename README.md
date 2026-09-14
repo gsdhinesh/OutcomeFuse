@@ -135,6 +135,22 @@ page. Neither computes a saving, a rate or a comparison beyond adding up
 recorded tokens — a second path to a number is a second thing that can be
 wrong.
 
+To see every mechanism actually fire — duplicate suppression, a failed gate,
+escalation, budget exhaustion — there is a scripted walk:
+
+```pwsh
+uv run python scripts/demo.py                       # -> sealed logs in runs/demo
+.venv\Scripts\python.exe scripts/render_run.py --runs-dir runs/demo
+```
+
+It is a **demonstration, not a measurement**. The replies are fixed and the
+scenario is chosen so each mechanism has something to do, which is the opposite
+of what the campaigns found: measured against real models the tool governor
+never suppressed anything, the loop fuse never fired, and the gate only ever
+confirmed an answer the agent had already finished. The campaigns say how often
+a mechanism fires; they cannot show that it works, because on those runs most of
+them never ran.
+
 Every run seal verifies from a clean clone, which is what makes "the benchmark
 was frozen before the governor existed" checkable rather than asserted. The
 calibration runs are published for the same reason.

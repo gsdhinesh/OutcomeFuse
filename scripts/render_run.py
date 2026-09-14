@@ -30,6 +30,10 @@ MEANING = {
     "justified": "the step was worth its budget",
     "duplicate": "this exact call had already been made",
     "semantic-duplicate": "an equivalent call had already been made",
+    "cache-hit": "already called with these arguments, so the stored result was reused "
+    "and the tool was never invoked",
+    "context-compressed": "the context was compressed before the call",
+    "cheaper-model-eligible": "a cheaper model was enough for this step",
     "unaffordable": "the budget could not cover it",
     "low-value": "the expected gain did not justify the spend",
     "escalation-gate-fail": "the quality floor was not met, so a stronger model was tried",

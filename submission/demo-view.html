@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>OutcomeFuse &mdash; demo-walk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:2.5rem;background:#0f1115;color:#d7dae0;
+font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+h1{font-size:1.4rem;margin:0 0 .5rem}h2{font-size:.85rem;margin:2.5rem 0 .75rem;
+color:#8b93a1;text-transform:uppercase;letter-spacing:.08em}
+.sub{color:#8b93a1;margin-bottom:2rem;font-size:.9rem}
+.seal{display:inline-block;padding:.3rem .65rem;border-radius:3px;font-size:.8rem}
+.ok{background:#12301d;color:#5dd98c;border:1px solid #1e5233}
+.bad{background:#3a1418;color:#ff8391;border:1px solid #6b2028}
+table{border-collapse:collapse;width:100%}
+td,th{padding:.45rem .7rem;border-bottom:1px solid #1c2028;vertical-align:top;text-align:left}
+th{color:#8b93a1;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+.seq{color:#5a6270;width:3rem}.kind{color:#7aa2f7;white-space:nowrap}
+.act{color:#e0af68;white-space:nowrap}.why{color:#c0c5ce}
+.term{color:#ff8391;font-weight:600}
+.gate-pass{color:#5dd98c;font-weight:600}.gate-fail{color:#ff8391;font-weight:600}
+.tool{color:#9ece6a}
+.bar{display:inline-block;height:8px;width:90px;background:#2a3140;border-radius:2px;
+vertical-align:middle}
+.bar i{display:block;height:100%;background:#7aa2f7;border-radius:2px}
+.k{color:#8b93a1}.v{color:#d7dae0}
+.note{margin-top:2.5rem;padding:1rem 1.2rem;border-left:3px solid #2a3140;color:#8b93a1;
+font-size:.9rem;max-width:60rem}
+</style>
+<h1>demo-walk</h1>
+<div class="sub">
+  <span class="seal ok">hash chain verified</span>
+  &nbsp; <span class="k">seal</span> <span class="v">55ac8c8ad7e2331a66ed47eeb2283292&hellip;</span><br>
+  <span class="k">contract</span> <span class="v">00000000000000000000000000000000&hellip;</span>
+  &nbsp; <span class="k">models</span> <span class="v">gpt-5-mini, gpt-5</span>
+  &nbsp; <span class="k">source</span> <span class="v">runs/demo/walk.db</span>
+</div>
+
+<h2>Decision stream &mdash; 25 recorded events</h2>
+<table>
+<tr><th>#</th><th>event</th><th>action</th><th>reason</th><th></th></tr>
+<tr><td class="seq">0</td><td class="kind">run-manifest</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">1</td><td class="kind">evidence-observed</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">2</td><td class="kind">budget-reserved</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">3</td><td class="kind">spend-settled</td><td class="act"></td><td class="why"></td><td><span class="k">700 tokens</span></td></tr><tr><td class="seq">4</td><td class="kind">decision-proposed</td><td class="act"></td><td class="why"></td><td><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></td></tr><tr><td class="seq">5</td><td class="kind">budget-reserved</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">6</td><td class="kind">decision-recorded</td><td class="act">proceed</td><td class="why">justified<br><span class="k">the step was worth its budget</span></td><td></td></tr><tr><td class="seq">7</td><td class="kind">outcome-observed</td><td class="act"></td><td class="why"></td><td><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></td></tr><tr><td class="seq">8</td><td class="kind">spend-settled</td><td class="act"></td><td class="why"></td><td><span class="k">10 tokens</span></td></tr><tr><td class="seq">9</td><td class="kind">decision-proposed</td><td class="act"></td><td class="why"></td><td><span class="tool">order_lookup</span> <span class="k">8ce17fb69a88</span></td></tr><tr><td class="seq">10</td><td class="kind">decision-recorded</td><td class="act">proceed-with-substitution</td><td class="why">cache-hit</td><td></td></tr><tr><td class="seq">11</td><td class="kind">decision-proposed</td><td class="act"></td><td class="why"></td><td><span class="tool">shipment_trace</span> <span class="k">226896dd4ad0</span></td></tr><tr><td class="seq">12</td><td class="kind">budget-reserved</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">13</td><td class="kind">decision-recorded</td><td class="act">proceed</td><td class="why">justified<br><span class="k">the step was worth its budget</span></td><td></td></tr><tr><td class="seq">14</td><td class="kind">outcome-observed</td><td class="act"></td><td class="why"></td><td><span class="tool">shipment_trace</span> <span class="k">226896dd4ad0</span></td></tr><tr><td class="seq">15</td><td class="kind">spend-settled</td><td class="act"></td><td class="why"></td><td><span class="k">10 tokens</span></td></tr><tr><td class="seq">16</td><td class="kind">budget-reserved</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">17</td><td class="kind">spend-settled</td><td class="act"></td><td class="why"></td><td><span class="k">900 tokens</span></td></tr><tr><td class="seq">18</td><td class="kind">gate-verdict</td><td class="act"></td><td class="why"></td><td><span class="gate-fail">fail</span> <span class="k">(constraint-backed)</span><br><span class="k">consulted after the agent had already stopped, so it confirmed</span></td></tr><tr><td class="seq">19</td><td class="kind">decision-recorded</td><td class="act">escalate</td><td class="why">escalation-gate-fail<br><span class="k">the quality floor was not met, so a stronger model was tried</span></td><td><span class="k">gpt-5-mini &rarr; gpt-5</span></td></tr><tr><td class="seq">20</td><td class="kind">budget-reserved</td><td class="act"></td><td class="why"></td><td></td></tr><tr><td class="seq">21</td><td class="kind">spend-settled</td><td class="act"></td><td class="why"></td><td><span class="k">900 tokens</span></td></tr><tr><td class="seq">22</td><td class="kind">gate-verdict</td><td class="act"></td><td class="why"></td><td><span class="gate-pass">pass</span> <span class="k">(constraint-backed)</span><br><span class="k">consulted after the agent had already stopped, so it confirmed</span></td></tr><tr><td class="seq">23</td><td class="kind">decision-recorded</td><td class="act">terminate</td><td class="why">sufficiency<br><span class="k">the quality floor was met</span></td><td><span class="term">stop-sufficient</span></td></tr><tr><td class="seq">24</td><td class="kind">run-closed</td><td class="act"></td><td class="why"></td><td></td></tr>
+</table>
+
+<div class="note">
+Rendered from the sealed log and nothing else. This page computes no savings,
+rates or comparisons; those live in the proof cards, which carry their own
+digests. The hash chain was verified before the page was written &mdash; had it
+not verified, the page would say so rather than not exist.
+
+<p>No ledger position was recorded on any event in this run, so there is no budget column. <code>Event.ledger</code> exists and no driver fills it; an empty column would have read as no budget activity.</p>
+</div>
+</html>
