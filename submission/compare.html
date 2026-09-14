@@ -52,6 +52,8 @@ max-width:75rem;font-size:1.05rem}
     <div class="line"><span>model</span>
       <span>gpt-5-2025-08-07</span></div>
     <div class="line"><span>why it stopped</span><span class="warn">by itself &mdash; nothing was watching it</span></div>
+    <div class="line"><span>what the governor changed</span><span class="k">nothing was governing this run</span></div>
+    
     
     <div class="line"><span>was the answer right?</span>
       <span class="bad">WRONG</span></div>
@@ -67,6 +69,8 @@ max-width:75rem;font-size:1.05rem}
     <div class="line"><span>model</span>
       <span>gpt-5-mini-2025-08-07</span></div>
     <div class="line"><span>why it stopped</span><span class="good">the quality floor was met</span></div>
+    <div class="line"><span>what the governor changed</span><span class="warn">nothing &mdash; it allowed every step</span></div>
+    <div class="line"><span>when the quality check looked</span><span class="warn">after the agent had already stopped</span></div>
     
     <div class="line"><span>was the answer right?</span>
       <span class="good">CORRECT</span></div>
@@ -76,6 +80,7 @@ max-width:75rem;font-size:1.05rem}
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="good">31% fewer</b> tokens on this task, and the answers differed: plain was fail, OutcomeFuse was pass.
+  <br><br>The governor did not cause that. It allowed every step unchanged and the quality check ran only after the agent had stopped, so what differs between these two columns is the model and the luck of one run &mdash; not the governing.
 </div>
 <div class="note">
 Both timelines are read from sealed decision logs whose hash chains were

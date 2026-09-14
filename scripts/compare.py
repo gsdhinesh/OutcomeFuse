@@ -121,12 +121,22 @@ def read(path: Path, run_id: str) -> dict:
     gate = [e for e in events if e.kind == "gate-verdict"]
     terminal = [e.terminal_reason for e in events if e.terminal_reason]
     models = sorted({e.model_used for e in events if e.model_used})
+    # `proceed` and `terminate` are the governor agreeing and then closing the
+    # run. Anything else is the only thing that could have changed the answer.
+    changed = [
+        e.policy_action
+        for e in events
+        if e.policy_action and e.policy_action not in {"proceed", "terminate"}
+    ]
     return {
         "steps": steps,
         "total": total,
         "verdict": gate[-1].gate_verdict if gate else None,
+        "gate_when": (gate[-1].payload or {}).get("when") if gate else None,
         "stopped": terminal[-1] if terminal else None,
         "models": models,
+        "changed": changed,
+        "governed": any(e.policy_action for e in events),
         "escalated": sum(1 for e in events if e.policy_action == "escalate"),
         "seal": seal,
     }
@@ -196,6 +206,18 @@ def column(run: dict, *, title: str, who: str, css: str, answer: str) -> str:
         if run["escalated"]
         else ""
     )
+    if not run["governed"]:
+        did = '<span class="k">nothing was governing this run</span>'
+    elif run["changed"]:
+        did = f'<span class="warn">{html.escape(", ".join(sorted(set(run["changed"]))))}</span>'
+    else:
+        did = '<span class="warn">nothing &mdash; it allowed every step</span>'
+    gate_when = (
+        '<div class="line"><span>when the quality check looked</span>'
+        '<span class="warn">after the agent had already stopped</span></div>'
+        if run["gate_when"] == "at-submission"
+        else ""
+    )
     return f"""
 <div class="col {css}">
   <div class="head"><h2>{title}</h2><div class="who">{who}</div></div>
@@ -205,6 +227,8 @@ def column(run: dict, *, title: str, who: str, css: str, answer: str) -> str:
     <div class="line"><span>model</span>
       <span>{html.escape(", ".join(run["models"]) or "&mdash;")}</span></div>
     <div class="line"><span>why it stopped</span><span class="{tone}">{said}</span></div>
+    <div class="line"><span>what the governor changed</span>{did}</div>
+    {gate_when}
     {escalated}
     <div class="line"><span>was the answer right?</span>
       <span class="{right[1]}">{right[0]}</span></div>
@@ -267,6 +291,18 @@ def main() -> int:
         else f'and the answers differed: plain was {arms["baseline"]["verdict"]}, '
         f'OutcomeFuse was {arms["governed"]["verdict"]}'
     )
+    # Without this, two columns and one tick invite the reader to conclude the
+    # governor produced the better answer. On these runs it did not: it allowed
+    # every step, and the gate scored a deliverable the agent had already
+    # finished. The difference is the model and the draw.
+    caused = (
+        ""
+        if same or arms["governed"]["changed"]
+        else "<br><br>The governor did not cause that. It allowed every step "
+        "unchanged and the quality check ran only after the agent had stopped, so "
+        "what differs between these two columns is the model and the luck of one "
+        "run &mdash; not the governing."
+    )
 
     page = f"""<!doctype html>
 <html lang="en"><meta charset="utf-8">
@@ -284,6 +320,7 @@ def main() -> int:
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="{tone}">{abs(diff):.0%} {word}</b> tokens on this task, {quality}.
+  {caused}
 </div>
 <div class="note">
 Both timelines are read from sealed decision logs whose hash chains were
