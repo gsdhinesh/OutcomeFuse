@@ -237,6 +237,12 @@ MUTATIONS = [
         "counting a gate that only confirmed as a sufficiency stop",
     ),
     (
+        "src/outcomefuse/runtime/driver.py",
+        '            payload={"tool": call.tool, "canonical_key": canonical_key(call)},',
+        "            payload={},",
+        "charging a governed step without recording which tool it called",
+    ),
+    (
         "src/outcomefuse/submission/script.py",
         '            if show not in EXCUSED_BY or EXCUSED_BY[show] not in filed',
         "            if False",
@@ -318,6 +324,7 @@ TESTS = [
     "tests/harness/test_counters.py",
     "tests/harness/test_preregistration_record.py",
     "tests/runtime/test_escalation.py",
+    "tests/runtime/test_runtime.py",
     "tests/submission/test_disclosures.py",
     "tests/submission/test_submission.py",
 ]
@@ -356,6 +363,17 @@ def main() -> int:
             result = subprocess.run(  # noqa: S603
                 [sys.executable, "-m", "pytest", "-q", *TESTS], capture_output=True, text=True
             )
+            # TESTS is a curated subset for speed, and it has twice fallen behind
+            # the suite -- reporting a survivor when the test that catches it
+            # simply was not run. A survivor is only real if the whole suite
+            # misses it too, so confirm before accusing anyone's tests.
+            confirmed = result.returncode == 0
+            if confirmed:
+                result = subprocess.run(
+                    [sys.executable, "-m", "pytest", "-q"], capture_output=True, text=True
+                )
+                if result.returncode != 0:
+                    print(f"          (not in TESTS; the full suite caught {description!r})")
         finally:
             file.write_text(original, encoding="utf-8")
 

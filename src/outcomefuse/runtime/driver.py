@@ -47,7 +47,7 @@ from ..core.policy import (
 from ..core.record import Event, RecordStore
 from ..core.verify import CitableIndex
 from ..ports import ProbedToolPort, ToolCall
-from .tool_governor import Disposition, ToolGovernor
+from .tool_governor import Disposition, ToolGovernor, canonical_key
 
 WHEN = "2026-09-10T12:00:00Z"
 
@@ -171,7 +171,15 @@ class Driver:
         if self.terminated is not None:
             raise RuntimeError(f"run already terminated: {self.terminated}")
 
-        self._append("decision-proposed", step_id=call.step_id)
+        # The arm that governs logged neither the tool nor its canonical key, so
+        # a decision log recorded that a step was charged without recording what
+        # it did -- and the governor's own duplicate detection left no trace to
+        # audit. The baseline arm has always written both.
+        self._append(
+            "decision-proposed",
+            step_id=call.step_id,
+            payload={"tool": call.tool, "canonical_key": canonical_key(call)},
+        )
 
         # AD-3: affordability is a *query*, asked before deciding, so
         # `unaffordable` reaches the Policy as a decision input and exhausts the
@@ -267,7 +275,11 @@ class Driver:
                 failed=True,
             )
 
-        self._append("outcome-observed", step_id=call.step_id)
+        self._append(
+            "outcome-observed",
+            step_id=call.step_id,
+            payload={"tool": call.tool, "canonical_key": canonical_key(call)},
+        )
         self.ledger.settle(hold_id)
         self._append("spend-settled", step_id=call.step_id, tokens_consumed=estimated_tokens)
 

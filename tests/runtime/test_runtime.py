@@ -301,6 +301,17 @@ class TestDriver:
         driver.execute_step(call)
         assert driver.tools.invocation_count("search") == 1
 
+    def test_the_log_records_which_tool_was_called(self, driver):
+        # The governed arm charged a step and recorded nothing about what it
+        # did, so the log could show spend without showing the work, and the
+        # governor's own duplicate detection left nothing to audit.
+        driver.execute_step(ToolCall(tool="search", arguments={"q": "a"}, step_id="s1"))
+        events = driver.store.events("run-1")
+        named = [e for e in events if (e.payload or {}).get("tool") == "search"]
+        assert {e.kind for e in named} >= {"decision-proposed", "outcome-observed"}
+        keys = {(e.payload or {}).get("canonical_key") for e in named}
+        assert keys and None not in keys
+
     def test_the_ledger_holds_before_it_spends(self, driver):
         driver.execute_step(ToolCall(tool="search", arguments={"q": "a"}, step_id="s1"))
         assert driver.ledger.in_flight_tokens == 0
