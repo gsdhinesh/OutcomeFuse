@@ -93,6 +93,7 @@ It is frozen, so it is disclosed and worked around, never fixed.
 | The video | a human | `submission/SCRIPT.md` is the shooting script: four beats, 120s, disclosures rendered. Narration wording lives in `submission/narration.yaml`. |
 | `tool-suppression-error-rate` | nobody | Permanently unmeasurable here. The models never repeated a tool call, so nothing was suppressed. Reported as **not measured**, not as a rate of zero. |
 | `verdict-applied` events | deferred | AD-2's canonical order expects one and no driver emits it, so `check_order` reports a finding per decision on correct logs. Pre-existing since E7. |
+| `Event.ledger` never populated | deferred | The record spine carries a ledger position per event and no driver fills it, so a decision log cannot show the budget it was decided against. `scripts/render_run.py` drops the column rather than showing an empty one. |
 
 ## Verifying this yourself
 
@@ -106,6 +107,17 @@ uv run python freeze/freeze.py --check        # 42e4a45b…
 uv run python scripts/mutate_check.py         # 40 mutations, all caught
 uv run python scripts/report.py --split evaluation
 ```
+
+One run can also be read as a page, which is what FR84's "show the mechanism"
+beat needs:
+
+```pwsh
+.venv\Scripts\python.exe scripts/render_run.py   # -> submission/run-view.html
+```
+
+It verifies the hash chain before drawing and prints the result on the page. It
+computes nothing — no savings, no rates, no comparisons — because a second path
+to a number is a second thing that can be wrong.
 
 Every run seal verifies from a clean clone, which is what makes "the benchmark
 was frozen before the governor existed" checkable rather than asserted. The
