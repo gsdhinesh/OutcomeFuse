@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8">
-<title>Same task, twice &mdash; sc-e-001</title>
+<title>The same task, three ways &mdash; sc-e-001</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:2rem;background:#0f1115;color:#d7dae0;
@@ -10,7 +10,7 @@ h1{font-size:1.5rem;margin:0 0 .3rem}
 max-width:75rem}
 .task b{color:#7aa2f7;display:block;font-size:.75rem;letter-spacing:.1em;margin-bottom:.4rem}
 .cols{display:flex;gap:1.5rem;align-items:stretch;flex-wrap:wrap}
-.col{flex:1 1 26rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
+.col{flex:1 1 21rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
 display:flex;flex-direction:column}
 .steps{flex:1}
 .head{padding:1rem 1.2rem;border-bottom:1px solid #232833}
@@ -40,7 +40,7 @@ max-width:75rem;font-size:1.05rem}
 .verdict b{font-size:1.5rem}
 .note{margin-top:1.5rem;color:#8b93a1;font-size:.85rem;max-width:75rem}
 </style>
-<h1>The same task, done twice</h1>
+<h1>The same task, three ways</h1>
 <div class="task"><b>THE TASK &mdash; sc-e-001</b>Purchase order 5007 has been flagged for review by logistics. Classify the exception, identify its root cause, recommend a disposition, and cite the supplier policy clauses your recommendation rests on.</div>
 <div class="cols">
 
@@ -77,10 +77,28 @@ max-width:75rem;font-size:1.05rem}
     <div class="answers"><b>what it actually answered</b><div class="line"><span>exception_type</span><span class="good">customs-hold</span></div><div class="line"><span>root_cause_code</span><span class="good">rc-customs-documentation</span></div><div class="line"><span>recommended_action</span><span class="good">escalate-to-buyer</span></div></div>
   </div>
 </div>
+
+<div class="col off">
+  <div class="head"><h2>Without OutcomeFuse, cheap model</h2><div class="who">no budget, no quality check &mdash; only the model was swapped</div></div>
+  <div class="steps"><div class="step"><span class="n">1</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">715</span></div><div class="step"><span class="n">2</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">3</span><span class="what"><span class="tool">shipment_trace</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">4</span><span class="what"><span class="tool">supplier_policy_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">5</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">3,201</span></div></div>
+  <div class="total"><span>tokens used</span><span>3,916</span></div>
+  <div class="foot">
+    <div class="line"><span>model</span>
+      <span>gpt-5-mini-2025-08-07</span></div>
+    <div class="line"><span>why it stopped</span><span class="warn">by itself &mdash; nothing was watching it</span></div>
+    <div class="line"><span>what the governor changed</span><span class="k">nothing was governing this run</span></div>
+    
+    
+    <div class="line"><span>was the answer right?</span>
+      <span class="good">CORRECT</span></div>
+    <div class="answers"><b>what it actually answered</b><div class="line"><span>the answer it gave</span><span>not kept</span></div></div>
+  </div>
+</div>
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="good">31% fewer</b> tokens on this task, and the answers differed: plain was fail, OutcomeFuse was pass.
   <br><br>The governor did not cause that. It allowed every step unchanged and the quality check ran only after the agent had stopped, so what differs between these two columns is the model and the luck of one run &mdash; not the governing.
+  <br><br>Swapping the model alone, with nothing governing it, cost <b>3,916</b> tokens and was judged <b>CORRECT</b>. Against that, OutcomeFuse is 7% cheaper &mdash; so on this task almost all of the difference in the first two columns is the model, not the governing.
 </div>
 <div class="note">
 Both timelines are read from sealed decision logs whose hash chains were

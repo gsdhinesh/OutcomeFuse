@@ -52,7 +52,7 @@ h1{font-size:1.5rem;margin:0 0 .3rem}
 max-width:75rem}
 .task b{color:#7aa2f7;display:block;font-size:.75rem;letter-spacing:.1em;margin-bottom:.4rem}
 .cols{display:flex;gap:1.5rem;align-items:stretch;flex-wrap:wrap}
-.col{flex:1 1 26rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
+.col{flex:1 1 21rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
 display:flex;flex-direction:column}
 .steps{flex:1}
 .head{padding:1rem 1.2rem;border-bottom:1px solid #232833}
@@ -262,6 +262,14 @@ def main() -> int:
         for arm in ("baseline", "governed")
     }
 
+    # A third arm answers the question the first two cannot: how much of the
+    # difference is the governor, and how much is simply the cheaper model?
+    # Produced by run_one_case.py, so it is present only when someone ran it.
+    solo = Path("runs") / f"{workload}-{args.case}-baseline.db"
+    third = read(solo, f"{args.case}-baseline") if solo.is_file() else None
+    if third and third["models"] == arms["baseline"]["models"]:
+        third = None  # same model as the plain arm, so it compares nothing new
+
     task = next(
         c.prompt for c in load_case_set(workload, args.split).cases if c.case_id == args.case
     )
@@ -280,6 +288,30 @@ def main() -> int:
         )
         for arm in ("baseline", "governed")
     }
+    third_column = ""
+    third_verdict = ""
+    if third:
+        third_answer = answers_block(
+            deliverable_of(Path("runs"), workload, f"{args.case}-baseline"), key, workload
+        )
+        third_column = column(
+            third,
+            title="Without OutcomeFuse, cheap model",
+            who="no budget, no quality check &mdash; only the model was swapped",
+            css="off",
+            answer=third_answer,
+        )
+        gov_total = arms["governed"]["total"]
+        margin = (third["total"] - gov_total) / third["total"] if third["total"] else 0.0
+        third_verdict = (
+            "<br><br>Swapping the model alone, with nothing governing it, cost "
+            f'<b>{third["total"]:,}</b> tokens and was judged '
+            f'<b>{"CORRECT" if third["verdict"] == "pass" else "WRONG"}</b>. '
+            f"Against that, OutcomeFuse is {abs(margin):.0%} "
+            f'{"cheaper" if margin > 0 else "more expensive"} &mdash; so on this task '
+            "almost all of the difference in the first two columns is the model, "
+            "not the governing."
+        )
 
     base, gov = arms["baseline"]["total"], arms["governed"]["total"]
     diff = (base - gov) / base if base else 0.0
@@ -304,11 +336,12 @@ def main() -> int:
         "run &mdash; not the governing."
     )
 
+    heading = "The same task, three ways" if third else "The same task, done twice"
     page = f"""<!doctype html>
 <html lang="en"><meta charset="utf-8">
-<title>Same task, twice &mdash; {html.escape(args.case)}</title>
+<title>{heading} &mdash; {html.escape(args.case)}</title>
 <style>{CSS}</style>
-<h1>The same task, done twice</h1>
+<h1>{heading}</h1>
 <div class="task"><b>THE TASK &mdash; {html.escape(args.case)}</b>{html.escape(task_line)}</div>
 <div class="cols">
 {column(arms["baseline"], title="Without OutcomeFuse",
@@ -317,10 +350,12 @@ def main() -> int:
 {column(arms["governed"], title="With OutcomeFuse",
         who="a budget, a quality floor, and it starts on the cheap model",
         css="on", answer=answers["governed"])}
+{third_column}
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="{tone}">{abs(diff):.0%} {word}</b> tokens on this task, {quality}.
   {caused}
+  {third_verdict}
 </div>
 <div class="note">
 Both timelines are read from sealed decision logs whose hash chains were

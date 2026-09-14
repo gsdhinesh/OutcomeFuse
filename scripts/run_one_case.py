@@ -32,6 +32,7 @@ from outcomefuse.harness.costs import CostTableError, load_cost_table
 from outcomefuse.harness.preregistration import PreregistrationError, load_preregistration
 from outcomefuse.harness.runner import BaselineArm, GovernedArm, run_case
 from outcomefuse.runtime import Driver, ToolGovernor
+from outcomefuse.runtime.baseline import BaselineRecorder
 from outcomefuse.workloads import citable_index_for, tool_port_for
 
 BASE = "https://outcomefuse-foundry.services.ai.azure.com/openai/v1"
@@ -51,10 +52,11 @@ def build_manifest(
     split: str,
     model_id: str,
     preregistration_hash: str | None = None,
+    mode: str = "governed",
 ) -> RunManifest:
     return RunManifest(
         run_id=run_id,
-        mode="governed",
+        mode=mode,
         data_class="synthetic",
         retention_profile="mvp-synthetic-v1",
         contract_hash=SHA,
@@ -149,11 +151,12 @@ def main() -> int:
         print(f"! {exc}\n")
 
     store = None
+    arm_name = "governed" if args.governed else "baseline"
+    path = Path("runs") / f"{args.workload}-{case.case_id}-{arm_name}.db"
+    path.parent.mkdir(exist_ok=True)
+    path.unlink(missing_ok=True)
+    store = RecordStore(path).open()
     if args.governed:
-        path = Path("runs") / f"{args.workload}-{case.case_id}.db"
-        path.parent.mkdir(exist_ok=True)
-        path.unlink(missing_ok=True)
-        store = RecordStore(path).open()
         driver = Driver(
             run_id=f"{case.case_id}-governed",
             contract=contract,
@@ -185,7 +188,20 @@ def main() -> int:
             print(f"citable   {len(index.entries)} ids, {digest.sha256[:16]}...")
         arm = GovernedArm(driver, start_model=model_id)
     else:
-        arm = BaselineArm(tools, model=model_id)
+        # Recording is measurement, not governance, and the recorder decides
+        # nothing. Without it this arm produced an answer nobody could check.
+        recorder = BaselineRecorder(
+            run_id=f"{case.case_id}-baseline",
+            contract=contract,
+            store=store,
+            citable_index=citable_index_for(contract),
+        )
+        recorder.open_run(
+            build_manifest(
+                recorder.run_id, args.workload, args.split, model_id, prereg_hash, "baseline"
+            )
+        )
+        arm = BaselineArm(tools, model=model_id, recorder=recorder)
 
     print(f"case      {case.case_id}  ({case.difficulty}, expects {case.expected_outcome})")
     print(f"arm       {arm.name}")
