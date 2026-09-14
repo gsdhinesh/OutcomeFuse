@@ -94,6 +94,7 @@ It is frozen, so it is disclosed and worked around, never fixed.
 | `tool-suppression-error-rate` | nobody | Permanently unmeasurable here. The models never repeated a tool call, so nothing was suppressed. Reported as **not measured**, not as a rate of zero. |
 | `verdict-applied` events | deferred | AD-2's canonical order expects one and no driver emits it, so `check_order` reports a finding per decision on correct logs. Pre-existing since E7. |
 | `Event.ledger` never populated | deferred | The record spine carries a ledger position per event and no driver fills it, so a decision log cannot show the budget it was decided against. `scripts/render_run.py` drops the column rather than showing an empty one. |
+| Tool identity missing from the reported runs | fixed, not retroactive | The governed driver logged neither the tool nor its canonical key, so a step could be charged without the log showing what it did. Fixed, but the evaluation runs behind the results above predate it, and re-running them to fill the gap would mean choosing between two measurements of the same frozen cases. `scripts/explain.py` prints **not recorded in this run** rather than guessing. |
 
 ## Verifying this yourself
 

@@ -141,6 +141,16 @@ def main() -> int:
         print(f"    {arm:<9} {what}")
     print("  The hope: the governed one is cheaper and just as correct.")
 
+    # Agent runs are stochastic, so a second pass over the same frozen cases
+    # gives different numbers. Reporting whichever came out better is choosing
+    # the result after seeing it, which is the one thing none of this permits.
+    if args.cards_dir != "runs/cards" or args.runs_dir != "runs/campaign":
+        print()
+        print("  ! THIS IS A RE-MEASUREMENT, NOT THE REPORTED RESULT.")
+        print("    The reported result is the first evaluation pass, in runs/cards.")
+        print("    A later pass exists to show mechanism detail the earlier runs did")
+        print("    not record. Its numbers are not a second chance at the first.")
+
     workloads = [args.workload] if args.workload else sorted(WORKLOAD_IS)
     runs_dir = Path(args.runs_dir)
 

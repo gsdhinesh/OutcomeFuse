@@ -61,6 +61,7 @@ th{color:#8b93a1;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
 .act{color:#e0af68;white-space:nowrap}.why{color:#c0c5ce}
 .term{color:#ff8391;font-weight:600}
 .gate-pass{color:#5dd98c;font-weight:600}.gate-fail{color:#ff8391;font-weight:600}
+.tool{color:#9ece6a}
 .bar{display:inline-block;height:8px;width:90px;background:#2a3140;border-radius:2px;
 vertical-align:middle}
 .bar i{display:block;height:100%;background:#7aa2f7;border-radius:2px}
@@ -144,6 +145,14 @@ def detail(event: Event) -> str:
     if event.kind == "spend-settled" and event.tokens_consumed:
         return f'<span class="k">{event.tokens_consumed:,} tokens</span>'
     payload = event.payload or {}
+    if payload.get("tool"):
+        # The canonical key is what the tool governor compares to spot a repeat,
+        # so showing it lets a reader check that judgement instead of taking it.
+        key = str(payload.get("canonical_key") or "")
+        return (
+            f'<span class="tool">{html.escape(str(payload["tool"]))}</span>'
+            + (f' <span class="k">{html.escape(key[:12])}</span>' if key else "")
+        )
     if "to" in payload and "from" in payload:
         return (
             f'<span class="k">{html.escape(str(payload["from"]))} &rarr; '
@@ -158,6 +167,7 @@ def render(events: list[Event], *, run_id: str, seal: str, verified: bool, sourc
     # empty on every row and read as "no budget activity" rather than "never
     # recorded".
     banked = any(e.ledger is not None for e in events)
+    named = any((e.payload or {}).get("tool") for e in events)
     rows = []
     for event in events:
         if event.lane != "observed":
@@ -190,6 +200,13 @@ def render(events: list[Event], *, run_id: str, seal: str, verified: bool, sourc
         "empty column would have read as no budget activity.</p>"
     )
     budget_head = "<th>budget</th>" if banked else ""
+    tool_note = (
+        ""
+        if named
+        else "<p>No tool name appears on any event in this run, so the steps below "
+        "show spend without showing what was called. The governed driver did not "
+        "record it until after these runs were made.</p>"
+    )
     return f"""<!doctype html>
 <html lang="en"><meta charset="utf-8">
 <title>OutcomeFuse &mdash; {html.escape(run_id)}</title>
@@ -214,6 +231,7 @@ Rendered from the sealed log and nothing else. This page computes no savings,
 rates or comparisons; those live in the proof cards, which carry their own
 digests. The hash chain was verified before the page was written &mdash; had it
 not verified, the page would say so rather than not exist.
+{tool_note}
 {budget_note}
 </div>
 </html>
