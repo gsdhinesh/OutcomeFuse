@@ -1,0 +1,21 @@
+{
+  "alternatives": [
+    "expedite - rejected (SP-4.2: expedite authorised only where delay >14 days and part on committed build; delay was 13 days)",
+    "accept-and-reschedule - rejected (shipment was held for documentation; SP-8.1 requires escalation to buyer/broker ownership)"
+  ],
+  "est_delay_days": 0,
+  "exception_type": "customs-hold",
+  "impacted_orders": [
+    5007
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-8.1"
+    },
+    {
+      "id": "SP-4.1"
+    }
+  ],
+  "recommended_action": "escalate-to-buyer",
+  "root_cause_code": "rc-customs-documentation"
+}

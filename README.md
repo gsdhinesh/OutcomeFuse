@@ -58,6 +58,16 @@ same quality, because escalating to the larger model costs more than starting
 there. Cost still fell everywhere, which is the routing effect, not the
 governing one.
 
+**Read every figure above as one draw.** supply-chain was later run a second
+time over the identical frozen cases, contract, models and preregistration. The
+headline moved 37 points — `+30.2%` tokens became `-6.7%`, cost fell 31.0%
+rather than 75.9%, and escalation went 0.43 to 0.71. Nothing changed but the
+sampling. Eight cases per workload cannot separate a 20% effect from noise, so
+the preregistered target was never measurable by the design registered to
+measure it. The first pass is reported because it was pre-committed, not
+because it is the flattering one; the second is published beside it in
+`runs/rerun`.
+
 All four breached the escalation-rate threshold of 0.30 preregistered in
 `preregistration/prereg-1.yaml`. Three fell below the declared minimum case
 count. The threshold stands: one revised after seeing the number it refuses is

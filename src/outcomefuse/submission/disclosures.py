@@ -44,6 +44,38 @@ class Disclosure(BaseModel):
 
 FROZEN_DEFECTS: Final[tuple[Disclosure, ...]] = (
     Disclosure(
+        key="one-pass-is-not-a-measurement",
+        finding=(
+            "supply-chain was run twice over the identical frozen cases, the same "
+            "contract, the same models and the same preregistration. The headline "
+            "moved 37 points: the first pass reduced tokens 30.2% and cost 75.9% at "
+            "5 of 7 correct in both arms, and the second *increased* tokens 6.7%, "
+            "reduced cost 31.0%, and produced only 4 comparable pairs. The escalation "
+            "rate went from 0.43 to 0.71. Nothing changed but the sampling. At eight "
+            "cases per workload, a single pass cannot distinguish a 20% effect from "
+            "noise, which means the preregistered target was never measurable by the "
+            "design that was registered to measure it."
+        ),
+        why_not_fixed=(
+            "The case set is frozen and runs exist, so the split cannot be enlarged. "
+            "Repeating every workload and averaging would be the right design, and "
+            "adopting it now -- after seeing which way the second pass moved -- is "
+            "choosing a method by its result."
+        ),
+        workaround=(
+            "The first pass stands as the reported result because it was the "
+            "pre-committed one, not because it is the flattering one. The second is "
+            "published beside it in `runs/rerun` rather than discarded, since the "
+            "variance is the finding: it says every figure in this submission should "
+            "be read as one draw, and that the 30.2% reduction reported for "
+            "supply-chain is substantially luck. The second pass was run to capture "
+            "tool identities the first did not record, and its numbers are reported "
+            "only because suppressing an unflattering measurement one happens to hold "
+            "is the whole failure this apparatus exists to prevent."
+        ),
+        direction="against",
+    ),
+    Disclosure(
         key="sufficiency-stop-never-fires-early",
         finding=(
             "The product's central claim is stopping on sufficiency rather than on "

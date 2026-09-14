@@ -1,0 +1,19 @@
+{
+  "alternatives": [
+    "escalate-to-buyer",
+    "expedite",
+    "resource-alternate-supplier"
+  ],
+  "est_delay_days": 18,
+  "exception_type": "late-shipment",
+  "impacted_orders": [
+    5005
+  ],
+  "policy_refs": [
+    {
+      "id": "SP-5.2"
+    }
+  ],
+  "recommended_action": "accept-and-reschedule",
+  "root_cause_code": "rc-supplier-capacity"
+}
