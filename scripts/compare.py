@@ -16,13 +16,24 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from outcomefuse.core.record import open_store
+from outcomefuse.harness.answer_keys import AnswerKeyError, answer_key_for
 from outcomefuse.harness.cases import load_case_set
+
+# The fields worth putting in front of someone. The full deliverable is in the
+# evidence sidecar; a wall of JSON hides the difference rather than showing it.
+SHOW = {
+    "supply-chain": ("exception_type", "root_cause_code", "recommended_action"),
+    "data-sql": ("value", "unit", "as_of"),
+    "code-triage": ("root_cause_file", "root_cause_line", "severity"),
+    "doc-research": ("answer", "effective_from"),
+}
 
 STOPPED_BECAUSE = {
     "stop-sufficient": ("the quality floor was met", "good"),
@@ -41,7 +52,9 @@ h1{font-size:1.5rem;margin:0 0 .3rem}
 max-width:75rem}
 .task b{color:#7aa2f7;display:block;font-size:.75rem;letter-spacing:.1em;margin-bottom:.4rem}
 .cols{display:flex;gap:1.5rem;align-items:stretch;flex-wrap:wrap}
-.col{flex:1 1 26rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden}
+.col{flex:1 1 26rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
+display:flex;flex-direction:column}
+.steps{flex:1}
 .head{padding:1rem 1.2rem;border-bottom:1px solid #232833}
 .head h2{margin:0;font-size:1.05rem}
 .head .who{color:#8b93a1;font-size:.85rem;margin-top:.2rem}
@@ -60,6 +73,10 @@ border-bottom:1px solid #1b1f27}
 .line span:first-child{color:#8b93a1}
 .good{color:#5dd98c;font-weight:600}.bad{color:#ff8391;font-weight:600}
 .warn{color:#e0af68;font-weight:600}
+.answers{margin-top:1rem;padding-top:.8rem;border-top:1px solid #232833}
+.answers b{display:block;color:#8b93a1;font-size:.75rem;letter-spacing:.08em;
+text-transform:uppercase;margin-bottom:.4rem}
+.answers .line span:last-child{text-align:right}
 .verdict{margin:2rem 0 0;padding:1.2rem 1.4rem;background:#171a21;border-radius:6px;
 max-width:75rem;font-size:1.05rem}
 .verdict b{font-size:1.5rem}
@@ -115,7 +132,37 @@ def read(path: Path, run_id: str) -> dict:
     }
 
 
-def column(run: dict, *, title: str, who: str, css: str) -> str:
+def deliverable_of(runs_dir: Path, workload: str, run_id: str) -> dict:
+    path = runs_dir / workload / "evidence" / run_id / "deliverable.json"
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def answers_block(given: dict, key: dict, workload: str) -> str:
+    """What it answered, with each field marked against the frozen answer key."""
+    if not given:
+        return '<div class="line"><span>the answer it gave</span><span>not kept</span></div>'
+    rows = []
+    for field in SHOW.get(workload, tuple(given)[:3]):
+        if field not in given:
+            continue
+        mine, theirs = given.get(field), key.get(field)
+        # A field the key does not pin is not wrong, it is simply not scored.
+        tone = "" if theirs is None else ("good" if mine == theirs else "bad")
+        wanted = (
+            ""
+            if theirs is None or mine == theirs
+            else f'<span class="allowed">the key says: {html.escape(str(theirs))}</span>'
+        )
+        rows.append(
+            f'<div class="line"><span>{html.escape(field)}</span>'
+            f'<span class="{tone}">{html.escape(str(mine))}{wanted}</span></div>'
+        )
+    return "".join(rows)
+
+
+def column(run: dict, *, title: str, who: str, css: str, answer: str) -> str:
     rows = []
     for index, (kind, what, tokens, allowed) in enumerate(run["steps"], start=1):
         label = (
@@ -152,7 +199,7 @@ def column(run: dict, *, title: str, who: str, css: str) -> str:
     return f"""
 <div class="col {css}">
   <div class="head"><h2>{title}</h2><div class="who">{who}</div></div>
-  {"".join(rows)}
+  <div class="steps">{"".join(rows)}</div>
   <div class="total"><span>tokens used</span><span>{run["total"]:,}</span></div>
   <div class="foot">
     <div class="line"><span>model</span>
@@ -161,6 +208,7 @@ def column(run: dict, *, title: str, who: str, css: str) -> str:
     {escalated}
     <div class="line"><span>was the answer right?</span>
       <span class="{right[1]}">{right[0]}</span></div>
+    <div class="answers"><b>what it actually answered</b>{answer}</div>
   </div>
 </div>"""
 
@@ -171,6 +219,11 @@ def main() -> int:
     parser.add_argument("--workload", default=None, help="inferred from the case id")
     parser.add_argument("--split", default="evaluation")
     parser.add_argument("--runs-dir", default="runs/rerun")
+    parser.add_argument(
+        "--preregistration",
+        default="87b94e36fdc933c471e97c9df32452d830a8f62e942c6b9daf2451eb045c0c30",
+        help="the evaluation split is sealed without one",
+    )
     parser.add_argument("--out", default="submission/compare.html")
     args = parser.parse_args()
 
@@ -189,6 +242,20 @@ def main() -> int:
         c.prompt for c in load_case_set(workload, args.split).cases if c.case_id == args.case
     )
     task_line = " ".join(task.split())[:400]
+
+    try:
+        key = answer_key_for(
+            args.case, workload, args.split, preregistration_hash=args.preregistration
+        )
+    except AnswerKeyError as exc:
+        print(f"! no answer key, fields will not be marked: {exc}")
+        key = {}
+    answers = {
+        arm: answers_block(
+            deliverable_of(Path(args.runs_dir), workload, f"{args.case}-{arm}"), key, workload
+        )
+        for arm in ("baseline", "governed")
+    }
 
     base, gov = arms["baseline"]["total"], arms["governed"]["total"]
     diff = (base - gov) / base if base else 0.0
@@ -210,10 +277,10 @@ def main() -> int:
 <div class="cols">
 {column(arms["baseline"], title="Without OutcomeFuse",
         who="a plain agent: no budget, no quality check, uses the expensive model",
-        css="off")}
+        css="off", answer=answers["baseline"])}
 {column(arms["governed"], title="With OutcomeFuse",
         who="a budget, a quality floor, and it starts on the cheap model",
-        css="on")}
+        css="on", answer=answers["governed"])}
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="{tone}">{abs(diff):.0%} {word}</b> tokens on this task, {quality}.
