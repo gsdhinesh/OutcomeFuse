@@ -84,6 +84,14 @@ max-width:75rem;font-size:1.05rem}
 """
 
 
+PLAINLY = {
+    "proceed-with-substitution": "served repeat calls from cache, so the tool never ran",
+    "deny": "refused calls that were not worth their budget",
+    "escalate": "retried on the stronger model after the gate refused an answer",
+    "return-partial": "stopped and handed back what it had",
+}
+
+
 def read(path: Path, run_id: str) -> dict:
     with open_store(path, writer=False) as store:
         events = store.events(run_id)
@@ -209,7 +217,10 @@ def column(run: dict, *, title: str, who: str, css: str, answer: str) -> str:
     if not run["governed"]:
         did = '<span class="k">nothing was governing this run</span>'
     elif run["changed"]:
-        did = f'<span class="warn">{html.escape(", ".join(sorted(set(run["changed"]))))}</span>'
+        did = "; ".join(
+            PLAINLY.get(action, action) for action in sorted(set(run["changed"]))
+        )
+        did = f'<span class="warn">{html.escape(did)}</span>'
     else:
         did = '<span class="warn">nothing &mdash; it allowed every step</span>'
     gate_when = (
@@ -262,11 +273,12 @@ def main() -> int:
         for arm in ("baseline", "governed")
     }
 
-    # A third arm answers the question the first two cannot: how much of the
-    # difference is the governor, and how much is simply the cheaper model?
-    # Produced by run_one_case.py, so it is present only when someone ran it.
+    # Produced by run_one_case.py against the live deployment, so it belongs
+    # beside live runs only. Next to a scripted walk it would compare two
+    # different worlds and read as one.
+    scripted = "demo" in Path(args.runs_dir).parts[-2:][0] or "demo" in args.runs_dir
     solo = Path("runs") / f"{workload}-{args.case}-baseline.db"
-    third = read(solo, f"{args.case}-baseline") if solo.is_file() else None
+    third = read(solo, f"{args.case}-baseline") if solo.is_file() and not scripted else None
     if third and third["models"] == arms["baseline"]["models"]:
         third = None  # same model as the plain arm, so it compares nothing new
 
@@ -338,11 +350,21 @@ def main() -> int:
     )
 
     heading = "The same task, three ways" if third else "The same task, done twice"
+    banner = (
+        '<div class="task" style="border-left-color:#e0af68"><b>SCRIPTED '
+        "DEMONSTRATION</b>The agent's steps here are fixed, and chosen so the "
+        "governor has something to do. Real models never repeated a tool call, so "
+        "none of this saving occurred in any measured run. It shows the mechanism "
+        "works, never how often it fires &mdash; see scripts/report.py.</div>"
+        if scripted
+        else ""
+    )
     page = f"""<!doctype html>
 <html lang="en"><meta charset="utf-8">
 <title>{heading} &mdash; {html.escape(args.case)}</title>
 <style>{CSS}</style>
 <h1>{heading}</h1>
+{banner}
 <div class="task"><b>THE TASK &mdash; {html.escape(args.case)}</b>{html.escape(task_line)}</div>
 <div class="cols">
 {column(arms["baseline"], title="Without OutcomeFuse",

@@ -32,8 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from outcomefuse.core.contract import load_path
 from outcomefuse.core.policy import Ledger, Reserve
 from outcomefuse.core.record import RecordStore, RunManifest
+from outcomefuse.evidence.store import EvidenceStore
 from outcomefuse.ports.tools import ToolCall
 from outcomefuse.runtime import Driver, ToolGovernor
+from outcomefuse.runtime.baseline import BaselineRecorder
 from outcomefuse.workloads import citable_index_for, tool_port_for
 
 SHA = "0" * 64
@@ -44,10 +46,10 @@ DEMO_TOKENS = 4_000
 DEMO_COST = 0.50
 
 
-def manifest(run_id: str) -> RunManifest:
+def manifest(run_id: str, mode: str = "governed") -> RunManifest:
     return RunManifest(
         run_id=run_id,
-        mode="governed",
+        mode=mode,
         data_class="synthetic",
         retention_profile="mvp-synthetic-v1",
         contract_hash=SHA,
@@ -72,7 +74,7 @@ def manifest(run_id: str) -> RunManifest:
     )
 
 
-def build(run_id: str, store: RecordStore, contract, tools) -> Driver:
+def build(run_id: str, store: RecordStore, contract, tools, evidence=None) -> Driver:
     driver = Driver(
         run_id=run_id,
         contract=contract,
@@ -88,6 +90,7 @@ def build(run_id: str, store: RecordStore, contract, tools) -> Driver:
         ),
         governor=ToolGovernor(contract),
         tools=tools,
+        evidence=evidence,
     )
     driver.open_run(manifest(run_id))
     index = citable_index_for(contract)
@@ -191,6 +194,68 @@ def exhaustion_walk(runs: Path, contract, tools) -> None:
         say("seal", (store.seal("demo-exhausted") or "")[:32] + "...")
 
 
+def paired_walk(runs: Path, contract, tools) -> None:
+    """The same scripted agent, with and without the governor, for compare.py.
+
+    The agent here repeats itself, which is the case the tool governor was built
+    for and the case real models never produced: across every campaign, not one
+    of their tool calls was an exact repeat.
+    """
+    print("\n3. THE SAME REPETITIVE AGENT, WITH AND WITHOUT THE GOVERNOR")
+    out = runs.parent / "demo-compare" / contract.workload
+    (out / "evidence").mkdir(parents=True, exist_ok=True)
+    evidence = EvidenceStore(out / "evidence", data_class="synthetic")
+
+    # An agent that looks the same thing up four times. Nothing stops it.
+    wasteful = [
+        ToolCall(tool="order_lookup", arguments={"po_id": 5007}, step_id=f"s{i}")
+        for i in range(4)
+    ] + [ToolCall(tool="shipment_trace", arguments={"po_id": 5007}, step_id="s4")]
+
+    path = out / "sc-e-001-baseline.db"
+    path.unlink(missing_ok=True)
+    with RecordStore(path).open() as store:
+        recorder = BaselineRecorder(
+            run_id="sc-e-001-baseline",
+            contract=contract,
+            store=store,
+            citable_index=citable_index_for(contract),
+            evidence=evidence.for_driver("sc-e-001-baseline"),
+        )
+        recorder.open_run(manifest("sc-e-001-baseline", mode="baseline"))
+        recorder.observe_model_turn(step_id="s0", tokens=700, model_used="gpt-5")
+        for call in wasteful:
+            recorder.observe_tool(call)
+            recorder.observe_model_turn(step_id=call.step_id, tokens=600, model_used="gpt-5")
+        recorder.score(RIGHT, answer_key=KEY)
+        recorder.seal()
+        say("ungoverned", f"{len(wasteful)} tool calls, every one executed")
+
+    path = out / "sc-e-001-governed.db"
+    path.unlink(missing_ok=True)
+    with RecordStore(path).open() as store:
+        driver = build(
+            "sc-e-001-governed",
+            store,
+            contract,
+            tools,
+            evidence.for_driver("sc-e-001-governed"),
+        )
+        driver.charge_model_turn(step_id="s0", tokens=700, cost=0.02, model_used="gpt-5-mini")
+        served = 0
+        for call in wasteful:
+            verdict = driver.execute_step(call)
+            if verdict.decision_reason == "cache-hit":
+                served += 1
+            else:
+                driver.charge_model_turn(
+                    step_id=call.step_id, tokens=600, cost=0.02, model_used="gpt-5-mini"
+                )
+        driver.submit_deliverable(RIGHT, answer_key=KEY)
+        say("governed", f"{served} of {len(wasteful)} served from cache, never executed")
+    say("read it back", f"scripts/compare.py --case sc-e-001 --runs-dir {out.parent}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs-dir", default="runs/demo")
@@ -207,6 +272,7 @@ def main() -> int:
 
     governed_walk(runs, contract, tools)
     exhaustion_walk(runs, contract, tools)
+    paired_walk(runs, contract, tools)
 
     print(f"\nsealed logs in {runs}. Read one back:")
     print(f"  .venv\\Scripts\\python.exe scripts/render_run.py --runs-dir {runs}")

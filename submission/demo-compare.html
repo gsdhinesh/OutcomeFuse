@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>The same task, done twice &mdash; sc-e-001</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:2rem;background:#0f1115;color:#d7dae0;
+font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:1.5rem;margin:0 0 .3rem}
+.task{background:#171a21;border-left:3px solid #7aa2f7;padding:1rem 1.2rem;margin:1rem 0 2rem;
+max-width:75rem}
+.task b{color:#7aa2f7;display:block;font-size:.75rem;letter-spacing:.1em;margin-bottom:.4rem}
+.cols{display:flex;gap:1.5rem;align-items:stretch;flex-wrap:wrap}
+.col{flex:1 1 21rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden;
+display:flex;flex-direction:column}
+.steps{flex:1}
+.head{padding:1rem 1.2rem;border-bottom:1px solid #232833}
+.head h2{margin:0;font-size:1.05rem}
+.head .who{color:#8b93a1;font-size:.85rem;margin-top:.2rem}
+.off .head{background:#1d1a17}.on .head{background:#141d1a}
+.step{display:flex;gap:.8rem;padding:.55rem 1.2rem;border-bottom:1px solid #1b1f27;
+align-items:baseline}
+.n{color:#4d5566;width:1.4rem;flex:none;font-size:.8rem}
+.what{flex:1}.tok{color:#8b93a1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tool{color:#9ece6a}.think{color:#bb9af7}
+.allowed{color:#5a6270;font-size:.8rem;display:block}
+.total{display:flex;justify-content:space-between;padding:1rem 1.2rem;
+border-top:2px solid #232833;font-size:1.25rem;font-weight:600}
+.foot{padding:0 1.2rem 1.2rem}
+.line{display:flex;justify-content:space-between;padding:.35rem 0;
+border-bottom:1px solid #1b1f27}
+.line span:first-child{color:#8b93a1}
+.good{color:#5dd98c;font-weight:600}.bad{color:#ff8391;font-weight:600}
+.warn{color:#e0af68;font-weight:600}
+.answers{margin-top:1rem;padding-top:.8rem;border-top:1px solid #232833}
+.answers b{display:block;color:#8b93a1;font-size:.75rem;letter-spacing:.08em;
+text-transform:uppercase;margin-bottom:.4rem}
+.answers .line span:last-child{text-align:right}
+.verdict{margin:2rem 0 0;padding:1.2rem 1.4rem;background:#171a21;border-radius:6px;
+max-width:75rem;font-size:1.05rem}
+.verdict b{font-size:1.5rem}
+.note{margin-top:1.5rem;color:#8b93a1;font-size:.85rem;max-width:75rem}
+</style>
+<h1>The same task, done twice</h1>
+<div class="task" style="border-left-color:#e0af68"><b>SCRIPTED DEMONSTRATION</b>The agent's steps here are fixed, and chosen so the governor has something to do. Real models never repeated a tool call, so none of this saving occurred in any measured run. It shows the mechanism works, never how often it fires &mdash; see scripts/report.py.</div>
+<div class="task"><b>THE TASK &mdash; sc-e-001</b>Purchase order 5007 has been flagged for review by logistics. Classify the exception, identify its root cause, recommend a disposition, and cite the supplier policy clauses your recommendation rests on.</div>
+<div class="cols">
+
+<div class="col off">
+  <div class="head"><h2>Without OutcomeFuse</h2><div class="who">a plain agent: no budget, no quality check, uses the expensive model</div></div>
+  <div class="steps"><div class="step"><span class="n">1</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">700</span></div><div class="step"><span class="n">2</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">3</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div><div class="step"><span class="n">4</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">5</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div><div class="step"><span class="n">6</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">7</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div><div class="step"><span class="n">8</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">9</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div><div class="step"><span class="n">10</span><span class="what"><span class="tool">shipment_trace</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">11</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div></div>
+  <div class="total"><span>tokens used</span><span>3,700</span></div>
+  <div class="foot">
+    <div class="line"><span>model</span>
+      <span>gpt-5</span></div>
+    <div class="line"><span>why it stopped</span><span class="warn">by itself &mdash; nothing was watching it</span></div>
+    <div class="line"><span>what the governor changed</span><span class="k">nothing was governing this run</span></div>
+    
+    
+    <div class="line"><span>was the answer right?</span>
+      <span class="good">CORRECT</span></div>
+    <div class="answers"><b>what it actually answered</b><div class="line"><span>exception_type</span><span class="good">customs-hold</span></div><div class="line"><span>root_cause_code</span><span class="good">rc-customs-documentation</span></div><div class="line"><span>recommended_action</span><span class="good">escalate-to-buyer</span></div></div>
+  </div>
+</div>
+
+<div class="col on">
+  <div class="head"><h2>With OutcomeFuse</h2><div class="who">a budget, a quality floor, and it starts on the cheap model</div></div>
+  <div class="steps"><div class="step"><span class="n">1</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">700</span></div><div class="step"><span class="n">2</span><span class="what"><span class="tool">order_lookup</span><span class="allowed">allowed: justified &mdash; the governor judged it worth its budget</span></span><span class="tok">10</span></div><div class="step"><span class="n">3</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div><div class="step"><span class="n">4</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">5</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">6</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">7</span><span class="what"><span class="tool">shipment_trace</span><span class="allowed">allowed: justified &mdash; the governor judged it worth its budget</span></span><span class="tok">10</span></div><div class="step"><span class="n">8</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">600</span></div></div>
+  <div class="total"><span>tokens used</span><span>1,920</span></div>
+  <div class="foot">
+    <div class="line"><span>model</span>
+      <span>gpt-5-mini</span></div>
+    <div class="line"><span>why it stopped</span><span class="good">the quality floor was met</span></div>
+    <div class="line"><span>what the governor changed</span><span class="warn">served repeat calls from cache, so the tool never ran</span></div>
+    <div class="line"><span>when the quality check looked</span><span class="warn">after the agent had already stopped</span></div>
+    
+    <div class="line"><span>was the answer right?</span>
+      <span class="good">CORRECT</span></div>
+    <div class="answers"><b>what it actually answered</b><div class="line"><span>exception_type</span><span class="good">customs-hold</span></div><div class="line"><span>root_cause_code</span><span class="good">rc-customs-documentation</span></div><div class="line"><span>recommended_action</span><span class="good">escalate-to-buyer</span></div></div>
+  </div>
+</div>
+
+</div>
+<div class="verdict">
+  OutcomeFuse used <b class="good">48% fewer</b> tokens on this task, and both answers were judged the same way.
+  
+  
+</div>
+<div class="note">
+Both timelines are read from sealed decision logs whose hash chains were
+verified before this page was written. The only arithmetic here is adding up
+recorded tokens and comparing the two totals.
+<br><br>
+<b>This is one task.</b> It is not a result, and it is not evidence that the
+same thing happens generally &mdash; the same workload run twice moved its
+headline by 37 points. The measured results, and the reasons none of them can
+be published, are in <code>scripts/report.py</code>.
+</div>
+</html>
