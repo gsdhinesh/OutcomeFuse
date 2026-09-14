@@ -29,6 +29,7 @@ from outcomefuse.core.record import RecordStore, RunManifest
 from outcomefuse.harness.answer_keys import AnswerKeyError, answer_key_for
 from outcomefuse.harness.cases import load_case_set
 from outcomefuse.harness.costs import CostTableError, load_cost_table
+from outcomefuse.harness.preregistration import PreregistrationError, load_preregistration
 from outcomefuse.harness.runner import BaselineArm, GovernedArm, run_case
 from outcomefuse.runtime import Driver, ToolGovernor
 from outcomefuse.workloads import citable_index_for, tool_port_for
@@ -44,7 +45,13 @@ MAX_OUTPUT_TOKENS = 25_000
 REASONING_EFFORT = "medium"
 
 
-def build_manifest(run_id: str, workload: str, split: str, model_id: str) -> RunManifest:
+def build_manifest(
+    run_id: str,
+    workload: str,
+    split: str,
+    model_id: str,
+    preregistration_hash: str | None = None,
+) -> RunManifest:
     return RunManifest(
         run_id=run_id,
         mode="governed",
@@ -59,6 +66,7 @@ def build_manifest(run_id: str, workload: str, split: str, model_id: str) -> Run
         baseline_configuration_hash=SHA,
         case_set_id=f"{split}/{workload}",
         split=split,
+        preregistration_hash=preregistration_hash,
         model_ids=(model_id,),
         provider_versions={model_id: "unknown-until-observed"},
         cost_table_version=COST_TABLE,
@@ -91,6 +99,17 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # The flag takes a version, the manifest records content. Resolving it here
+    # means a record edited after the fact stops matching the runs that claimed
+    # to be bound by it.
+    prereg_hash = None
+    if args.preregistration:
+        try:
+            prereg_hash = load_preregistration(args.preregistration).digest().sha256
+        except PreregistrationError as exc:
+            print(f"{exc}")
+            return 2
+
     contract = load_path(Path(f"contracts/{args.workload}.contract.yaml"))
     case_set = load_case_set(args.workload, args.split)
     case = case_set.by_id(args.case) if args.case else case_set.cases[0]
@@ -103,7 +122,7 @@ def main() -> int:
             case.case_id,
             args.workload,
             args.split,
-            preregistration_hash=args.preregistration,
+            preregistration_hash=prereg_hash,
         )
     except AnswerKeyError as exc:
         print(f"{exc}")
@@ -152,7 +171,11 @@ def main() -> int:
             governor=ToolGovernor(contract),
             tools=tools,
         )
-        driver.open_run(build_manifest(driver.run_id, args.workload, args.split, model_id))
+        driver.open_run(
+            build_manifest(
+                driver.run_id, args.workload, args.split, model_id, prereg_hash
+            )
+        )
         # AD-7: built, hashed and appended before any verifier runs. Without it
         # a citation criterion cannot be evaluated and the run fail-closes,
         # correctly, having spent its whole budget first.

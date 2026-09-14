@@ -77,7 +77,16 @@ class CaseSet(BaseModel):
         for case in self.cases:
             if case.case_id == case_id:
                 return case
-        raise CaseError(f"no case {case_id!r} in {self.split}/{self.workload}")
+        # Case ids carry their split, so a caller on the wrong one has made a
+        # flag mistake rather than a typo, and should be told which flag.
+        parts = case_id.split("-")
+        elsewhere = {"c": "calibration", "e": "evaluation"}.get(parts[1] if len(parts) > 1 else "")
+        hint = (
+            f"; it belongs to the {elsewhere} split, so pass --split {elsewhere}"
+            if elsewhere and elsewhere != self.split
+            else ""
+        )
+        raise CaseError(f"no case {case_id!r} in {self.split}/{self.workload}{hint}")
 
 
 def load_case_set(workload: str, split: str) -> CaseSet:
