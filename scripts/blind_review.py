@@ -72,7 +72,13 @@ def prepare(workload: str, *, sample_size: int, seed: int) -> Path:
             f"{sample_size} and a partial sample cannot establish the rate"
         )
 
-    prompts = {c.case_id: c.prompt for c in load_case_set(workload, "calibration").cases}
+    # Runs are drawn from whichever splits were campaigned, so loading one of
+    # them leaves the rest of the sample with no task to judge against.
+    prompts = {
+        c.case_id: c.prompt
+        for split in ("calibration", "evaluation")
+        for c in load_case_set(workload, split).cases
+    }
     store = EvidenceStore(RUNS / workload / "evidence", data_class="synthetic")
     out = REVIEWS / workload
     out.mkdir(parents=True, exist_ok=True)
@@ -85,8 +91,17 @@ def prepare(workload: str, *, sample_size: int, seed: int) -> Path:
             print(f"! {exc}")
             continue
         items.append({"item": index, "run_id": run_id})
+        task = prompts.get(_case_of(run_id))
+        if task is None:
+            # Asking whether an answer answers a question nobody showed is not a
+            # weaker review, it is a different one, and it would still produce a
+            # number.
+            raise SystemExit(
+                f"no prompt found for case {_case_of(run_id)!r}; a reviewer cannot "
+                "judge an answer against a task that is not in the packet"
+            )
         (out / f"item-{index:02d}.md").write_text(
-            f"# Item {index}\n\n## The task\n\n{prompts.get(_case_of(run_id), '(unknown case)')}\n"
+            f"# Item {index}\n\n## The task\n\n{task}\n"
             f"\n## The answer given\n\n```json\n{deliverable}\n```\n"
             "\n## Your judgement\n\n"
             "Does this answer the task, on its own terms? Record `accept` or\n"

@@ -2,7 +2,8 @@
 
 ## The task
 
-(unknown case)
+Purchase order 5015 has been flagged for review by logistics. Classify the exception, identify its root cause, recommend a disposition, and cite the supplier policy clauses your recommendation rests on.
+
 
 ## The answer given
 
