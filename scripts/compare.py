@@ -1,0 +1,242 @@
+"""One task, done twice, side by side. For someone who has never seen this repo.
+
+    .venv\\Scripts\\python.exe scripts/compare.py --case sc-e-001 --runs-dir runs/rerun
+
+Left is a plain agent with no budget and no quality gate. Right is the same
+task through OutcomeFuse. Both timelines are read from the sealed logs: what
+each one did, what each step cost, what stopped it, and whether the answer was
+judged correct.
+
+The only arithmetic is adding up recorded tokens and the difference between the
+two totals. Everything else is quoted from the log, because a page that
+recomputes the result is a second place the result can be wrong.
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from outcomefuse.core.record import open_store
+from outcomefuse.harness.cases import load_case_set
+
+STOPPED_BECAUSE = {
+    "stop-sufficient": ("the quality floor was met", "good"),
+    "halt-exhausted": ("it ran out of budget", "warn"),
+    "halt-no-progress": ("it stopped making progress", "warn"),
+    "returned-partial": ("it gave up and handed over what it had", "warn"),
+    "fail-closed": ("a governing part failed, so it refused to continue", "warn"),
+}
+
+CSS = """
+*{box-sizing:border-box}
+body{margin:0;padding:2rem;background:#0f1115;color:#d7dae0;
+font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:1.5rem;margin:0 0 .3rem}
+.task{background:#171a21;border-left:3px solid #7aa2f7;padding:1rem 1.2rem;margin:1rem 0 2rem;
+max-width:75rem}
+.task b{color:#7aa2f7;display:block;font-size:.75rem;letter-spacing:.1em;margin-bottom:.4rem}
+.cols{display:flex;gap:1.5rem;align-items:stretch;flex-wrap:wrap}
+.col{flex:1 1 26rem;background:#151821;border:1px solid #232833;border-radius:6px;overflow:hidden}
+.head{padding:1rem 1.2rem;border-bottom:1px solid #232833}
+.head h2{margin:0;font-size:1.05rem}
+.head .who{color:#8b93a1;font-size:.85rem;margin-top:.2rem}
+.off .head{background:#1d1a17}.on .head{background:#141d1a}
+.step{display:flex;gap:.8rem;padding:.55rem 1.2rem;border-bottom:1px solid #1b1f27;
+align-items:baseline}
+.n{color:#4d5566;width:1.4rem;flex:none;font-size:.8rem}
+.what{flex:1}.tok{color:#8b93a1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tool{color:#9ece6a}.think{color:#bb9af7}
+.allowed{color:#5a6270;font-size:.8rem;display:block}
+.total{display:flex;justify-content:space-between;padding:1rem 1.2rem;
+border-top:2px solid #232833;font-size:1.25rem;font-weight:600}
+.foot{padding:0 1.2rem 1.2rem}
+.line{display:flex;justify-content:space-between;padding:.35rem 0;
+border-bottom:1px solid #1b1f27}
+.line span:first-child{color:#8b93a1}
+.good{color:#5dd98c;font-weight:600}.bad{color:#ff8391;font-weight:600}
+.warn{color:#e0af68;font-weight:600}
+.verdict{margin:2rem 0 0;padding:1.2rem 1.4rem;background:#171a21;border-radius:6px;
+max-width:75rem;font-size:1.05rem}
+.verdict b{font-size:1.5rem}
+.note{margin-top:1.5rem;color:#8b93a1;font-size:.85rem;max-width:75rem}
+"""
+
+
+def read(path: Path, run_id: str) -> dict:
+    with open_store(path, writer=False) as store:
+        events = store.events(run_id)
+        seal = store.seal(run_id) or ""
+        store.verify_run(run_id)
+
+    steps: list[list] = []
+    total = 0
+    allowed: str | None = None
+    for event in events:
+        tool = (event.payload or {}).get("tool")
+        if event.kind in {"decision-proposed", "evidence-requested"} and tool:
+            steps.append(["tool", str(tool), 0, allowed])
+            allowed = None
+        if event.kind == "decision-recorded" and event.policy_action == "proceed":
+            # Recorded after the call it authorises, so it belongs to the last step.
+            for step in reversed(steps):
+                if step[0] == "tool" and step[3] is None:
+                    step[3] = event.decision_reason
+                    break
+        if event.kind == "spend-settled" and event.tokens_consumed:
+            total += event.tokens_consumed
+            if event.model_used:
+                steps.append(
+                    ["think", "the model thinking and writing", event.tokens_consumed, None]
+                )
+            else:
+                # A settle with no model behind it is a tool's own charge. The
+                # baseline records none, which is why its tools show no cost.
+                for step in reversed(steps):
+                    if step[0] == "tool" and not step[2]:
+                        step[2] = event.tokens_consumed
+                        break
+
+    gate = [e for e in events if e.kind == "gate-verdict"]
+    terminal = [e.terminal_reason for e in events if e.terminal_reason]
+    models = sorted({e.model_used for e in events if e.model_used})
+    return {
+        "steps": steps,
+        "total": total,
+        "verdict": gate[-1].gate_verdict if gate else None,
+        "stopped": terminal[-1] if terminal else None,
+        "models": models,
+        "escalated": sum(1 for e in events if e.policy_action == "escalate"),
+        "seal": seal,
+    }
+
+
+def column(run: dict, *, title: str, who: str, css: str) -> str:
+    rows = []
+    for index, (kind, what, tokens, allowed) in enumerate(run["steps"], start=1):
+        label = (
+            f'<span class="tool">{html.escape(what)}</span>'
+            if kind == "tool"
+            else f'<span class="think">{html.escape(what)}</span>'
+        )
+        why = (
+            f'<span class="allowed">allowed: {html.escape(allowed)} &mdash; '
+            "the governor judged it worth its budget</span>"
+            if allowed
+            else ""
+        )
+        cost = f"{tokens:,}" if tokens else "&mdash;"
+        rows.append(
+            f'<div class="step"><span class="n">{index}</span>'
+            f'<span class="what">{label}{why}</span>'
+            f'<span class="tok">{cost}</span></div>'
+        )
+
+    if run["stopped"]:
+        said, tone = STOPPED_BECAUSE.get(run["stopped"], (run["stopped"], "warn"))
+    else:
+        said, tone = "by itself &mdash; nothing was watching it", "warn"
+    right = {"pass": ("CORRECT", "good"), "fail": ("WRONG", "bad")}.get(
+        run["verdict"], ("never checked", "warn")
+    )
+    escalated = (
+        f'<div class="line"><span>had to retry on the big model</span>'
+        f'<span class="warn">yes, {run["escalated"]}x</span></div>'
+        if run["escalated"]
+        else ""
+    )
+    return f"""
+<div class="col {css}">
+  <div class="head"><h2>{title}</h2><div class="who">{who}</div></div>
+  {"".join(rows)}
+  <div class="total"><span>tokens used</span><span>{run["total"]:,}</span></div>
+  <div class="foot">
+    <div class="line"><span>model</span>
+      <span>{html.escape(", ".join(run["models"]) or "&mdash;")}</span></div>
+    <div class="line"><span>why it stopped</span><span class="{tone}">{said}</span></div>
+    {escalated}
+    <div class="line"><span>was the answer right?</span>
+      <span class="{right[1]}">{right[0]}</span></div>
+  </div>
+</div>"""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", default="sc-e-001")
+    parser.add_argument("--workload", default=None, help="inferred from the case id")
+    parser.add_argument("--split", default="evaluation")
+    parser.add_argument("--runs-dir", default="runs/rerun")
+    parser.add_argument("--out", default="submission/compare.html")
+    args = parser.parse_args()
+
+    workload = args.workload or {
+        "sc": "supply-chain", "ds": "data-sql",
+        "ct": "code-triage", "dr": "doc-research",
+    }[args.case.split("-")[0]]
+
+    runs = Path(args.runs_dir) / workload
+    arms = {
+        arm: read(runs / f"{args.case}-{arm}.db", f"{args.case}-{arm}")
+        for arm in ("baseline", "governed")
+    }
+
+    task = next(
+        c.prompt for c in load_case_set(workload, args.split).cases if c.case_id == args.case
+    )
+    task_line = " ".join(task.split())[:400]
+
+    base, gov = arms["baseline"]["total"], arms["governed"]["total"]
+    diff = (base - gov) / base if base else 0.0
+    word, tone = ("fewer", "good") if diff > 0 else ("MORE", "bad")
+    same = arms["baseline"]["verdict"] == arms["governed"]["verdict"]
+    quality = (
+        "and both answers were judged the same way"
+        if same
+        else f'and the answers differed: plain was {arms["baseline"]["verdict"]}, '
+        f'OutcomeFuse was {arms["governed"]["verdict"]}'
+    )
+
+    page = f"""<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>Same task, twice &mdash; {html.escape(args.case)}</title>
+<style>{CSS}</style>
+<h1>The same task, done twice</h1>
+<div class="task"><b>THE TASK &mdash; {html.escape(args.case)}</b>{html.escape(task_line)}</div>
+<div class="cols">
+{column(arms["baseline"], title="Without OutcomeFuse",
+        who="a plain agent: no budget, no quality check, uses the expensive model",
+        css="off")}
+{column(arms["governed"], title="With OutcomeFuse",
+        who="a budget, a quality floor, and it starts on the cheap model",
+        css="on")}
+</div>
+<div class="verdict">
+  OutcomeFuse used <b class="{tone}">{abs(diff):.0%} {word}</b> tokens on this task, {quality}.
+</div>
+<div class="note">
+Both timelines are read from sealed decision logs whose hash chains were
+verified before this page was written. The only arithmetic here is adding up
+recorded tokens and comparing the two totals.
+<br><br>
+<b>This is one task.</b> It is not a result, and it is not evidence that the
+same thing happens generally &mdash; the same workload run twice moved its
+headline by 37 points. The measured results, and the reasons none of them can
+be published, are in <code>scripts/report.py</code>.
+</div>
+</html>
+"""
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    print(f"{args.case}: plain {base:,} tokens, OutcomeFuse {gov:,} tokens")
+    print(f"written to {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

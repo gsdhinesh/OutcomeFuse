@@ -123,12 +123,17 @@ One run can also be read as a page, which is what FR84's "show the mechanism"
 beat needs:
 
 ```pwsh
-.venv\Scripts\python.exe scripts/render_run.py   # -> submission/run-view.html
+.venv\Scripts\python.exe scripts/compare.py --case sc-e-001  # -> submission/compare.html
+.venv\Scripts\python.exe scripts/render_run.py               # -> submission/run-view.html
 ```
 
-It verifies the hash chain before drawing and prints the result on the page. It
-computes nothing — no savings, no rates, no comparisons — because a second path
-to a number is a second thing that can be wrong.
+`compare.py` puts one task side by side: the same work with and without
+OutcomeFuse, every step, what each cost, what stopped each run and whether the
+answer was judged right. `render_run.py` shows a single run's full decision
+stream. Both verify the hash chain before drawing and print the result on the
+page. Neither computes a saving, a rate or a comparison beyond adding up
+recorded tokens — a second path to a number is a second thing that can be
+wrong.
 
 Every run seal verifies from a clean clone, which is what makes "the benchmark
 was frozen before the governor existed" checkable rather than asserted. The
