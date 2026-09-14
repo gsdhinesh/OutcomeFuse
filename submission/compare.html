@@ -80,8 +80,8 @@ max-width:75rem;font-size:1.05rem}
 
 <div class="col off">
   <div class="head"><h2>Without OutcomeFuse, cheap model</h2><div class="who">no budget, no quality check &mdash; only the model was swapped</div></div>
-  <div class="steps"><div class="step"><span class="n">1</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">715</span></div><div class="step"><span class="n">2</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">3</span><span class="what"><span class="tool">shipment_trace</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">4</span><span class="what"><span class="tool">supplier_policy_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">5</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">3,201</span></div></div>
-  <div class="total"><span>tokens used</span><span>3,916</span></div>
+  <div class="steps"><div class="step"><span class="n">1</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">779</span></div><div class="step"><span class="n">2</span><span class="what"><span class="tool">order_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">3</span><span class="what"><span class="tool">shipment_trace</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">4</span><span class="what"><span class="tool">supplier_policy_lookup</span></span><span class="tok">&mdash;</span></div><div class="step"><span class="n">5</span><span class="what"><span class="think">the model thinking and writing</span></span><span class="tok">2,414</span></div></div>
+  <div class="total"><span>tokens used</span><span>3,193</span></div>
   <div class="foot">
     <div class="line"><span>model</span>
       <span>gpt-5-mini-2025-08-07</span></div>
@@ -91,14 +91,14 @@ max-width:75rem;font-size:1.05rem}
     
     <div class="line"><span>was the answer right?</span>
       <span class="good">CORRECT</span></div>
-    <div class="answers"><b>what it actually answered</b><div class="line"><span>the answer it gave</span><span>not kept</span></div></div>
+    <div class="answers"><b>what it actually answered</b><div class="line"><span>exception_type</span><span class="good">customs-hold</span></div><div class="line"><span>root_cause_code</span><span class="good">rc-customs-documentation</span></div><div class="line"><span>recommended_action</span><span class="good">escalate-to-buyer</span></div></div>
   </div>
 </div>
 </div>
 <div class="verdict">
   OutcomeFuse used <b class="good">31% fewer</b> tokens on this task, and the answers differed: plain was fail, OutcomeFuse was pass.
   <br><br>The governor did not cause that. It allowed every step unchanged and the quality check ran only after the agent had stopped, so what differs between these two columns is the model and the luck of one run &mdash; not the governing.
-  <br><br>Swapping the model alone, with nothing governing it, cost <b>3,916</b> tokens and was judged <b>CORRECT</b>. Against that, OutcomeFuse is 7% cheaper &mdash; so on this task almost all of the difference in the first two columns is the model, not the governing.
+  <br><br>Swapping the model alone, with nothing governing it, cost <b>3,193</b> tokens and was judged <b>CORRECT</b>. Against that, OutcomeFuse is 15% more expensive. The first two columns change two things at once &mdash; the governor and the model &mdash; and this column holds the model fixed, so the gap here is what the governing is worth on this task.
 </div>
 <div class="note">
 Both timelines are read from sealed decision logs whose hash chains were

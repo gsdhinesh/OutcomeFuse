@@ -308,9 +308,10 @@ def main() -> int:
             f'<b>{third["total"]:,}</b> tokens and was judged '
             f'<b>{"CORRECT" if third["verdict"] == "pass" else "WRONG"}</b>. '
             f"Against that, OutcomeFuse is {abs(margin):.0%} "
-            f'{"cheaper" if margin > 0 else "more expensive"} &mdash; so on this task '
-            "almost all of the difference in the first two columns is the model, "
-            "not the governing."
+            f'{"cheaper" if margin > 0 else "more expensive"}. The first two columns '
+            "change two things at once &mdash; the governor and the model &mdash; and "
+            "this column holds the model fixed, so the gap here is what the governing "
+            "is worth on this task."
         )
 
     base, gov = arms["baseline"]["total"], arms["governed"]["total"]

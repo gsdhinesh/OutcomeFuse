@@ -26,6 +26,7 @@ from outcomefuse.adapters.model import AzureFoundryModelPort, ModelPortError
 from outcomefuse.core.contract import load_path
 from outcomefuse.core.policy import Ledger, Reserve
 from outcomefuse.core.record import RecordStore, RunManifest
+from outcomefuse.evidence.store import EvidenceStore
 from outcomefuse.harness.answer_keys import AnswerKeyError, answer_key_for
 from outcomefuse.harness.cases import load_case_set
 from outcomefuse.harness.costs import CostTableError, load_cost_table
@@ -156,9 +157,13 @@ def main() -> int:
     path.parent.mkdir(exist_ok=True)
     path.unlink(missing_ok=True)
     store = RecordStore(path).open()
+    # AD-5b: the deliverable lives beside the log, not in it. Without this the
+    # run records that an answer was judged and not what the answer was.
+    evidence = EvidenceStore(Path("runs") / args.workload / "evidence", data_class="synthetic")
+    run_id = f"{case.case_id}-{arm_name}"
     if args.governed:
         driver = Driver(
-            run_id=f"{case.case_id}-governed",
+            run_id=run_id,
             contract=contract,
             store=store,
             ledger=Ledger(
@@ -173,6 +178,7 @@ def main() -> int:
             ),
             governor=ToolGovernor(contract),
             tools=tools,
+            evidence=evidence.for_driver(run_id),
         )
         driver.open_run(
             build_manifest(
@@ -191,10 +197,11 @@ def main() -> int:
         # Recording is measurement, not governance, and the recorder decides
         # nothing. Without it this arm produced an answer nobody could check.
         recorder = BaselineRecorder(
-            run_id=f"{case.case_id}-baseline",
+            run_id=run_id,
             contract=contract,
             store=store,
             citable_index=citable_index_for(contract),
+            evidence=evidence.for_driver(run_id),
         )
         recorder.open_run(
             build_manifest(
