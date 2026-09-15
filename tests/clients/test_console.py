@@ -737,6 +737,43 @@ class TestTheAnswerIsShown:
         got = db.execute(answer["sql"]).fetchone()[0]
         assert got == answer["result_value"], f"{key}: {answer['sql']}"
 
+    def test_the_careless_write_really_changes_the_figure(self) -> None:
+        """Approving it has to change the answer, or the card overstates it.
+
+        The previous statement re-marked rows that were already delivered: 21
+        rows touched, reported figure unchanged. It looked dangerous and was
+        not, and the comment beside it said otherwise. Applied to a scratch
+        copy, so the corpus is never touched.
+        """
+        from outcomefuse.workloads.corpus import writable_copy
+
+        job = jobs.by_key("write-to-the-table")
+        subject = compose.case(job.case_id, job.workload)
+        doing = work_module.by_workload(job.workload)
+        query = work_module.body(
+            doing, compose.key_for(job.case_id, job.workload), subject
+        )["sql"]
+        write = work_module._DS_TABLES[work_module._ds_subject(subject)][1]
+
+        scratch = writable_copy(CORPUS)
+        try:
+            before = scratch.execute(query).fetchone()[0]
+            scratch.execute(write)
+            scratch.commit()
+            after = scratch.execute(query).fetchone()[0]
+        finally:
+            scratch.close()
+        assert before == 3
+        assert after != before, write
+
+    def test_the_corpus_itself_is_never_touched(self) -> None:
+        # The write lands on a scratch copy. The contract says so and the card
+        # repeats it, so it has to be true.
+        db = sql_corpus(CORPUS)
+        assert db.execute(
+            "SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'"
+        ).fetchone()[0] == 3
+
     def test_in_transit_really_is_ambiguous(self) -> None:
         """Three defensible readings, three different answers.
 
