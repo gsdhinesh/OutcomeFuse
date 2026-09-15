@@ -120,19 +120,20 @@ JOBS: tuple[Job, ...] = (
         workload="code-triage",
         case_id="ct-c-002",
         situation="stall",
-        does="Serves the repeat from the run's cache so `read_file` is never re-invoked, "
-        "then stops the run once it can see no progress is being made. **It saves the "
-        "tool call, not the turn** — the model still ran, and still charged for it.",
-        without="The file is opened six times and the same source comes back six times. "
+        does="Serves every repeat from the run's cache, so nine of the ten `read_file` "
+        "calls never happen, then stops the run once it can see no progress is being "
+        "made. **It saves the tool call, not the turn** — the model still ran each time, "
+        "and still charged for it.",
+        without="The file is opened ten times and the same source comes back ten times. "
         "The loop only ends at the iteration cap.",
         feature="Tool-governor cache, then the loop fuse (FR27/FR28)",
         watch="One execution, then cache-hit after cache-hit in amber, then "
-        "halt-no-progress — deliberately not filed as running out of money. **Watch the "
-        "token count go up, not down.** Each hit skips a tool call worth ten tokens while "
-        "the turn that proposed it costs hundreds, and the governed arm spends an "
-        "escalation on top. The saving here is the stop, not the cache.",
-        expect="the governed arm executes the tool once and then stops; the ungoverned one "
-        "runs it every time and keeps going",
+        "halt-no-progress — deliberately not filed as running out of money. **The token "
+        "counts come out identical**, because that column is model turns and both arms "
+        "burn the same ones. What the cache saved is nine tool invocations, which that "
+        "number never counted.",
+        expect="the governed arm executes the tool once; the ungoverned one runs it every "
+        "time and only stops at the cap",
     ),
     Job(
         key="fetch-keeps-failing",

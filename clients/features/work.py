@@ -490,7 +490,17 @@ def acts_on_the_world(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     ]
 
 
-def stalls(work: Work, _key: dict[str, Any], case: Case, turns: int = 6) -> list[Any]:
+def stalls(work: Work, _key: dict[str, Any], case: Case, turns: int = 14) -> list[Any]:
+    """The same call, turn after turn, until something stops it.
+
+    Longer than every contract's `max_iterations` (8, 6, 10, 8) on purpose. At
+    six turns the script ran dry first, `ScriptedModelPort` returned no text,
+    and the driver read that as a gate failure and escalated — so the run was
+    demonstrating the fixture ending rather than the fuse firing, and the
+    escalation it bought made the governed arm look 26% dearer than the
+    control. Past the cap the fuse halts it on its own merits and nothing
+    escalates.
+    """
     return [(work.repeatable(case),) for _ in range(turns)]
 
 

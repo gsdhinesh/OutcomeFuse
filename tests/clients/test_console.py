@@ -860,10 +860,11 @@ class TestTheAnswerIsShown:
     def test_a_cache_hit_still_costs_a_model_turn(self, tmp_path) -> None:
         """The cache saves the tool call. It does not save the turn.
 
-        "tools executed 6 -> 1" invites the reading that money was saved. It was
-        not: each hit skipped a ten-token tool call while the turn that proposed
-        it cost hundreds and rose as the context grew. Pinned so the card cannot
-        drift into claiming a saving the runs do not show.
+        The token column is model turns only, and both arms burn the same ones,
+        so it comes out identical while nine tool invocations disappear. Pinned
+        because the card has been wrong about this in both directions: first it
+        implied a saving, then it claimed a 26% penalty that was really the
+        scripted model running dry and triggering an escalation.
         """
         job = jobs.by_key("same-file-again")
         doing = work_module.by_workload(job.workload)
@@ -879,7 +880,8 @@ class TestTheAnswerIsShown:
 
         hits = [e for e in on.events if e.decision_reason == "cache-hit"]
         assert len(hits) >= 4, "the stall has to actually hit the cache"
-        assert len(on.invoked) < len(off.invoked), "and skip tool executions"
+        assert len(on.invoked) == 1, "and execute the tool exactly once"
+        assert len(off.invoked) > len(on.invoked)
 
         # Every cache-hit turn still settled model spend.
         settled = {
@@ -890,9 +892,32 @@ class TestTheAnswerIsShown:
         for hit in hits:
             assert settled.get(hit.step_id, 0) > 0, f"{hit.step_id} paid nothing"
 
-        # And the governed arm cost more overall, not less.
-        assert on.outcome.spend.total_tokens > off.outcome.spend.total_tokens
-        assert "not down" in job.watch
+        # Same model turns, so the same reported tokens. The cache's saving is
+        # in invocations, which that figure never counted.
+        assert on.outcome.spend.total_tokens == off.outcome.spend.total_tokens
+        assert "identical" in job.watch
+
+    def test_the_stall_reaches_the_fuse_without_the_script_running_dry(self) -> None:
+        """At six turns the fixture ended before the fuse did.
+
+        `ScriptedModelPort` returns no text once its turns are used up, the
+        driver reads that as a gate failure, and `retry-then-escalate` spends an
+        escalation on it. The run then looked like the governor being expensive
+        when it was really the demo ending. The agent now outlasts every
+        contract's cap.
+        """
+        for doing in work_module.WORK:
+            case = compose.cases(doing.workload)[0]
+            cap = compose.contract(doing.workload).budget.max_iterations
+            turns = work_module.stalls(doing, {}, case)
+            assert len(turns) > cap, f"{doing.workload}: {len(turns)} <= cap {cap}"
+
+    @pytest.mark.parametrize("workload", WORKLOADS)
+    def test_a_stall_never_escalates(self, workload, tmp_path) -> None:
+        run = _run("stall", workload, tmp_path)
+        assert run.terminated == "halt-no-progress"
+        assert run.escalations == 0, "an escalation here means the script ran dry"
+        assert not any("no text" in str(e.payload) for e in run.events)
 
     def test_the_cache_gloss_does_not_promise_a_saving(self) -> None:
         page = (
