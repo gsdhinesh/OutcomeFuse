@@ -141,15 +141,21 @@ max-height:36%;overflow-y:auto;flex:none}
 .verdict.same h3{color:#8b93a1}
 .verdict ul{margin:0 0 .5rem;padding-left:1.1rem;font-size:.85rem}
 .rec{color:#8b93a1;font-size:.8rem;margin:.2rem 0 .5rem}
-.grid{display:flex;gap:2.4rem;flex-wrap:wrap;font-size:.78rem}
-.grid .col{min-width:17rem}
-.grid .col b{display:block;color:#8b93a1;font-size:.67rem;letter-spacing:.08em;
-text-transform:uppercase;margin-bottom:.2rem}
-.line{display:flex;justify-content:space-between;gap:1rem;padding:.17rem 0;
-border-bottom:1px solid #1b1f27}
-.line span:first-child{color:#8b93a1}
-.line span:last-child{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;
-text-align:right}
+.grid{display:block;font-size:.78rem}
+table.compare{border-collapse:collapse;width:100%;max-width:74rem}
+table.compare th,table.compare td{text-align:left;padding:.26rem .8rem;
+border-bottom:1px solid #1b1f27;vertical-align:top}
+table.compare th.lbl{color:#8b93a1;font-weight:400;width:13rem}
+table.compare thead th,table.compare tr:first-child th{font-size:.72rem;
+letter-spacing:.06em;text-transform:uppercase}
+table.compare tr:first-child th.off{color:#ff8391}
+table.compare tr:first-child th.on{color:#5dd98c}
+table.compare .rid{display:block;color:#4d5566;font-size:.66rem;letter-spacing:0;
+text-transform:none;font-family:ui-monospace,Consolas,monospace;font-weight:400}
+table.compare td{font-family:ui-monospace,Consolas,monospace;font-size:.76rem;
+color:#d7dae0;width:38%}
+table.compare tr.differs{background:#17141a}
+table.compare tr.differs th.lbl{color:#e0af68;font-weight:600}
 .good{color:#5dd98c}.bad{color:#ff8391}.warn{color:#e0af68}
 .note{margin-top:.6rem;color:#5a6270;font-size:.74rem}
 </style>
@@ -598,26 +604,54 @@ function verdict(msg) {
     <div class="note">Every figure was read back from the sealed log after the run closed,
     not from the objects that produced it. "Acted on the world" comes from the tool port's
     own out-of-band record (AD-15), not from the log's account of it.</div>`;
-  const grid = box.querySelector(".grid");
-  for (const s of msg.summaries) {
-    const col = document.createElement("div");
-    col.className = "col";
-    const paid = s.side_effects.length ? s.side_effects.join("; ") : "nothing";
-    col.innerHTML = `<b>${LANES[s.arm].title} \u00b7 ${escape(s.run_id)}</b>` + [
-      ["how it ended", s.terminal || "nothing stopped it", s.terminal === "fail-closed" ? "bad" : ""],
-      ["gate", s.quality, s.quality === "pass" ? "good" : "bad"],
-      ["turns / tokens", `${s.turns} / ${s.tokens.toLocaleString()}`, ""],
-      ["models", s.models.join(" \u2192 ") || "\u2014", ""],
-      ["escalations", String(s.escalations), s.escalations ? "warn" : ""],
-      ["tools invoked", String(s.tools_invoked.length), ""],
-      ["acted on the world", paid, s.side_effects.length ? "warn" : "good"],
-      ["chain verified", String(s.verified), s.verified ? "good" : "bad"],
-      ["seal", (s.seal || "").slice(0, 16) + "\u2026", ""],
-    ].map(([k, val, tone]) =>
-      `<div class="line"><span>${k}</span><span class="${tone}">${escape(val)}</span></div>`
-    ).join("");
-    grid.appendChild(col);
+
+  // One row per figure, one column per arm, in lane order. Two stacked lists
+  // made you eye-track between them to find what differed; here a difference is
+  // a row that disagrees with itself.
+  const arms = ["baseline", "governed"].filter(a => msg.summaries.some(s => s.arm === a));
+  const by = Object.fromEntries(msg.summaries.map(s => [s.arm, s]));
+  const paid = s => s.side_effects.length ? s.side_effects.join("; ") : "nothing";
+  const ROWS = [
+    ["how it ended", s => [s.terminal || "nothing stopped it",
+                           s.terminal === "fail-closed" ? "bad" : ""]],
+    ["gate", s => [s.quality, s.quality === "pass" ? "good" : "bad"]],
+    ["turns", s => [String(s.turns), ""]],
+    ["tokens", s => [s.tokens.toLocaleString(), ""]],
+    ["models", s => [s.models.join(" \u2192 ") || "\u2014", ""]],
+    ["escalations", s => [String(s.escalations), s.escalations ? "warn" : ""]],
+    ["tools invoked", s => [String(s.tools_invoked.length), ""]],
+    ["acted on the world", s => [paid(s), s.side_effects.length ? "warn" : "good"]],
+    ["chain verified", s => [String(s.verified), s.verified ? "good" : "bad"]],
+    ["seal", s => [(s.seal || "").slice(0, 16) + "\u2026", ""]],
+  ];
+
+  const table = document.createElement("table");
+  table.className = "compare";
+  const head2 = table.insertRow();
+  head2.insertCell().outerHTML = "<th></th>";
+  for (const arm of arms) {
+    const th = document.createElement("th");
+    th.className = LANES[arm].css;
+    th.innerHTML = `${LANES[arm].title}<span class="rid"></span>`;
+    th.querySelector(".rid").textContent = by[arm].run_id;
+    head2.appendChild(th);
   }
+  for (const [label, read] of ROWS) {
+    const values = arms.map(a => read(by[a]));
+    const differs = arms.length > 1 && values[0][0] !== values[1][0];
+    const row = table.insertRow();
+    // `seal` and `run id` always differ and that means nothing; only flag a
+    // figure whose disagreement is worth looking at.
+    row.className = differs && label !== "seal" ? "differs" : "";
+    const th = document.createElement("th");
+    th.className = "lbl"; th.textContent = label;
+    row.appendChild(th);
+    for (const [value, tone] of values) {
+      const td = row.insertCell();
+      td.className = tone; td.textContent = value;
+    }
+  }
+  box.querySelector(".grid").appendChild(table);
   box.hidden = false;
 }
 
