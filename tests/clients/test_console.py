@@ -33,6 +33,8 @@ from features import compose
 from features import work as work_module
 
 from outcomefuse.core.record import open_store
+from outcomefuse.workloads.corpus import sql_corpus
+from outcomefuse.workloads.data_sql import CORPUS
 
 WORKLOADS = [w.workload for w in work_module.WORK]
 
@@ -711,6 +713,51 @@ class TestTheAnswerIsShown:
         assert answer["result_value"] == compose.key_for(job.case_id, job.workload)[
             "result_value"
         ]
+
+    @pytest.mark.parametrize(
+        "key", [j.key for j in jobs.JOBS if j.workload == "data-sql"]
+    )
+    def test_the_sql_it_hands_back_really_returns_the_figure(self, key, tmp_path) -> None:
+        """Run the agent's own query and check it gives the number it reported.
+
+        The contract cannot do this. `sql-is-read-only` sees a SELECT and stops,
+        so an answer whose query computes something else entirely still passes
+        the gate — which is how `delivered_date IS NULL` ended up beside a figure
+        of 3 when that query returns 4, counting a shipment marked lost.
+        """
+        job = jobs.by_key(key)
+        answer = work_module.body(
+            work_module.by_workload(job.workload),
+            compose.key_for(job.case_id, job.workload),
+            compose.case(job.case_id, job.workload),
+        )
+        # `sql_corpus` hands back a cached connection that `close_corpora`
+        # closes at exit. Closing it here would break every later test.
+        db = sql_corpus(CORPUS)
+        got = db.execute(answer["sql"]).fetchone()[0]
+        assert got == answer["result_value"], f"{key}: {answer['sql']}"
+
+    def test_in_transit_really_is_ambiguous(self) -> None:
+        """Three defensible readings, three different answers.
+
+        Pinned because the agent's query was quietly wrong and nothing caught
+        it: the contract sees a SELECT and stops looking.
+        """
+        db = sql_corpus(CORPUS)
+        by_status = db.execute(
+            "SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'"
+        ).fetchone()[0]
+        by_dates = db.execute(
+            "SELECT COUNT(*) FROM shipments "
+            "WHERE shipped_date IS NOT NULL AND delivered_date IS NULL"
+        ).fetchone()[0]
+        undelivered = db.execute(
+            "SELECT COUNT(*) FROM shipments WHERE delivered_date IS NULL"
+        ).fetchone()[0]
+        assert (by_status, by_dates, undelivered) == (3, 2, 4)
+        # Only the status reading matches what the key was derived from. The
+        # third counts a shipment marked lost.
+        assert compose.key_for("ds-c-004", "data-sql")["result_value"] == by_status
 
     @pytest.mark.parametrize(
         "case_id", [c.case_id for c in compose.cases("data-sql")]

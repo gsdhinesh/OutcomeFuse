@@ -154,23 +154,47 @@ def _ds_subject(case: Case) -> str:
     return hit[1] if hit else "orders"
 
 
+#: Where a query really computes the case's figure, it is written out. The
+#: correct SQL for a case *is* its answer, which is why the frozen `Case` drops
+#: the reference that carries it — so a scripted agent cannot derive it, and the
+#: cases the console shows get it stated rather than approximated.
+#:
+#: ds-c-004 is why this exists. "Currently in transit" has three defensible
+#: readings and the corpus gives three different answers: `status = 'in_transit'`
+#: is 3, shipped-but-not-delivered is 2, and `delivered_date IS NULL` is 4 —
+#: that last one counts a shipment whose status is 'lost'. Only the first
+#: matches the derived key.
+_DS_SQL = {
+    "ds-c-004": "SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'",
+    "ds-c-002": (
+        "SELECT COUNT(DISTINCT p.product_id) FROM products p "
+        "JOIN suppliers s ON s.supplier_id = p.supplier_id "
+        "WHERE s.name = 'Kanto Precision'"
+    ),
+}
+
+
+def _ds_query(case: Case) -> str:
+    return _DS_SQL.get(case.case_id) or _DS_TABLES[_ds_subject(case)][0]
+
+
 def _ds_investigate(case: Case) -> list[Turn]:
     return [
         (call(0, "schema_describe"),),
-        (call(1, "sql_query", sql=_DS_TABLES[_ds_subject(case)][0]),),
+        (call(1, "sql_query", sql=_ds_query(case)),),
     ]
 
 
 def _ds_answer(key: dict[str, Any], case: Case) -> dict[str, Any]:
-    table = _ds_subject(case)
     return {
         "result_value": key["result_value"],
         "units": key["units"],
         # `sql-is-read-only` checks this with a regex. A SELECT passes; anything
-        # carrying insert/update/delete/drop does not.
-        "sql": _DS_TABLES[table][0],
+        # carrying insert/update/delete/drop does not. It does **not** check the
+        # query returns the figure beside it, which is why that is tested here.
+        "sql": _ds_query(case),
         "row_count": key["row_count"],
-        "tables_used": [table],
+        "tables_used": [_ds_subject(case)],
         "assumptions": [],
     }
 
