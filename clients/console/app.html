@@ -682,25 +682,43 @@ function settle(said) {
 
 // ------------------------------------------------------------ the comparison
 
-// How one arm ended, in a sentence. Built only from the sealed summary: did it
-// hand anything over, did that survive the gate, did anything leave the dataset.
-// A deliverable existing is not the same as the run standing behind it, which is
-// why the gate verdict leads and not the presence of an answer.
+// The answer itself, in one phrase. Each contract asks for a different shape,
+// so this reads whichever fields are present rather than needing to be told
+// which workload it is. The full deliverable is shown underneath regardless.
+function headline(a) {
+  if (a.insufficient_evidence) return "not enough evidence to say";
+  if (a.result_value !== undefined) {
+    return a.units && a.units !== "count"
+      ? `${a.result_value} ${a.units}` : String(a.result_value);
+  }
+  if (a.exception_type) return `${a.exception_type}, recommend ${a.recommended_action}`;
+  if (a.root_cause_file) {
+    return `${a.root_cause_file}:${a.root_cause_line} (${a.severity})`;
+  }
+  if (a.answer_code) return `${a.answer_code}, from ${a.primary_source_id}`;
+  return "";
+}
+
+// How one arm ended, in a sentence, leading with what it actually said. Built
+// only from the sealed summary. A deliverable existing is not the same as the
+// run standing behind it, which is why the gate verdict qualifies the answer
+// rather than the presence of one standing in for it.
 function resultLine(s) {
   const end = ENDING[s.terminal];
   const because = end ? " \u2014 " + end : "";
   const acted = s.side_effects.length
     ? "It acted on the world: " + s.side_effects.join("; ")
     : "Nothing left the dataset.";
+  const said = s.answer ? headline(s.answer) : "";
   let head;
   if (!s.answer) {
-    head = `It never handed anything over${because}.`;
+    head = `Never handed anything over${because}.`;
   } else if (s.quality === "pass") {
-    head = "It answered, and the answer met the quality floor.";
+    head = `Answered ${said}, and that met the quality floor.`;
   } else if (s.quality === "fail") {
-    head = `It answered, but the answer did not meet the quality floor${because}.`;
+    head = `Answered ${said}, but it did not meet the quality floor${because}.`;
   } else {
-    head = `It handed something over, but the gate could not be evaluated${because}.`;
+    head = `Handed over ${said}, but the gate could not be evaluated${because}.`;
   }
   return `${head} ${acted}`;
 }
