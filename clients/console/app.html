@@ -160,7 +160,12 @@ max-height:36%;overflow-y:auto;flex:none}
 text-transform:uppercase}
 .outcome.off b{color:#ff8391}
 .outcome.on b{color:#5dd98c}
-.outcome span{color:#d7dae0}
+.outcome .said{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+.outcome .lead{color:#fff;font-weight:600}
+.outcome .clause{color:#8b93a1}
+.outcome .sep{color:#3d444f}
+.outcome .moved{color:#e0af68;font-weight:600}
+.outcome .still{color:#8b93a1}
 .ans{flex:1 1 24rem;background:#0f1115;border:1px solid #232833;border-radius:6px;
 padding:.55rem .75rem}
 .ans.off{border-left:3px solid #ff8391}
@@ -686,46 +691,55 @@ function settle(said) {
 // so this reads whichever fields are present rather than needing to be told
 // which workload it is. The full deliverable is shown underneath regardless.
 function headline(a) {
-  if (a.insufficient_evidence) return "not enough evidence to say";
+  if (a.insufficient_evidence) return "no answer \u2014 not enough evidence";
   if (a.result_value !== undefined) {
-    const figure = a.units && a.units !== "count"
-      ? `${a.result_value} ${a.units}` : String(a.result_value);
+    const noun = a.units === "count" && (a.tables_used || []).length === 1
+      ? " " + a.tables_used[0] : (a.units && a.units !== "count" ? " " + a.units : "");
     // The prompt asks for the figure *and* what it was computed over, and
     // `row-count-matches-key` checks the second against the key. On a count
     // they match; on a sum they do not, which is when it earns its place.
     return a.row_count === undefined
-      ? figure : `${figure}, over ${a.row_count} rows`;
+      ? `${a.result_value}${noun}`
+      : `${a.result_value}${noun}, from ${a.row_count} rows`;
   }
-  if (a.exception_type) return `${a.exception_type}, recommend ${a.recommended_action}`;
+  if (a.exception_type) return `${a.exception_type} \u2192 ${a.recommended_action}`;
   if (a.root_cause_file) {
     return `${a.root_cause_file}:${a.root_cause_line} (${a.severity})`;
   }
   if (a.answer_code) return `${a.answer_code}, from ${a.primary_source_id}`;
-  return "";
+  return "an answer";
 }
 
-// How one arm ended, in a sentence, leading with what it actually said. Built
-// only from the sealed summary. A deliverable existing is not the same as the
-// run standing behind it, which is why the gate verdict qualifies the answer
-// rather than the presence of one standing in for it.
-function resultLine(s) {
-  const end = ENDING[s.terminal];
-  const because = end ? " \u2014 " + end : "";
-  const acted = s.side_effects.length
-    ? "It acted on the world: " + s.side_effects.join("; ")
-    : "Nothing left the dataset.";
-  const said = s.answer ? headline(s.answer) : "";
-  let head;
-  if (!s.answer) {
-    head = `Never handed anything over${because}.`;
-  } else if (s.quality === "pass") {
-    head = `Answered ${said}, and that met the quality floor.`;
-  } else if (s.quality === "fail") {
-    head = `Answered ${said}, but it did not meet the quality floor${because}.`;
-  } else {
-    head = `Handed over ${said}, but the gate could not be evaluated${because}.`;
+//: What a side-effecting tool did, said as a person would say it. The statement
+//: itself is long and already sits in the comparison table and the tree.
+const ACTED = {
+  "notify_planner": "messaged the planner",
+  "sql_execute_write": "wrote to the database",
+  "run_tests": "ran the test suite",
+};
+
+const GATE = {
+  "pass": "passed the quality check",
+  "fail": "failed the quality check",
+  "not-evaluated": "never got a quality check",
+};
+
+// How one arm ended, as three short clauses rather than one long sentence:
+// what it answered, whether that survived the gate, and what it did to the
+// world. Built only from the sealed summary.
+function resultParts(s) {
+  const parts = [];
+  parts.push(s.answer ? headline(s.answer) : "no answer");
+  parts.push(GATE[s.quality] || s.quality);
+  // stop-sufficient is what "passed" already means; naming it again is noise.
+  if (s.terminal && s.terminal !== "stop-sufficient") {
+    parts.push(ENDING[s.terminal] || s.terminal);
   }
-  return `${head} ${acted}`;
+  const acted = s.side_effects.length
+    ? [...new Set(s.side_effects.map(x => x.split(":")[0].trim()))]
+        .map(t => ACTED[t] || `used ${t}`).join(" and ")
+    : "nothing left the dataset";
+  return { parts, acted, moved: s.side_effects.length > 0 };
 }
 
 function verdict(msg) {
@@ -765,18 +779,25 @@ function verdict(msg) {
   for (const arm of ["baseline", "governed"]) {
     const s = msg.summaries.find(x => x.arm === arm);
     if (!s) continue;
+    const { parts, acted, moved } = resultParts(s);
     const row = document.createElement("div");
     row.className = "outcome " + LANES[arm].css;
-    row.innerHTML = `<b>${LANES[arm].title}</b><span></span>`;
-    row.querySelector("span").textContent = resultLine(s);
+    row.innerHTML = `<b>${LANES[arm].title}</b><span class="said"></span>`;
+    const line = row.querySelector(".said");
+    parts.forEach((p, i) => {
+      if (i) push(line, "sep", "\u00b7");
+      push(line, i ? "clause" : "lead", p);
+    });
+    push(line, "sep", "\u00b7");
+    push(line, moved ? "moved" : "still", acted);
     outcomes.appendChild(row);
   }
   for (const c of msg.crashed || []) {
     const row = document.createElement("div");
     row.className = "outcome " + LANES[c.arm].css;
-    row.innerHTML = `<b>${LANES[c.arm].title}</b><span></span>`;
-    row.querySelector("span").textContent =
-      "It threw instead of ending, so there is no log and nothing to verify.";
+    row.innerHTML = `<b>${LANES[c.arm].title}</b><span class="said"></span>`;
+    push(row.querySelector(".said"), "clause",
+         "threw instead of ending \u2014 no log, nothing to verify");
     outcomes.appendChild(row);
   }
 
