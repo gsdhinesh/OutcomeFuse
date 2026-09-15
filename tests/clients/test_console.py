@@ -22,6 +22,7 @@ directly, which is the part that could lie.
 from __future__ import annotations
 
 import dataclasses
+import json
 import threading
 import time
 
@@ -777,6 +778,74 @@ class TestTheHumanAtTheGate:
         assert (expected in summary["tools_invoked"]) is tool_ran
         assert bool(summary["side_effects"]) is tool_ran
         assert summary["terminal"] == "stop-sufficient"
+
+    @pytest.mark.parametrize("key", ["message-the-planner", "write-to-the-table"])
+    def test_the_question_says_what_it_is_asking_to_do(self, key, tmp_path) -> None:
+        """A gate that names a tool and withholds the call cannot be answered.
+
+        Approving `notify_planner` without seeing the message is a signature on
+        a blank page, so the request carries the arguments and the card shows
+        them.
+        """
+        job = jobs.by_key(key)
+        expected = work_module.by_workload(job.workload).side_effecting
+        port = LiveApprovalPort(timeout_seconds=10)
+        asked: list[dict] = []
+        for frame in self._live(key, tmp_path, port):
+            if frame["type"] == "approval":
+                asked.append(frame["request"])
+                self._answer_after(port, "denied", 0.05)
+        assert len(asked) == 1
+        request = asked[0]
+        assert request["tool"] == expected
+        assert request["arguments"], "the call must travel with the question"
+        # The arguments shown are the ones the agent actually proposed.
+        proposed = next(
+            c
+            for turn in work_module.acts_on_the_world(
+                work_module.by_workload(job.workload),
+                compose.key_for(job.case_id, job.workload),
+                compose.case(job.case_id, job.workload),
+            )
+            if not isinstance(turn, str)
+            for c in turn
+            if c.tool == expected
+        )
+        assert request["arguments"] == proposed.arguments
+
+    def test_the_question_carries_the_hash_the_log_will_record(self, tmp_path) -> None:
+        # The arguments are deliberately not written to the log, so the hash is
+        # what ties what you approved to what the record says happened.
+        port = LiveApprovalPort(timeout_seconds=10)
+        asked, events = [], []
+        for frame in self._live("message-the-planner", tmp_path, port):
+            if frame["type"] == "approval":
+                asked.append(frame["request"])
+                self._answer_after(port, "approved", 0.05)
+            elif frame["type"] == "event":
+                events.append(frame["event"])
+        key = asked[0]["canonical_key"]
+        assert len(key) == 64
+        proposed = [
+            e for e in events if e["kind"] == "decision-proposed" and e["tool"] == "notify_planner"
+        ]
+        assert proposed, "the gated call must appear in the log"
+        assert key[:12] in proposed[0]["detail"]
+
+    def test_the_arguments_are_not_written_to_the_log(self, tmp_path) -> None:
+        # Tool arguments carry whatever the caller put in them and the record
+        # spine is retention-governed (AD-19). The hash goes in the log; the
+        # values go to the person deciding and no further.
+        port = LiveApprovalPort(timeout_seconds=10)
+        events = []
+        for frame in self._live("message-the-planner", tmp_path, port):
+            if frame["type"] == "approval":
+                self._answer_after(port, "approved", 0.05)
+            elif frame["type"] == "event":
+                events.append(frame["event"])
+        blob = json.dumps(events)
+        assert "notify_planner" in blob
+        assert "please review" not in blob
 
     def test_answering_nothing_elapses_the_window(self, tmp_path) -> None:
         port = LiveApprovalPort(timeout_seconds=1)

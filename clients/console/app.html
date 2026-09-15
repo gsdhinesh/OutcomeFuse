@@ -111,9 +111,21 @@ padding:.07rem 0 .07rem 2.2rem;font-size:.76rem}
 @keyframes in{from{opacity:0;transform:translateX(-5px)}to{opacity:1}}
 .ask{margin:.5rem 0 .7rem;padding:.8rem .95rem;background:#1b1508;border:1px solid #6b5220;
 border-left:3px solid #e0af68;border-radius:6px}
-.ask h3{margin-bottom:.3rem;font-size:.9rem;color:#e0af68}
+.ask h3{margin-bottom:.3rem;font-size:.95rem;color:#e0af68}
 .ask p{margin:0 0 .4rem;color:#c9b489;font-size:.8rem}
+.ask p.why{margin-top:.6rem;color:#8b93a1;font-size:.76rem}
+.ask p.found{margin:.65rem 0 .3rem}
 .ask code{color:#fff}
+.callbox{background:#0f1115;border:1px solid #6b5220;border-radius:5px;padding:.6rem .75rem}
+.calltool{font-size:.9rem;margin-bottom:.35rem}
+.calltool code{color:#e0af68;font-weight:600}
+.args{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.2rem .8rem;font-size:.8rem}
+.args dt{color:#8b93a1;font-family:ui-monospace,Consolas,monospace;font-size:.75rem}
+.args dd{margin:0;color:#fff}
+.args dd.none{grid-column:1/-1;color:#6b7280;font-style:italic}
+.gathered{display:flex;gap:.35rem;flex-wrap:wrap}
+.got{font-size:.72rem;color:#9ece6a;border:1px solid #2f6b47;border-radius:3px;
+padding:.1rem .4rem;font-family:ui-monospace,Consolas,monospace}
 .ask .row{display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap}
 .ask .yes{background:#5dd98c}.ask .no{background:#ff8391}
 .ask .clock{color:#8b93a1;font-size:.74rem;margin-top:.45rem}
@@ -348,7 +360,7 @@ function reset(arms) {
       </div>
       <div class="tree"><div class="empty">waiting\u2026</div></div>`;
     el("lanes").appendChild(node);
-    lanes[arm] = { node, tree: node.querySelector(".tree"), current: null,
+    lanes[arm] = { node, tree: node.querySelector(".tree"), current: null, observed: [],
                    events: 0, tools: 0, tokens: 0, withheld: 0, errs: 0, started: false };
   }
 }
@@ -372,7 +384,10 @@ function draw(arm, e) {
   set(lane, ".s-ev", ++lane.events);
   if (e.tokens) { lane.tokens += e.tokens; set(lane, ".s-tok", lane.tokens.toLocaleString()); }
   const failed = (e.detail || "").startsWith("tool error");
-  if (e.kind === "outcome-observed" && e.tool && !failed) set(lane, ".s-tools", ++lane.tools);
+  if (e.kind === "outcome-observed" && e.tool && !failed) {
+    set(lane, ".s-tools", ++lane.tools);
+    if (!lane.observed.includes(e.tool)) lane.observed.push(e.tool);
+  }
   if (failed) set(lane, ".s-err", ++lane.errs);
   if (e.gate_verdict) {
     const g = lane.node.querySelector(".s-gate");
@@ -462,13 +477,50 @@ function ask(arm, req) {
   const box = document.createElement("div");
   box.className = "ask"; box.id = "ask";
   box.innerHTML = `
-    <h3>A human has to authorise this</h3>
-    <p>Stopped at <code class="t"></code>, waiting on the driver's own thread. The tool
-       has <b>not</b> been invoked. Triggered by <code class="c"></code>.</p>
+    <h3>Authorise this?</h3>
+    <p class="doing">The run is stopped on the driver's own thread and the tool has
+       <b>not</b> been invoked. This is what it is asking to do:</p>
+    <div class="callbox">
+      <div class="calltool"><code class="t"></code></div>
+      <dl class="args"></dl>
+    </div>
+    <p class="found">What it gathered first:</p>
+    <div class="gathered"></div>
+    <p class="why">Gated by <code class="c"></code>. The log will record this call as
+       <code class="k"></code> \u2014 the hash the arguments above must match.</p>
     <div class="row"><button class="yes">Approve</button><button class="no">Refuse</button></div>
     <div class="clock"></div>`;
   box.querySelector(".t").textContent = req.tool;
   box.querySelector(".c").textContent = req.clause;
+  box.querySelector(".k").textContent = (req.canonical_key || "").slice(0, 16) + "\u2026";
+
+  const args = box.querySelector(".args");
+  const entries = Object.entries(req.arguments || {});
+  if (!entries.length) {
+    args.innerHTML = `<dd class="none">no arguments</dd>`;
+  } else {
+    for (const [k, v] of entries) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd");
+      dd.textContent = typeof v === "string" ? v : JSON.stringify(v);
+      args.append(dt, dd);
+    }
+  }
+
+  // Only what this lane has already streamed, so the card cannot claim evidence
+  // the log does not contain.
+  const gathered = box.querySelector(".gathered");
+  if (lane.observed.length) {
+    for (const t of lane.observed) {
+      const row = document.createElement("span");
+      row.className = "got"; row.textContent = t;
+      gathered.appendChild(row);
+    }
+  } else {
+    box.querySelector(".found").remove();
+    gathered.remove();
+  }
+
   box.querySelector(".yes").onclick = () => answer("approved", "you approved it");
   box.querySelector(".no").onclick = () => answer("denied", "you refused it");
   lane.tree.appendChild(box);
@@ -500,7 +552,9 @@ function settle(said) {
   box.querySelector("h3").textContent = said;
   box.querySelector(".row").remove();
   box.querySelector(".clock").remove();
-  box.querySelector("p").textContent =
+  // The call stays on screen. What you authorised is the thing worth still
+  // being able to read once the buttons are gone.
+  box.querySelector(".doing").textContent =
     "What the governor did with that answer is the next thing in the tree.";
 }
 

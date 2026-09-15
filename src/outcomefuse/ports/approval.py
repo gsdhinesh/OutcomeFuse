@@ -22,7 +22,8 @@ the run's terminal reason and what the caller receives.
 
 from __future__ import annotations
 
-from typing import Literal, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -30,6 +31,20 @@ Decision = Literal["approved", "denied", "no-response", "channel-unavailable"]
 
 
 class ApprovalRequest(BaseModel):
+    """What a person is being asked to authorise.
+
+    `arguments` carries the call itself, because a gate that names a tool and
+    withholds what it will do is not a gate a person can answer. Approving
+    `notify_planner` without seeing the message is a signature on a blank page.
+
+    They are **not** written to the decision log. Tool arguments in a real
+    deployment carry whatever the caller put in them, and the record spine is
+    retention-governed (AD-19). The log keeps `canonical_key`, which is a hash
+    over the whole call — so anyone holding the arguments can prove they are the
+    ones that were approved, and anyone who should not hold them still cannot
+    read them out of the record.
+    """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     run_id: str = Field(min_length=1)
@@ -37,6 +52,7 @@ class ApprovalRequest(BaseModel):
     tool: str = Field(min_length=1)
     clause: str = Field(min_length=1)
     timeout_seconds: int = Field(gt=0)
+    arguments: Mapping[str, Any] = Field(default_factory=dict)
 
 
 class ApprovalOutcome(BaseModel):

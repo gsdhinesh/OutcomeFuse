@@ -22,7 +22,8 @@ import queue
 from collections.abc import Callable
 from typing import Any
 
-from outcomefuse.ports import ApprovalOutcome, ApprovalRequest, Decision
+from outcomefuse.ports import ApprovalOutcome, ApprovalRequest, Decision, ToolCall
+from outcomefuse.runtime.tool_governor import canonical_key
 
 #: Set by the stream so the request reaches the viewer. Until it is, an approval
 #: would block on a question nobody was ever asked.
@@ -71,4 +72,16 @@ class LiveApprovalPort:
             "tool": request.tool,
             "clause": request.clause,
             "timeout_seconds": self.timeout_seconds,
+            # What is actually being authorised. A gate that names a tool and
+            # withholds the call is a signature on a blank page.
+            "arguments": dict(request.arguments),
+            # The log records this hash and not the arguments, so it is what a
+            # reader afterwards can check the approved call against.
+            "canonical_key": canonical_key(
+                ToolCall(
+                    tool=request.tool,
+                    arguments=dict(request.arguments),
+                    step_id=request.step_id,
+                )
+            ),
         }

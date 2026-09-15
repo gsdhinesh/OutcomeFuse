@@ -167,6 +167,7 @@ class ToolGovernor:
                 tool=call.tool,
                 clause=clause,
                 timeout_seconds=self._timeout,
+                arguments=call.arguments,
             )
         )
         if outcome.decision == "approved":
