@@ -17,6 +17,7 @@ import json
 import queue
 import threading
 import time
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -97,6 +98,10 @@ def play(
     """
     work = work_module.by_workload(job.workload)
     situation = scenarios.by_key(job.situation)
+    # Every play is its own run, with its own id, seal and database. Clicking a
+    # card twice used to write both to one file, and the second could not open
+    # it while the first still held it.
+    token = uuid.uuid4().hex[:8]
     channel: queue.Queue[Any] = queue.Queue()
     finished: dict[str, Any] = {}
 
@@ -116,6 +121,7 @@ def play(
                 case_id=case_id,
                 sink=lambda event, a=arm: channel.put(("event", a, as_json(event))),
                 approval=approval,
+                token=token,
             )
             finished[arm] = summarise(run, arm)
         except Exception as exc:  # noqa: BLE001 - reported to the viewer, never swallowed
@@ -124,7 +130,8 @@ def play(
             channel.put(("end", arm, None))
 
     workers = [
-        threading.Thread(target=worker, args=(arm,), name=f"{job.key}-{arm}", daemon=True)
+        threading.Thread(target=worker, args=(arm,), name=f"{job.key}-{token}-{arm}",
+                         daemon=True)
         for arm in arms
     ]
     for thread in workers:

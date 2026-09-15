@@ -535,6 +535,83 @@ class TestTheComparisonLogic:
         assert "tokens 100 -> 150 (+50%)" in delta.material(on, off)
 
 
+class TestRunningTheSameJobTwice:
+    """Clicking a card twice used to collide on one database file.
+
+    Both runs took the id `<case>-<workload>-<situation>`, so both wrote to one
+    path. `_store` unlinks before opening, and Windows refuses to unlink a file
+    another thread still holds — so the second run died with `WinError 32` and
+    the lane showed "this arm threw". Every play now gets its own id.
+    """
+
+    def test_two_plays_of_one_job_get_different_ids_and_both_seal(self, tmp_path) -> None:
+        _events, first = _play("ordinary-run", tmp_path)
+        _events, second = _play("ordinary-run", tmp_path)
+        assert first["run_id"] != second["run_id"]
+        assert first["seal"] != second["seal"]
+        assert first["verified"] and second["verified"]
+
+    def test_the_id_still_says_what_the_run_was(self, tmp_path) -> None:
+        # Unique, but not anonymous: the case, the work and the mechanism stay
+        # legible in the id the verdict panel shows.
+        job = jobs.by_key("same-file-again")
+        _events, summary = _play(job.key, tmp_path)
+        assert summary["run_id"].startswith(f"{job.case_id}-{job.workload}-{job.situation}")
+
+    def test_both_arms_of_one_play_share_the_token(self, tmp_path) -> None:
+        _frames, by_arm, _last = _both("ordinary-run", tmp_path)
+        governed = by_arm["governed"]["run_id"]
+        baseline = by_arm["baseline"]["run_id"]
+        # The baseline is the governed id plus `-off`, so a pair is readable as a
+        # pair rather than as two unrelated runs that happen to share a case.
+        assert baseline == f"{governed}-off"
+
+    def test_a_reused_id_says_what_went_wrong(self, tmp_path) -> None:
+        # The bare mechanism, without the console. Refused in the composition
+        # rather than left to the filesystem: Windows would raise WinError 32
+        # and POSIX would silently delete the first run's log, so this is the
+        # same failure on both.
+        doing = work_module.by_workload("supply-chain")
+        subject = compose.cases("supply-chain")[0]
+        held, _path = compose._store(tmp_path, f"{subject.case_id}-open")
+        try:
+            with pytest.raises(RuntimeError, match="already in flight"):
+                compose.governed(
+                    subject,
+                    turns=work_module.correct(
+                        doing, compose.key_for(subject.case_id, "supply-chain"), subject
+                    ),
+                    runs_dir=tmp_path,
+                    tag="open",
+                )
+        finally:
+            held.close()
+            compose._release(f"{subject.case_id}-open")
+
+    def test_the_id_is_free_again_once_the_run_closes(self, tmp_path) -> None:
+        # Or the second run of a one-shot caller, like the feature report, would
+        # be refused for a run that had already finished.
+        doing = work_module.by_workload("doc-research")
+        subject = compose.cases("doc-research")[0]
+        spec = compose.contract("doc-research")
+        turns = work_module.correct(
+            doing, compose.key_for(subject.case_id, "doc-research"), subject
+        )
+        for _ in range(2):
+            run = compose.governed(
+                subject, turns=turns, runs_dir=tmp_path, spec=spec, tag="twice"
+            )
+            assert run.verified
+        assert compose._LIVE == set()
+
+    def test_a_job_run_twice_in_a_row_never_reports_a_crashed_arm(self, tmp_path) -> None:
+        # The symptom as the viewer met it: the second lane saying "this arm
+        # threw" where the first had been fine.
+        for _ in range(2):
+            _frames, _by_arm, last = _both("same-file-again", tmp_path)
+            assert last["crashed"] == []
+
+
 class TestTheTaskIsTheJobs:
     """A job names one frozen case and runs it. Nothing else is selectable."""
 

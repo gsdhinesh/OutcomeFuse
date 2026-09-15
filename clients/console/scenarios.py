@@ -182,12 +182,19 @@ def run(
     case_id: str,
     sink: Any = None,
     approval: Any = None,
+    token: str = "",
 ) -> compose.Run:
     """One situation, on one work, on one arm.
 
     Both arms get the same agent, the same contract and the same tools, built
     from one definition — so nothing here can flatter the governor without
     flattering its control identically.
+
+    `token` makes the run id unique. Two runs of the same job are two runs with
+    two seals, and sharing an id would also have them share a database file —
+    which on Windows means the second one cannot open it while the first still
+    holds it. Callers that run a job once, like the feature report, leave it
+    empty and keep the readable deterministic id.
     """
     subject = compose.case(case_id, work.workload)
     key = compose.key_for(case_id, work.workload)
@@ -197,7 +204,7 @@ def run(
         if situation.mutate
         else compose.contract(work.workload)
     )
-    tag = f"{work.workload}-{situation.key}"
+    tag = f"{work.workload}-{situation.key}" + (f"-{token}" if token else "")
 
     if arm == BASELINE:
         # FR52: the baseline holds no Driver at all, so there is no ledger, no

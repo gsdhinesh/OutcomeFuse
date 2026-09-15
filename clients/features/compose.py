@@ -18,6 +18,7 @@ its calibration cases, its derived answer keys, its corpus. Nothing under
 from __future__ import annotations
 
 import sqlite3
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -208,12 +209,42 @@ class TeeStore(RecordStore):
         return digest
 
 
+#: Run ids with a log currently open. A run id names one run, and two runs
+#: sharing one would share a database file: on Windows the second cannot open it
+#: while the first holds it, and on POSIX the unlink below silently deletes the
+#: first run's log out from under it. The second is the worse failure because
+#: nothing reports it, so both are refused here rather than left to the
+#: filesystem to notice or not.
+_LIVE: set[str] = set()
+_LIVE_LOCK = threading.Lock()
+
+
+def _claim(run_id: str) -> None:
+    with _LIVE_LOCK:
+        if run_id in _LIVE:
+            raise RuntimeError(
+                f"run id {run_id!r} is already in flight: its log is still open. "
+                "Two runs are two runs \u2014 give the second one its own id."
+            )
+        _LIVE.add(run_id)
+
+
+def _release(run_id: str) -> None:
+    with _LIVE_LOCK:
+        _LIVE.discard(run_id)
+
+
 def _store(runs_dir: Path, run_id: str, sink: Sink | None = None) -> tuple[RecordStore, Path]:
     runs_dir.mkdir(parents=True, exist_ok=True)
+    _claim(run_id)
     path = runs_dir / f"{run_id}.db"
-    path.unlink(missing_ok=True)
-    store = TeeStore(path, sink=sink) if sink is not None else RecordStore(path)
-    return store.open(), path
+    try:
+        path.unlink(missing_ok=True)
+        store = TeeStore(path, sink=sink) if sink is not None else RecordStore(path)
+        return store.open(), path
+    except Exception:
+        _release(run_id)
+        raise
 
 
 def governed(
@@ -266,6 +297,7 @@ def governed(
         terminated, quality = driver.terminated, driver.quality_state
     finally:
         store.close()
+        _release(run_id)
 
     events, seal, verified = _read_back(path, run_id)
     return Run(
@@ -329,6 +361,7 @@ def ungoverned(
         quality = recorder.verdict.verdict if recorder.verdict else "not-evaluated"
     finally:
         store.close()
+        _release(run_id)
 
     events, seal, verified = _read_back(path, run_id)
     return Run(
