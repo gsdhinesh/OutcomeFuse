@@ -688,8 +688,13 @@ function settle(said) {
 function headline(a) {
   if (a.insufficient_evidence) return "not enough evidence to say";
   if (a.result_value !== undefined) {
-    return a.units && a.units !== "count"
+    const figure = a.units && a.units !== "count"
       ? `${a.result_value} ${a.units}` : String(a.result_value);
+    // The prompt asks for the figure *and* what it was computed over, and
+    // `row-count-matches-key` checks the second against the key. On a count
+    // they match; on a sum they do not, which is when it earns its place.
+    return a.row_count === undefined
+      ? figure : `${figure}, over ${a.row_count} rows`;
   }
   if (a.exception_type) return `${a.exception_type}, recommend ${a.recommended_action}`;
   if (a.root_cause_file) {
