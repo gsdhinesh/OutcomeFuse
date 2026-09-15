@@ -29,3 +29,12 @@ doc/
 runs/**/*.writer-lock
 runs/**/*.db-wal
 runs/**/*.db-shm
+
+# The console's own output is the exception, and only because nothing cites it.
+# These are made by clicking a card or running compare.py, regenerate in seconds,
+# and appear in no submission, card or disclosure. runs/features IS published,
+# because submission/outcomefuse-features.html quotes its seals.
+runs/console/
+runs/compare/
+runs/compare-jobs/
+runs/gallery/

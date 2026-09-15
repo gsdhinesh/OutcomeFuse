@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>OutcomeFuse — feature report</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:2rem;background:#0f1115;color:#d7dae0;
+font:15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:1.7rem;margin:0 0 .3rem}
+h2{font-size:1.15rem;margin:2.4rem 0 .8rem;color:#7aa2f7;
+border-bottom:1px solid #232833;padding-bottom:.4rem}
+.sub{color:#8b93a1;font-size:.9rem;max-width:62rem;margin-bottom:1.6rem}
+.sub b{color:#d7dae0}
+.tally{display:flex;gap:1.6rem;flex-wrap:wrap;margin:1.2rem 0 0;padding:1rem 1.2rem;
+background:#151821;border:1px solid #232833;border-radius:6px;max-width:62rem}
+.tally div{font-size:.85rem;color:#8b93a1}
+.tally b{display:block;font-size:1.5rem;color:#d7dae0}
+.f{background:#151821;border:1px solid #232833;border-radius:6px;margin:0 0 1rem;
+max-width:62rem;overflow:hidden}
+.f.gap{border-left:3px solid #e0af68}
+.f.bad{border-left:3px solid #ff8391}
+.f.ok{border-left:3px solid #2c3340}
+.fh{padding:.9rem 1.2rem;border-bottom:1px solid #232833;display:flex;
+justify-content:space-between;gap:1rem;align-items:baseline}
+.fh h3{margin:0;font-size:1rem;font-weight:600}
+.badge{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.badge.ok{color:#5dd98c}.badge.gap{color:#e0af68}.badge.bad{color:#ff8391}
+.claim{padding:.8rem 1.2rem;color:#a7aebb;font-size:.9rem;border-bottom:1px solid #1b1f27}
+.ev{padding:.4rem 1.2rem .9rem}
+.line{display:flex;justify-content:space-between;gap:1.5rem;padding:.3rem 0;
+border-bottom:1px solid #1b1f27;font-size:.88rem}
+.line span:first-child{color:#8b93a1;flex:none;min-width:16rem}
+.line span:last-child{text-align:right;font-family:ui-monospace,Consolas,monospace;
+font-size:.85rem}
+.note{padding:.7rem 1.2rem;background:#1a1712;color:#c9b489;font-size:.85rem}
+.lvl{color:#5a6270;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.verdict{max-width:62rem;padding:1.1rem 1.3rem;background:#1a1712;border-radius:6px;
+color:#e0af68;font-size:1rem;margin:0 0 1.2rem}
+.foot{margin-top:2.5rem;color:#8b93a1;font-size:.85rem;max-width:62rem}
+code{color:#d7dae0}
+</style>
+<h1>OutcomeFuse, feature by feature</h1>
+<div class="sub">
+Driven against the <b>frozen supply-chain workload</b> — its contract, its calibration
+cases, its derived answer keys, its corpus — through the library's own loop
+(<code>harness.runner.run_case</code>), not a re-implementation. One use case, because
+features here are driven by the contract and the scenario rather than by the domain:
+a second workload would add surface and no coverage.
+<br><br>
+Every status below is <b>computed from a sealed log or a returned value</b>, never
+asserted. A mechanism that stopped working reports <b>NOT DEMONSTRATED</b> instead of
+continuing to be advertised. The model is scripted, so this shows the mechanisms
+<b>work</b> — for how often they <b>matter</b>, read the measured section at the end,
+which counts the recorded gpt-5 campaign and disagrees.
+</div>
+
+<div class="tally">
+  <div><b>20</b>demonstrated</div>
+  <div><b>1</b>gap</div>
+  <div><b>1</b>defect</div>
+  <div><b>0</b>not demonstrated</div>
+</div>
+
+<h2>Outcome Contract</h2>
+<div class="f ok">
+  <div class="fh"><h3>The contract is executable, not prose </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">Every mandatory criterion carries a registered verifier, so the quality floor is something a machine can decide rather than something a reviewer asserts.</div>
+  <div class="ev"><div class="line"><span>contract</span><span>ofc-supply-chain v1, 2b80766bdb22b31f…</span></div><div class="line"><span>mandatory criteria</span><span>6</span></div><div class="line"><span>without a verifier</span><span>0</span></div><div class="line"><span>optional / advisory</span><span>1 / 2</span></div><div class="line"><span>registered verifier types</span><span>7</span></div><div class="line"><span>an incomplete contract is refused</span><span>yes</span></div></div>
+  
+</div><h2>Quality gate</h2>
+<div class="f ok">
+  <div class="fh"><h3>A verdict with its per-criterion breakdown </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">The gate returns a binary verdict, a qualifier naming how it was reached, and one result per criterion (FR94) — not a score.</div>
+  <div class="ev"><div class="line"><span>verdict</span><span>pass</span></div><div class="line"><span>qualifier</span><span>constraint-backed</span></div><div class="line"><span>mandatory evaluated</span><span>6</span></div><div class="line"><span>exception-type-matches-key</span><span>met (reference-backed)</span></div><div class="line"><span>root-cause-matches-key</span><span>met (reference-backed)</span></div><div class="line"><span>impacted-orders-identified</span><span>met (constraint-backed)</span></div><div class="line"><span>recommended-action-matches-key</span><span>met (reference-backed)</span></div><div class="line"><span>policy-refs-resolve</span><span>met (reference-backed)</span></div><div class="line"><span>delay-estimate-bounded</span><span>met (constraint-backed)</span></div><div class="line"><span>alternate-considered</span><span>NOT MET (constraint-backed)</span></div></div>
+  
+</div>
+<div class="f ok">
+  <div class="fh"><h3>Reference-backed and constraint-backed are distinguished </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">A criterion checked against a known-correct value is not the same claim as one checked against a permissible range, and the qualifier carries which.</div>
+  <div class="ev"><div class="line"><span>reference-backed</span><span>4</span></div><div class="line"><span>constraint-backed</span><span>2</span></div><div class="line"><span>run qualifier</span><span>constraint-backed</span></div><div class="line"><span>why it matters</span><span>the aggregate is the weaker of the two, so one unbacked criterion downgrades the whole verdict</span></div></div>
+  
+</div>
+<div class="f ok">
+  <div class="fh"><h3>A wrong answer fails, and the log names which criterion </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">The floor is a floor. A deliverable that is well-formed but wrong does not pass, and the unmet criteria are recorded rather than summarised.</div>
+  <div class="ev"><div class="line"><span>verdict</span><span>fail</span></div><div class="line"><span>unmet</span><span>exception-type-matches-key</span></div><div class="line"><span>still well-formed</span><span>yes — every field present and correctly typed</span></div></div>
+  
+</div><h2>Citations</h2>
+<div class="f ok">
+  <div class="fh"><h3>A citation that does not resolve is refused </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">The set of citable ids is built by the driver, hashed and appended before any verifier runs (AD-7), so an invented clause cannot pass and two implementations cannot disagree about what was citable.</div>
+  <div class="ev"><div class="line"><span>citable clauses</span><span>8</span></div><div class="line"><span>index digest bound at seq</span><span>1</span></div><div class="line"><span>cited</span><span>SP-99.9</span></div><div class="line"><span>verdict</span><span>fail</span></div><div class="line"><span>unmet</span><span>policy-refs-resolve</span></div></div>
+  
+</div><h2>Tool governor</h2>
+<div class="f ok">
+  <div class="fh"><h3>A repeated call is served from the run&#x27;s cache, never re-executed <span class="lvl">mechanism-level</span></h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">Identical calls are keyed on a canonical hash of tool and arguments (FR29), so `1` and `1.0` cannot produce two keys. The cache is run-scoped and process-local (AD-14), which discharges tenant isolation by construction.</div>
+  <div class="ev"><div class="line"><span>first call</span><span>proceed (justified)</span></div><div class="line"><span>same call again</span><span>proceed-with-substitution (cache-hit)</span></div><div class="line"><span>canonical key</span><span>eabcfa114835be09…</span></div><div class="line"><span>enrichment once the floor is met</span><span>deny (optional-satisfied)</span></div><div class="line"><span>cache scope</span><span>this run, this process, cleared at the end</span></div></div>
+  <div class="note">Mechanism-level. How often a real model repeats a call is in the measured section, and the answer is: almost never.</div>
+</div>
+<div class="f ok">
+  <div class="fh"><h3>No optimisation may suppress a tool that acts on the world <span class="lvl">mechanism-level</span></h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">FR33: caching and deduplication are optimisations, and neither applies to a tool declared side-effecting or non-deterministic. The declaration is consulted before any optimisation is considered, so it cannot be forgotten.</div>
+  <div class="ev"><div class="line"><span>order_lookup optimisable</span><span>True</span></div><div class="line"><span>notify_planner optimisable</span><span>False</span></div><div class="line"><span>notify_planner repeated</span><span>pause-for-approval (approval-required)</span></div><div class="line"><span>the rule</span><span>refusing to cache a payment is correct; refusing to stop an unapproved one would not be</span></div></div>
+  
+</div><h2>Human approval</h2>
+<div class="f ok">
+  <div class="fh"><h3>Four things a human channel can do, and four different endings </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">Approval outranks every automated decision. A denial stops the call; a timeout follows the contract&#x27;s `on_timeout`; an unreachable channel is fail-closed under FR89, because a gate you cannot consult is not a gate you may skip.</div>
+  <div class="ev"><div class="line"><span>gated tool</span><span>notify_planner (declared side-effecting)</span></div><div class="line"><span>contract on_timeout</span><span>request-human</span></div><div class="line"><span>approved</span><span>message sent: yes; terminal: stop-sufficient</span></div><div class="line"><span>denied</span><span>message sent: no; terminal: stop-sufficient</span></div><div class="line"><span>no-response</span><span>message sent: no; terminal: approval-timeout</span></div><div class="line"><span>channel-unavailable</span><span>message sent: no; terminal: fail-closed</span></div></div>
+  
+</div>
+<div class="f gap">
+  <div class="fh"><h3>An approval condition on a criterion is accepted and never evaluated <span class="lvl">mechanism-level</span></h3>
+    <span class="badge gap">GAP</span></div>
+  <div class="claim">The frozen contract gates `recommended_action` on two values. `ToolGovernor.requires_approval` matches only `condition.tool`, so no code path reads a criterion-scoped condition. It is validated at load and dead at runtime.</div>
+  <div class="ev"><div class="line"><span>declared in the frozen contract</span><span>1</span></div><div class="line"><span>condition</span><span>criterion=recommended_action when=value_in value=[&#x27;escalate-to-buyer&#x27;, &#x27;resource-alternate-supplier&#x27;]</span></div><div class="line"><span>requires_approval matches on</span><span>condition.tool only</span></div><div class="line"><span>an ungated tool returns</span><span>None</span></div><div class="line"><span>code path that evaluates a criterion</span><span>none</span></div><div class="line"><span>what a reader would assume</span><span>that escalate-to-buyer needs a human</span></div><div class="line"><span>what happens</span><span>nothing</span></div></div>
+  <div class="note">Contract validation is not execution. A clause that loads is not a clause that runs, and this is the one place in the workload where the two differ.</div>
+</div><h2>Budget</h2>
+<div class="f ok">
+  <div class="fh"><h3>The run stops at the ceiling instead of crossing it </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">Affordability is a query asked *before* the decision (FR92), so running out reaches the policy as a decision input and halts the run — rather than arriving as a refused reservation, which is a system fault and a different terminal reason entirely.</div>
+  <div class="ev"><div class="line"><span>ceiling</span><span>2,000 tokens (a variant, not the frozen 70,000)</span></div><div class="line"><span>settled</span><span>1,611 tokens</span></div><div class="line"><span>terminal</span><span>halt-exhausted</span></div><div class="line"><span>turns taken</span><span>4</span></div><div class="line"><span>never exceeded</span><span>True</span></div></div>
+  
+</div>
+<div class="f ok">
+  <div class="fh"><h3>A run can always afford to check its own work <span class="lvl">mechanism-level</span></h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">The verification reserve is carved out of the ceiling and hidden from ordinary steps. An escalation that ate it would buy a better answer and lose the ability to tell whether it was better.</div>
+  <div class="ev"><div class="line"><span>ceiling</span><span>70,000 tokens</span></div><div class="line"><span>reserve</span><span>10,000 tokens (declared in the contract)</span></div><div class="line"><span>an ordinary step may spend</span><span>60,000</span></div><div class="line"><span>verification may spend</span><span>70,000</span></div><div class="line"><span>sizing</span><span>declared — a derived reserve would be 15% and say so</span></div></div>
+  
+</div><h2>Model routing</h2>
+<div class="f ok">
+  <div class="fh"><h3>A refused answer is retried on a stronger model </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">FR35: the contract directs `retry-then-escalate`, so a failed gate moves the run up the eligible list rather than ending it. The escalation continues the conversation — the evidence already gathered is inherited, the reasoning that failed on it is not.</div>
+  <div class="ev"><div class="line"><span>eligible models</span><span>gpt-5-mini → gpt-5</span></div><div class="line"><span>escalations</span><span>1</span></div><div class="line"><span>moved</span><span>gpt-5-mini → gpt-5</span></div><div class="line"><span>because</span><span>exception-type-matches-key</span></div><div class="line"><span>final verdict</span><span>pass</span></div><div class="line"><span>terminal</span><span>stop-sufficient</span></div></div>
+  
+</div><h2>Decision ladder</h2>
+<div class="f ok">
+  <div class="fh"><h3>Every ending is a named terminal reason, chosen by one table </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">FR103 is data, not control flow. The same nine-row ladder resolves a sufficiency stop, an exhausted budget, a failed gate and a broken component, so no path can invent its own ending.</div>
+  <div class="ev"><div class="line"><span>floor met</span><span>stop-sufficient — the agent is stopped, having succeeded</span></div><div class="line"><span>gate fails, contract directs partial</span><span>returned-partial — what it had is handed back</span></div><div class="line"><span>gate fails, contract directs human</span><span>referred-human — a person now owns it (variant contract)</span></div></div>
+  
+</div><h2>Loop fuse</h2>
+<div class="f ok">
+  <div class="fh"><h3>An agent going round in circles is stopped </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">FR27/FR28: the host says what changed and the driver decides what it means. A repeated conversational state halts the run — deliberately *not* as budget exhaustion, because filing the product&#x27;s central cost event as a stall would misreport both.</div>
+  <div class="ev"><div class="line"><span>agent</span><span>the same lookup, six turns running (authored to stall)</span></div><div class="line"><span>fuse reason</span><span>never fired</span></div><div class="line"><span>terminal</span><span>halt-no-progress</span></div><div class="line"><span>turns before the stop</span><span>8</span></div></div>
+  <div class="note">Authored. The measured campaign never produced a stall — see the measured section for how often this fires in life.</div>
+</div><h2>The record</h2>
+<div class="f ok">
+  <div class="fh"><h3>Append-only, hash-chained, and sealed </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">Every decision is appended before it takes effect (FR5), each row carries the hash of the one before it, and the run&#x27;s seal is the last link. A log that could be edited afterwards would be the one artefact every other claim rests on and the one nobody could check.</div>
+  <div class="ev"><div class="line"><span>events</span><span>27</span></div><div class="line"><span>first / last</span><span>run-manifest → run-closed</span></div><div class="line"><span>chain verified after the fact</span><span>True</span></div><div class="line"><span>seal</span><span>ec28c435e99901b14c8d48101c4d238d…</span></div><div class="line"><span>an UPDATE against a sealed run</span><span>refused by the database itself</span></div></div>
+  
+</div>
+<div class="f ok">
+  <div class="fh"><h3>The answer is kept where a reviewer can read it </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">AD-5b: the deliverable lives beside the log, not in it. The log carries a reference and a hash. Without this a run records that a gate passed and not what it passed, and the blind review that exists to contradict the gate has nothing to read.</div>
+  <div class="ev"><div class="line"><span>written to</span><span>evidence/sc-c-001-sidecar/deliverable.json</span></div><div class="line"><span>bytes</span><span>272</span></div><div class="line"><span>hash in the log</span><span>3fdadfa24df06216…</span></div><div class="line"><span>body in the log</span><span>no — a reference and a digest only</span></div></div>
+  
+</div>
+<div class="f ok">
+  <div class="fh"><h3>The tools keep their own record, and it agrees with the log </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">AD-15: enforcement is cooperative, so an adapter that executed a denied call while recording a clean pause would produce a plausible and entirely false audit trail. A decision record cannot detect the one failure it is the evidence for, so the probe is out of band.</div>
+  <div class="ev"><div class="line"><span>approval answered</span><span>denied</span></div><div class="line"><span>log says notify_planner ran</span><span>False</span></div><div class="line"><span>the tool port says it ran</span><span>False</span></div><div class="line"><span>the two agree</span><span>True</span></div></div>
+  
+</div><h2>Comparison</h2>
+<div class="f ok">
+  <div class="fh"><h3>The ungoverned arm is recorded and governs nothing </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">FR52: the baseline holds no Driver. A driver with its mechanisms switched off would still impose its ordering, its fail-closed paths and its bookkeeping on the arm that is supposed to show life without any of it. The recorder is measurement, not governance.</div>
+  <div class="ev"><div class="line"><span>policy actions in its log</span><span>0 — it decides nothing</span></div><div class="line"><span>tools executed</span><span>3 of 3 proposed</span></div><div class="line"><span>gate</span><span>pass — scored once, after the agent stopped</span></div><div class="line"><span>sealed</span><span>True</span></div></div>
+  
+</div><h2>Shadow mode</h2>
+<div class="f ok">
+  <div class="fh"><h3>What the governor would have done, applied to nothing </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">AD-11 makes shadow a separate driver, not a flag. It holds no ledger, returns no verdict and never reaches the approval port. A `shadow` flag would put a conditional in the fail-closed paths — the most safety-critical code, on the branch least exercised by tests.</div>
+  <div class="ev"><div class="line"><span>label</span><span>projected — never &#x27;realized&#x27; and not a field anyone can set</span></div><div class="line"><span>lanes in the log</span><span>counterfactual, observed</span></div><div class="line"><span>divergences</span><span>1</span></div><div class="line"><span>first divergence</span><span>s2: host proceed, governor would pause-for-approval</span></div><div class="line"><span>disclosure</span><span>projected: the paths diverge at seq 13, and the 0 decision(s) after it are inference rather than observation</span></div></div>
+  
+</div><h2>Failure posture</h2>
+<div class="f ok">
+  <div class="fh"><h3>Production traffic cannot be written to a run at all <span class="lvl">mechanism-level</span></h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">AD-21: one rule, called by both the manifest and the evidence store. A replay is admissible only if it names a synthetic origin, so FR106&#x27;s replayed workloads work and real customer data still cannot reach a log.</div>
+  <div class="ev"><div class="line"><span>synthetic</span><span>permitted</span></div><div class="line"><span>non-synthetic</span><span>REFUSED</span></div><div class="line"><span>replayed</span><span>REFUSED</span></div><div class="line"><span>replayed, replaying non-synthetic</span><span>REFUSED</span></div><div class="line"><span>replayed, replaying synthetic</span><span>permitted</span></div></div>
+  
+</div><h2>Honesty</h2>
+<div class="f ok">
+  <div class="fh"><h3>Known defects are registered, rendered, and cannot be dropped <span class="lvl">mechanism-level</span></h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">A submission refuses to validate unless every registered defect appears in its disclosures. Each carries a direction, and the ones marked `for` — the ones that flatter the result — are the ones to weigh hardest.</div>
+  <div class="ev"><div class="line"><span>registered defects</span><span>14</span></div><div class="line"><span>directions in use</span><span>against, neutral, unknown</span></div><div class="line"><span>flattering the result</span><span>0</span></div><div class="line"><span>one-pass-is-not-a-measurement</span><span>supply-chain was run twice over the identical frozen cases, the same contract, the same models and the same pr</span></div><div class="line"><span>sufficiency-stop-never-fires-early</span><span>The product&#x27;s central claim is stopping on sufficiency rather than on exhaustion</span></div><div class="line"><span>doc-research-iteration-cap</span><span>The doc-research contract allows 8 iterations</span></div><div class="line"><span>start-model-is-not-uniformly-better</span><span>The contracts start the governed arm on gpt-5-mini and escalate</span></div></div>
+  <div class="note">Four of them are shown; the submission renders all of them.</div>
+</div><h2>Failure posture</h2>
+<div class="f bad">
+  <div class="fh"><h3>A hallucinated tool name kills the governed run </h3>
+    <span class="badge bad">DEFECT</span></div>
+  <div class="claim">An agent naming a tool that does not exist is an agent error, like an unparseable deliverable — which the same driver correctly returns as a value. Instead `ToolGovernor` raises, `Driver.execute_step` catches it as a governing-component failure, and the run terminates fail-closed.</div>
+  <div class="ev"><div class="line"><span>governed terminal</span><span>fail-closed</span></div><div class="line"><span>governed answered</span><span>not-evaluated</span></div><div class="line"><span>ungoverned terminal</span><span>ran to the end</span></div><div class="line"><span>ungoverned answered</span><span>pass</span></div><div class="line"><span>consequence</span><span>on the commonest model mistake the governor is strictly worse than no governor</span></div></div>
+  <div class="note">Reported as a defect rather than a feature. The fix belongs in the library: an undeclared tool should come back as a denial the agent can read.</div>
+</div>
+
+<h2>Measured — what a real model actually did</h2>
+<div class="verdict">Under a real model, the tool governor&#x27;s cache, its denials, the loop fuse, the approval gate never fired at all across 38 runs and 66 tool calls. The scripted scenarios above show those mechanisms work; they say nothing about how often they are needed.</div>
+<div class="f ok"><div class="ev"><div class="line"><span>runs read</span><span>38 sealed supply-chain logs in runs/campaign</span></div><div class="line"><span>tool calls proposed</span><span>66</span></div><div class="line"><span>identical repeats</span><span>0 in 66 proposed calls</span></div><div class="line"><span>cache substitutions</span><span>0</span></div><div class="line"><span>calls the governor denied</span><span>0</span></div><div class="line"><span>approval pauses</span><span>0</span></div><div class="line"><span>loop-fuse halts</span><span>0</span></div><div class="line"><span>escalations</span><span>7</span></div><div class="line"><span>how runs ended</span><span>stop-sufficient x13, returned-partial x4, fail-closed x1</span></div><div class="line"><span>all four workloads</span><span>119 runs, 282 calls, 1 identical repeat(s), 1 substitution(s)</span></div><div class="line"><span>— from the proof card —</span><span>evaluation/supply-chain</span></div><div class="line"><span>cases</span><span>7</span></div><div class="line"><span>net token reduction</span><span>30.2%</span></div><div class="line"><span>net cost reduction</span><span>75.9%</span></div><div class="line"><span>attributed to</span><span>agent-stopped-unaided 100%</span></div><div class="line"><span>counter-metric breaches</span><span>escalation-rate</span></div><div class="line"><span>reportable</span><span>False</span></div></div></div>
+
+<div class="foot">
+Scenarios marked <b>mechanism-level</b> call a component directly rather than through a
+run. That is honest about what they prove: the component behaves as specified, under
+conditions the run did not have to produce.
+<br><br>
+Scenarios that misbehave — an agent that stalls, cites a clause that does not exist, or
+answers wrongly — are authored to do that. Detecting a stall requires one. They are
+stimuli for a code path, never samples of behaviour, and the measured section is where
+the frequencies live.
+<br><br>
+Budget exhaustion and the referred-to-human ending use <b>variant</b> contracts built in
+memory, because the frozen contract does not configure them. Each says so on its own row.
+The frozen contract itself is never edited.
+</div>
+</html>
