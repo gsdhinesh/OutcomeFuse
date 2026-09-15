@@ -294,6 +294,49 @@ class TestTheMatrixBehindIt:
         run = _run("happy", workload, tmp_path)
         assert run.quality_state == "pass", workload
 
+    @pytest.mark.parametrize("workload", WORKLOADS)
+    @pytest.mark.parametrize("key", [s.key for s in scenarios.SITUATIONS])
+    def test_both_arms_are_handed_the_same_agent_and_contract(
+        self, key, workload, tmp_path, monkeypatch
+    ) -> None:
+        """The property every number in the verdict panel rests on.
+
+        `scenarios.run` builds the turns before it branches on the arm, so both
+        get the same ones. If they ever diverged the comparison would be between
+        two different agents and every figure would be meaningless — and nothing
+        else here would notice, because both runs would still seal and verify.
+        """
+        doing = work_module.by_workload(workload)
+        situation = scenarios.by_key(key)
+        if not situation.applies(doing):
+            pytest.skip(f"{key} does not apply to {workload}")
+
+        handed: dict[str, tuple] = {}
+
+        def spy(arm, real):
+            def wrapped(subject, *, turns, spec=None, **kw):
+                handed[arm] = (turns, spec)
+                return real(subject, turns=turns, spec=spec, **kw)
+
+            return wrapped
+
+        monkeypatch.setattr(compose, "governed", spy("governed", compose.governed))
+        monkeypatch.setattr(compose, "ungoverned", spy("baseline", compose.ungoverned))
+        for arm in (scenarios.GOVERNED, scenarios.BASELINE):
+            scenarios.run(
+                situation,
+                doing,
+                arm=arm,
+                runs_dir=tmp_path,
+                case_id=compose.cases(workload)[0].case_id,
+                token=arm,
+            )
+
+        governed_turns, governed_spec = handed["governed"]
+        baseline_turns, baseline_spec = handed["baseline"]
+        assert governed_turns == baseline_turns, f"{workload}/{key}"
+        assert governed_spec.digest().sha256 == baseline_spec.digest().sha256
+
     @pytest.mark.parametrize("workload", ["supply-chain", "data-sql"])
     def test_a_gate_that_fires_fail_closes_with_nobody_listening(
         self, workload, tmp_path
