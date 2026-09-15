@@ -832,20 +832,42 @@ class TestTheHumanAtTheGate:
         assert proposed, "the gated call must appear in the log"
         assert key[:12] in proposed[0]["detail"]
 
+    def test_the_message_names_the_disposition_it_is_about_to_assert(
+        self, tmp_path
+    ) -> None:
+        # "please review" told the approver nothing. The danger of this tool is
+        # that it hands a planner a disposition the gate has not checked, so the
+        # message has to carry that disposition or there is nothing to weigh.
+        job = jobs.by_key("message-the-planner")
+        answer_key = compose.key_for(job.case_id, job.workload)
+        port = LiveApprovalPort(timeout_seconds=10)
+        asked: list[dict] = []
+        for frame in self._live(job.key, tmp_path, port):
+            if frame["type"] == "approval":
+                asked.append(frame["request"])
+                self._answer_after(port, "denied", 0.05)
+        message = asked[0]["arguments"]["message"]
+        po = compose.case(job.case_id, job.workload).prompt_context["po_id"]
+        assert str(po) in message, "the planner must know which order"
+        for field in ("exception_type", "root_cause_code", "recommended_action"):
+            assert answer_key[field] in message, field
+        assert "please review" not in message
+
     def test_the_arguments_are_not_written_to_the_log(self, tmp_path) -> None:
         # Tool arguments carry whatever the caller put in them and the record
         # spine is retention-governed (AD-19). The hash goes in the log; the
         # values go to the person deciding and no further.
         port = LiveApprovalPort(timeout_seconds=10)
-        events = []
+        events, asked = [], []
         for frame in self._live("message-the-planner", tmp_path, port):
             if frame["type"] == "approval":
+                asked.append(frame["request"])
                 self._answer_after(port, "approved", 0.05)
             elif frame["type"] == "event":
                 events.append(frame["event"])
         blob = json.dumps(events)
         assert "notify_planner" in blob
-        assert "please review" not in blob
+        assert asked[0]["arguments"]["message"] not in blob
 
     def test_answering_nothing_elapses_the_window(self, tmp_path) -> None:
         port = LiveApprovalPort(timeout_seconds=1)

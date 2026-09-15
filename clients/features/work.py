@@ -364,10 +364,30 @@ def always_wrong(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     return [*work.investigate(case), spoiled, spoiled, spoiled]
 
 
+def _planner_message(answer: dict[str, Any], case: Case) -> str:
+    """What the planner would actually receive, built from the same answer.
+
+    Not a placeholder. The whole danger of this tool is that it hands a person a
+    disposition the quality gate has not checked yet, and they replan around it —
+    so the message has to carry that disposition or the gate is guarding nothing
+    anyone can weigh.
+    """
+    po = case.prompt_context["po_id"]
+    if answer.get("insufficient_evidence"):
+        return f"PO {po}: cannot be classified from the available evidence. Please review."
+    return (
+        f"PO {po} is a {answer['exception_type']} caused by {answer['root_cause_code']}. "
+        f"Recommended disposition: {answer['recommended_action']}. Please replan around it."
+    )
+
+
 def acts_on_the_world(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     """Reaches the one tool that leaves the dataset, then answers."""
+    answer = body(work, key, case)
     reach = {
-        "notify_planner": lambda: call(8, "notify_planner", message="please review"),
+        "notify_planner": lambda: call(
+            8, "notify_planner", message=_planner_message(answer, case)
+        ),
         "sql_execute_write": lambda: call(
             8,
             "sql_execute_write",
@@ -378,7 +398,7 @@ def acts_on_the_world(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     return [
         *work.investigate(case),
         (reach(),),
-        _deliver(body(work, key, case)),
+        _deliver(answer),
     ]
 
 
