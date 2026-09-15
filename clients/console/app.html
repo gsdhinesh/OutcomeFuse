@@ -154,6 +154,13 @@ max-height:36%;overflow-y:auto;flex:none}
 .rec{color:#8b93a1;font-size:.8rem;margin:.2rem 0 .5rem}
 .grid{display:block;font-size:.78rem}
 .answers{display:flex;gap:1rem;flex-wrap:wrap;margin:.2rem 0 .8rem}
+.outcomes{margin:0 0 .6rem}
+.outcome{display:flex;gap:.7rem;align-items:baseline;padding:.22rem 0;font-size:.83rem}
+.outcome b{flex:none;width:7.2rem;font-size:.67rem;letter-spacing:.08em;
+text-transform:uppercase}
+.outcome.off b{color:#ff8391}
+.outcome.on b{color:#5dd98c}
+.outcome span{color:#d7dae0}
 .ans{flex:1 1 24rem;background:#0f1115;border:1px solid #232833;border-radius:6px;
 padding:.55rem .75rem}
 .ans.off{border-left:3px solid #ff8391}
@@ -675,6 +682,29 @@ function settle(said) {
 
 // ------------------------------------------------------------ the comparison
 
+// How one arm ended, in a sentence. Built only from the sealed summary: did it
+// hand anything over, did that survive the gate, did anything leave the dataset.
+// A deliverable existing is not the same as the run standing behind it, which is
+// why the gate verdict leads and not the presence of an answer.
+function resultLine(s) {
+  const end = ENDING[s.terminal];
+  const because = end ? " \u2014 " + end : "";
+  const acted = s.side_effects.length
+    ? "It acted on the world: " + s.side_effects.join("; ")
+    : "Nothing left the dataset.";
+  let head;
+  if (!s.answer) {
+    head = `It never handed anything over${because}.`;
+  } else if (s.quality === "pass") {
+    head = "It answered, and the answer met the quality floor.";
+  } else if (s.quality === "fail") {
+    head = `It answered, but the answer did not meet the quality floor${because}.`;
+  } else {
+    head = `It handed something over, but the gate could not be evaluated${because}.`;
+  }
+  return `${head} ${acted}`;
+}
+
 function verdict(msg) {
   const box = el("verdict");
   const v = msg.verdict || { compared: false, material: [], recorded: [] };
@@ -700,11 +730,32 @@ function verdict(msg) {
   const crashed = (msg.crashed || []).map(c =>
     `<p class="rec bad">The ${LANES[c.arm].title.toLowerCase()} arm threw rather than
      ending, so it has no log to compare against.</p>`).join("");
-  box.innerHTML = `<h3>${head}</h3>${list}${rec}${crashed}
+  box.innerHTML = `<h3>${head}</h3><div class="outcomes"></div>${list}${rec}${crashed}
     <div class="answers"></div><div class="grid"></div>
     <div class="note">Every figure was read back from the sealed log after the run closed,
     not from the objects that produced it. "Acted on the world" comes from the tool port's
     own out-of-band record (AD-15), not from the log's account of it.</div>`;
+
+  // What each run ended up doing, before any comparison of the two. On its own
+  // a table cell reading `approval-timeout` is not a result anyone can read.
+  const outcomes = box.querySelector(".outcomes");
+  for (const arm of ["baseline", "governed"]) {
+    const s = msg.summaries.find(x => x.arm === arm);
+    if (!s) continue;
+    const row = document.createElement("div");
+    row.className = "outcome " + LANES[arm].css;
+    row.innerHTML = `<b>${LANES[arm].title}</b><span></span>`;
+    row.querySelector("span").textContent = resultLine(s);
+    outcomes.appendChild(row);
+  }
+  for (const c of msg.crashed || []) {
+    const row = document.createElement("div");
+    row.className = "outcome " + LANES[c.arm].css;
+    row.innerHTML = `<b>${LANES[c.arm].title}</b><span></span>`;
+    row.querySelector("span").textContent =
+      "It threw instead of ending, so there is no log and nothing to verify.";
+    outcomes.appendChild(row);
+  }
 
   // What each arm actually answered, read back from the evidence sidecar. The
   // tree shows the machinery; without this the page never says whether the
