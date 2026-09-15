@@ -150,6 +150,11 @@ padding:.1rem .4rem;font-family:ui-monospace,Consolas,monospace}
 max-height:36%;overflow-y:auto;flex:none}
 .verdict h3{font-size:.94rem;color:#e0af68;margin-bottom:.45rem}
 .verdict.same h3{color:#8b93a1}
+.vd>summary{cursor:pointer;font-size:.94rem;color:#e0af68;font-weight:600;
+margin-bottom:.45rem;list-style-position:outside}
+.vd>summary:hover{color:#f0c58a}
+.verdict.same .vd>summary{color:#8b93a1}
+.verdict.same .vd>summary:hover{color:#b6bdc9}
 .verdict ul{margin:0 0 .5rem;padding-left:1.1rem;font-size:.85rem}
 .rec{color:#8b93a1;font-size:.8rem;margin:.2rem 0 .5rem}
 .grid{display:block;font-size:.78rem}
@@ -315,7 +320,7 @@ const LANES = {
 };
 
 const el = id => document.getElementById(id);
-let chosen = null, answered = null;
+let chosen = null, answered = null, verdictOpen = true;
 let source = null, session = null, ticking = null, lanes = {};
 
 el("speed").oninput = e => el("speedv").textContent = e.target.value + "ms";
@@ -767,11 +772,16 @@ function verdict(msg) {
   const crashed = (msg.crashed || []).map(c =>
     `<p class="rec bad">The ${LANES[c.arm].title.toLowerCase()} arm threw rather than
      ending, so it has no log to compare against.</p>`).join("");
-  box.innerHTML = `<h3>${head}</h3><div class="outcomes"></div>${list}${rec}${crashed}
+  box.innerHTML = `<details class="vd"${verdictOpen ? " open" : ""}>
+    <summary>${head}</summary>
+    <div class="outcomes"></div>${list}${rec}${crashed}
     <div class="answers"></div><div class="grid"></div>
     <div class="note">Every figure was read back from the sealed log after the run closed,
     not from the objects that produced it. "Acted on the world" comes from the tool port's
-    own out-of-band record (AD-15), not from the log's account of it.</div>`;
+    own out-of-band record (AD-15), not from the log's account of it.</div></details>`;
+  // Survives the next run, or collapsing it would undo itself on every click.
+  box.querySelector(".vd").addEventListener(
+    "toggle", e => { verdictOpen = e.target.open; });
 
   // What each run ended up doing, before any comparison of the two. On its own
   // a table cell reading `approval-timeout` is not a result anyone can read.
