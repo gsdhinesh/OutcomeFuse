@@ -63,6 +63,12 @@ color:#8b93a1;max-width:70rem}
 .task .facts b{color:#d7dae0}
 .watch{color:#c9b489;background:#1a1712;border-radius:5px;padding:.5rem .75rem;
 margin-top:.55rem;font-size:.81rem;max-width:70rem}
+.legend{margin-top:.45rem;color:#6b7280;font-size:.74rem;max-width:70rem}
+.legend b{color:#8b93a1}
+.brief>summary{cursor:pointer;color:#5a6270;font-size:.7rem;letter-spacing:.06em;
+text-transform:uppercase;margin-top:.45rem;list-style-position:outside}
+.brief>summary:hover{color:#7aa2f7}
+.brief[open]>summary{margin-bottom:.1rem}
 .unans{margin-top:.5rem;padding:.45rem .7rem;background:#1b1508;border-left:3px solid #e0af68;
 border-radius:4px;color:#c9b489;font-size:.78rem;max-width:66rem}
 .pace{display:flex;gap:.5rem;align-items:center;color:#8b93a1;font-size:.74rem}
@@ -75,8 +81,8 @@ border-radius:4px;color:#c9b489;font-size:.78rem;max-width:66rem}
 .lane.off .lh{background:#1d1a17}.lane.on .lh{background:#141d1a}
 .lane .lh h3{font-size:.9rem}
 .lane .lh .who{color:#8b93a1;font-size:.73rem;margin-top:.1rem}
-.stats{display:flex;gap:1rem;flex-wrap:wrap;padding:.42rem 1.1rem;
-border-bottom:1px solid #232833;font-size:.72rem;color:#8b93a1}
+.stats{display:flex;gap:.9rem;flex-wrap:wrap;padding:.42rem 1.1rem;
+border-bottom:1px solid #232833;font-size:.7rem;color:#8b93a1}
 .stats b{color:#d7dae0;font-variant-numeric:tabular-nums}
 .tree{flex:1;overflow:auto;padding:.65rem 1.1rem 2.5rem}
 .empty{color:#5a6270;padding:1.3rem 0}
@@ -101,7 +107,9 @@ border-left:3px solid #ff8391;border-radius:6px}
 padding:.07rem 0 .07rem 2.2rem;font-size:.76rem}
 .leaf .act{font-size:.64rem}
 .leaf .why.held{color:#e0af68;font-weight:600}
-.kind{color:#8b93a1;font-family:ui-monospace,Consolas,monospace;min-width:9rem}
+.said{color:#c3c8d2}
+.actsaid{font-size:.73rem;color:#6b7280}
+.kind{color:#4d5566;font-family:ui-monospace,Consolas,monospace;font-size:.67rem}
 .k{color:#6b7280}
 .tok{color:#bb9af7;font-variant-numeric:tabular-nums}
 .termr{color:#ff8391;font-weight:600}
@@ -198,9 +206,16 @@ table.compare tr.differs th.lbl{color:#e0af68;font-weight:600}
       </div>
     </div>
     <p class="prompt" id="r-prompt"></p>
-    <div class="facts" id="r-facts"></div>
-    <div class="watch" id="r-watch"></div>
-    <div id="r-extra"></div>
+    <details class="brief" open>
+      <summary>the contract, what to watch for, and how to read the tree</summary>
+      <div class="facts" id="r-facts"></div>
+      <div class="watch" id="r-watch"></div>
+      <div class="legend">Each block below is one <b>turn</b>. Its heading is what the
+        governor decided about that turn; the lines under it are what was written to the
+        log, in order. Amber means something was <b>withheld</b> — answered without the
+        tool being run. Plain English first, the log's own word beside it in grey.</div>
+      <div id="r-extra"></div>
+    </details>
   </div>
   <div class="lanes" id="lanes"></div>
   <div class="verdict" id="verdict" hidden></div>
@@ -226,6 +241,48 @@ const SUPPRESSING = new Set([
   "cache-hit","duplicate","optional-satisfied","approval-denied","approval-timeout",
   "unaffordable","fail-closed",
 ]);
+
+// Every event kind the log can contain, said plainly. The raw name stays beside
+// it, because the raw name is what the record holds and a reader has to be able
+// to check one against the other.
+const KIND = {
+  "run-manifest": "the run opens",
+  "decision-proposed": "the agent asks to do something",
+  "decision-recorded": "the governor answers, in writing",
+  "budget-reserved": "budget set aside, before deciding",
+  "spend-settled": "what it actually cost",
+  "evidence-requested": "going to fetch something",
+  "evidence-observed": "what came back, kept as evidence",
+  "outcome-observed": "what the tool returned",
+  "gate-verdict": "the quality check on the answer",
+  "run-closed": "sealed \u2014 nothing can be added or changed",
+};
+
+// What the governor decided to do about a proposed step.
+const ACTION = {
+  "proceed": "let it happen",
+  "proceed-with-substitution": "answer it without running the tool",
+  "terminate": "stop the run",
+  "escalate": "try again on a stronger model",
+  "return-partial": "hand back what it has, labelled",
+  "request-human": "send it to a person",
+  "deny": "refuse it",
+  "pause-for-approval": "hold it until a person answers",
+};
+
+// How a run ended. Every one of these is a decision the governor wrote down;
+// the ungoverned arm has none, because nothing was there to decide.
+const ENDING = {
+  "stop-sufficient": "it met the quality floor, so it stopped",
+  "halt-exhausted": "it ran out of budget",
+  "halt-no-progress": "it was going nowhere, so the fuse blew",
+  "returned-partial": "it could not get there; what it had was handed back, labelled",
+  "referred-human": "it could not get there; the contract sends it to a person",
+  "fail-closed": "something that governs the run failed, so the run refused to go on",
+  "approval-timeout": "nobody answered inside the contract's window",
+  "approval-denied": "a person was asked, and refused",
+};
+
 const LANES = {
   baseline: { title: "Plugged out", who: "the same loop, nothing governing it", css: "off" },
   governed: { title: "Plugged in", who: "the same loop, through OutcomeFuse", css: "on" },
@@ -359,12 +416,13 @@ function reset(arms) {
     node.innerHTML = `
       <div class="lh"><h3>${meta.title}</h3><div class="who">${meta.who}</div></div>
       <div class="stats">
-        <div>events <b class="s-ev">0</b></div>
-        <div>tools run <b class="s-tools">0</b></div>
-        <div>tokens <b class="s-tok">0</b></div>
-        <div>withheld <b class="s-sup">0</b></div>
-        <div>failed <b class="s-err">0</b></div>
-        <div>gate <b class="s-gate">\u2014</b></div>
+        <div title="rows written to the sealed log">events <b class="s-ev">0</b></div>
+        <div title="tools that actually ran">tools ran <b class="s-tools">0</b></div>
+        <div title="model tokens, estimated from prompt length">tokens <b class="s-tok">0</b></div>
+        <div title="calls the governor answered without running the tool">
+          calls withheld <b class="s-sup">0</b></div>
+        <div title="tool calls that errored">tool errors <b class="s-err">0</b></div>
+        <div title="the quality check on the final answer">quality gate <b class="s-gate">\u2014</b></div>
       </div>
       <div class="tree"><div class="empty">waiting\u2026</div></div>`;
     el("lanes").appendChild(node);
@@ -418,7 +476,10 @@ function draw(arm, e) {
     lane.current = { sid: e.step_id, node };
   }
   const hd = lane.current.node.querySelector(".hd");
-  if (e.policy_action && !hd.querySelector(".act")) push(hd, "act", e.policy_action);
+  if (e.policy_action && !hd.querySelector(".act")) {
+    push(hd, "act", e.policy_action);
+    if (ACTION[e.policy_action]) push(hd, "actsaid", ACTION[e.policy_action]);
+  }
   if (e.decision_reason && !hd.querySelector(".why")) {
     push(hd, "why", e.decision_reason);
     if (MEANING[e.decision_reason]) push(hd, "gloss", "\u2014 " + MEANING[e.decision_reason]);
@@ -435,7 +496,7 @@ function draw(arm, e) {
 
   const leaf = document.createElement("div");
   leaf.className = "leaf new";
-  const bits = [`<span class="kind"></span>`];
+  const bits = [`<span class="said"></span><span class="kind"></span>`];
   if (e.policy_action) bits.push(`<span class="act"></span>`);
   if (e.decision_reason)
     bits.push(`<span class="why r${SUPPRESSING.has(e.decision_reason) ? " held" : ""}"></span>`);
@@ -445,12 +506,18 @@ function draw(arm, e) {
   if (e.detail) bits.push(`<span class="${failed ? "err" : "gloss"} d"></span>`);
   if (e.terminal_reason) bits.push(`<span class="termr"></span>`);
   leaf.innerHTML = bits.join(" ");
-  leaf.querySelector(".kind").textContent = e.kind;
+  // Said plainly first, with the log's own name for it beside. The second is
+  // what you would grep the record for; the first is what it means.
+  leaf.querySelector(".said").textContent = KIND[e.kind] || e.kind;
+  leaf.querySelector(".kind").textContent = KIND[e.kind] ? e.kind : "";
   if (e.policy_action) leaf.querySelector(".act").textContent = e.policy_action;
   if (e.decision_reason) leaf.querySelector(".r").textContent = e.decision_reason;
   if (e.tool) leaf.querySelector(".t").textContent = e.tool;
   if (e.detail) leaf.querySelector(".d").textContent = e.detail;
-  if (e.terminal_reason) leaf.querySelector(".termr").textContent = e.terminal_reason;
+  if (e.terminal_reason) {
+    leaf.querySelector(".termr").textContent = e.terminal_reason;
+    if (ENDING[e.terminal_reason]) push(leaf, "gloss", "\u2014 " + ENDING[e.terminal_reason]);
+  }
   lane.current.node.appendChild(leaf);
   lane.tree.scrollTop = lane.tree.scrollHeight;
 }

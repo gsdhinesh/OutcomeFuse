@@ -75,7 +75,8 @@ def _detail(event: Event) -> str:
     if payload.get("when"):
         return f"gate ran {payload['when']}"
     if payload.get("canonical_key"):
-        return f"key {str(payload['canonical_key'])[:12]}..."
+        # Identical calls hash alike, which is how a repeat is spotted at all.
+        return f"same-call fingerprint {str(payload['canonical_key'])[:12]}..."
     return ""
 
 
