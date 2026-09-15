@@ -857,6 +857,59 @@ class TestTheAnswerIsShown:
             assert context(job)["prompt"] == " ".join(frozen.split())
 
 
+    def test_a_failed_call_is_not_cached_so_the_retry_gets_through(self, tmp_path) -> None:
+        """The same fingerprint, collapsed in one job and allowed through in the other.
+
+        This is the whole of "a failure is not a denial", and neither arm of the
+        comparison shows it - both run four calls and agree on everything - so it
+        is pinned here instead. A result that failed is not a result, so it never
+        enters the cache and the retry is not answered from it.
+        """
+        job = jobs.by_key("fetch-keeps-failing")
+        doing = work_module.by_workload(job.workload)
+        tag = "fail"
+        failing = scenarios.run(
+            scenarios.by_key("failing-tool"), doing, arm=scenarios.GOVERNED,
+            runs_dir=tmp_path, case_id=job.case_id, token=tag,
+        )
+        keys = [
+            e.payload.get("canonical_key")
+            for e in failing.events
+            if e.kind == "decision-proposed"
+        ]
+        assert len(keys) > 1, "the retries have to actually repeat"
+        assert len(set(keys)) == 1, "and repeat byte-identically"
+        assert not [e for e in failing.events if e.decision_reason == "cache-hit"]
+        assert len(failing.invoked) == len(keys), "every retry ran"
+        assert all(
+            e.decision_reason != "denied"
+            for e in failing.events
+            if e.kind == "decision-recorded"
+        )
+
+        # Same governor, same repeated fingerprint, opposite outcome - because
+        # these succeed.
+        case = compose.cases(doing.workload)[0]
+        stalling = compose.governed(
+            case, turns=work_module.stalls(doing, {}, case), runs_dir=tmp_path,
+            spec=compose.contract(doing.workload), tag="stall-contrast",
+        )
+        assert len(stalling.invoked) == 1, "successes collapse to one"
+        assert [e for e in stalling.events if e.decision_reason == "cache-hit"]
+
+    def test_the_reservations_come_back_on_every_failure(self, tmp_path) -> None:
+        job = jobs.by_key("fetch-keeps-failing")
+        tag = "res"
+        run = scenarios.run(
+            scenarios.by_key("failing-tool"), work_module.by_workload(job.workload),
+            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id=job.case_id, token=tag,
+        )
+        reserved = sum(1 for e in run.events if e.kind == "budget-reserved")
+        settled = sum(1 for e in run.events if e.kind == "spend-settled")
+        errors = sum(1 for e in run.events if e.payload and "tool_error" in e.payload)
+        assert errors > 0, "the card is about failures, so there must be some"
+        assert reserved - settled == errors, "a reservation was kept on a failed call"
+
     def test_a_cache_hit_still_costs_a_model_turn(self, tmp_path) -> None:
         """The cache saves the tool call. It does not save the turn.
 

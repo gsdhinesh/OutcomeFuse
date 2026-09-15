@@ -149,7 +149,10 @@ JOBS: tuple[Job, ...] = (
         "give back, because nothing was holding any.",
         feature="Holds released on failure; a failure is not a denial",
         watch="`outcome-observed` carrying a tool_error, and `budget-reserved` events with "
-        "no matching `spend-settled` \u2014 the reservations came back.",
+        "no matching `spend-settled` \u2014 the reservations came back. Then compare it with "
+        "*the agent reads the same file over and over*: **the same fingerprint, repeated, "
+        "and no cache-hit here at all.** A result that failed is not a result, so each "
+        "retry is allowed through instead of being answered from the cache.",
         # Measured, not assumed: both arms try the same calls, get the same errors
         # and reach the same answer. The contribution here is accounting, not
         # prevention, and claiming otherwise is a lie the comparison would catch.
