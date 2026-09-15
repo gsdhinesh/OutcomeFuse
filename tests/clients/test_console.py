@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import pathlib
 import threading
 import time
 
@@ -854,6 +855,52 @@ class TestTheAnswerIsShown:
         for job in jobs.JOBS:
             frozen = compose.case(job.case_id, job.workload).prompt
             assert context(job)["prompt"] == " ".join(frozen.split())
+
+
+    def test_a_cache_hit_still_costs_a_model_turn(self, tmp_path) -> None:
+        """The cache saves the tool call. It does not save the turn.
+
+        "tools executed 6 -> 1" invites the reading that money was saved. It was
+        not: each hit skipped a ten-token tool call while the turn that proposed
+        it cost hundreds and rose as the context grew. Pinned so the card cannot
+        drift into claiming a saving the runs do not show.
+        """
+        job = jobs.by_key("same-file-again")
+        doing = work_module.by_workload(job.workload)
+        situation = scenarios.by_key(job.situation)
+        runs = {
+            arm: scenarios.run(
+                situation, doing, arm=arm, runs_dir=tmp_path,
+                case_id=job.case_id, token=arm,
+            )
+            for arm in (scenarios.GOVERNED, scenarios.BASELINE)
+        }
+        on, off = runs[scenarios.GOVERNED], runs[scenarios.BASELINE]
+
+        hits = [e for e in on.events if e.decision_reason == "cache-hit"]
+        assert len(hits) >= 4, "the stall has to actually hit the cache"
+        assert len(on.invoked) < len(off.invoked), "and skip tool executions"
+
+        # Every cache-hit turn still settled model spend.
+        settled = {
+            e.step_id: e.tokens_consumed
+            for e in on.events
+            if e.kind == "spend-settled" and e.tokens_consumed and e.tokens_consumed > 100
+        }
+        for hit in hits:
+            assert settled.get(hit.step_id, 0) > 0, f"{hit.step_id} paid nothing"
+
+        # And the governed arm cost more overall, not less.
+        assert on.outcome.spend.total_tokens > off.outcome.spend.total_tokens
+        assert "not down" in job.watch
+
+    def test_the_cache_gloss_does_not_promise_a_saving(self) -> None:
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        gloss = next(line for line in page.splitlines() if '"cache-hit":' in line)
+        assert "still cost" in gloss
 
 
 class TestTheTaskIsTheJobs:
