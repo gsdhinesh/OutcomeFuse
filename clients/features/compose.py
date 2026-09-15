@@ -17,6 +17,7 @@ its calibration cases, its derived answer keys, its corpus. Nothing under
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from collections.abc import Callable
@@ -157,6 +158,9 @@ class Run:
     terminated: str | None = None
     escalations: int = 0
     quality_state: str = "not-evaluated"
+    #: The answer it handed over, read back from the evidence sidecar. None where
+    #: the run ended before producing one.
+    deliverable: dict[str, Any] | None = None
 
     def actions(self, action: str) -> list[Event]:
         return [e for e in self.events if e.policy_action == action]
@@ -176,6 +180,20 @@ def _read_back(path: Path, run_id: str) -> tuple[list[Event], str, bool]:
         except (StoreError, ValueError):
             verified = False
     return events, seal, verified
+
+
+def _read_deliverable(runs_dir: Path, run_id: str) -> dict[str, Any] | None:
+    """The answer the run handed over, from the sidecar it was written to.
+
+    Read back rather than kept, for the same reason the events are: what the
+    run meant to produce and what it durably produced are two different claims,
+    and only the second one is evidence. A run that never got that far has none.
+    """
+    path = runs_dir / "evidence" / run_id / "deliverable.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 Sink = Callable[[Event], None]
@@ -311,6 +329,7 @@ def governed(
         terminated=terminated,
         escalations=outcome.escalations,
         quality_state=quality,
+        deliverable=_read_deliverable(runs_dir, run_id),
     )
 
 
@@ -373,6 +392,7 @@ def ungoverned(
         invoked=tuple(c.tool for c in tools.invocations),
         side_effects=tuple(tools.side_effects),
         quality_state=quality,
+        deliverable=_read_deliverable(runs_dir, run_id),
     )
 
 

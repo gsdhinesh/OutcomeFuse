@@ -34,6 +34,9 @@ def summarise(run: Any, arm: str) -> dict[str, Any]:
         "turns": run.outcome.iterations,
         "tokens": run.outcome.spend.total_tokens,
         "models": list(run.outcome.models_used),
+        # What it actually answered. A console that shows only the machinery
+        # never shows whether the question got answered.
+        "answer": run.deliverable,
     }
 
 

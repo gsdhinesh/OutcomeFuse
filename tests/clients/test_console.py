@@ -656,6 +656,93 @@ class TestRunningTheSameJobTwice:
             assert last["crashed"] == []
 
 
+class TestTheAnswerIsShown:
+    """The tree shows the machinery. Something has to show whether it answered.
+
+    Read back from the evidence sidecar, not kept from the run, for the same
+    reason the events are: what a run meant to produce and what it durably
+    produced are two different claims and only the second is evidence.
+    """
+
+    @pytest.mark.parametrize(
+        "key", ["ordinary-run", "nobody-is-asked", "withdrawn-policy"]
+    )
+    def test_a_run_that_answers_carries_its_answer(self, key, tmp_path) -> None:
+        _events, summary = _play(key, tmp_path)
+        assert summary["answer"], key
+        assert isinstance(summary["answer"], dict)
+
+    def test_a_gated_run_nobody_authorised_has_no_answer(self, tmp_path) -> None:
+        # It fail-closed at the gate, so it never handed anything over. Showing
+        # an answer here would be showing one the run did not produce.
+        _events, summary = _play("message-the-planner", tmp_path)
+        assert summary["terminal"] == "fail-closed"
+        assert summary["answer"] is None
+
+    def test_a_run_that_never_answered_carries_none(self, tmp_path) -> None:
+        # It died before handing anything over, so there is nothing to show and
+        # nothing is invented to fill the space.
+        _events, summary = _play("asks-for-git-blame", tmp_path)
+        assert summary["terminal"] == "fail-closed"
+        assert summary["answer"] is None
+
+    def test_the_database_answer_is_internally_coherent(self, tmp_path) -> None:
+        """The SQL has to be over the table the figure is about.
+
+        `sql-is-read-only` checks the query is a SELECT. It does **not** check
+        the query computes the number beside it, so the agent used to report a
+        shipment count over `FROM orders` and pass.
+        """
+        job = jobs.by_key("write-to-the-table")
+        run = scenarios.run(
+            scenarios.by_key(job.situation),
+            work_module.by_workload(job.workload),
+            arm=scenarios.GOVERNED,
+            runs_dir=tmp_path,
+            case_id=job.case_id,
+            approval="approved",
+        )
+        answer = run.deliverable
+        subject = compose.case(job.case_id, job.workload).prompt.lower()
+        assert "shipments" in subject
+        assert answer["tables_used"] == ["shipments"]
+        assert "shipments" in answer["sql"].lower()
+        assert answer["sql"].lower().startswith("select")
+        assert answer["result_value"] == compose.key_for(job.case_id, job.workload)[
+            "result_value"
+        ]
+
+    @pytest.mark.parametrize(
+        "case_id", [c.case_id for c in compose.cases("data-sql")]
+    )
+    def test_the_query_names_the_table_the_question_is_about(self, case_id) -> None:
+        subject = compose.case(case_id, "data-sql")
+        table = work_module._ds_subject(subject)
+        read, write = work_module._DS_TABLES[table]
+        assert table in read
+        assert table in write
+        assert read.lower().startswith("select")
+        # The careless write has to be a write, or the approval card is staging
+        # a danger that is not there.
+        assert write.lower().startswith("update")
+
+    def test_the_careless_write_touches_the_rows_being_counted(self, tmp_path) -> None:
+        # Not an arbitrary statement. It tidies the very table the question is
+        # about, so approving it changes the data the answer is computed over.
+        job = jobs.by_key("write-to-the-table")
+        port = LiveApprovalPort(timeout_seconds=10)
+        asked: list[dict] = []
+        for frame in stream.play(
+            job, tmp_path, case_id=job.case_id, delay=0, approval=port, session="s"
+        ):
+            if frame["type"] == "approval":
+                asked.append(frame["request"])
+                threading.Timer(0.05, lambda: port.answer("denied")).start()
+        sql = asked[0]["arguments"]["sql"]
+        assert "shipments" in sql
+        assert sql.lower().startswith("update")
+
+
 class TestTheTaskIsTheJobs:
     """A job names one frozen case and runs it. Nothing else is selectable."""
 

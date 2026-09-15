@@ -150,6 +150,16 @@ max-height:36%;overflow-y:auto;flex:none}
 .verdict ul{margin:0 0 .5rem;padding-left:1.1rem;font-size:.85rem}
 .rec{color:#8b93a1;font-size:.8rem;margin:.2rem 0 .5rem}
 .grid{display:block;font-size:.78rem}
+.answers{display:flex;gap:1rem;flex-wrap:wrap;margin:.2rem 0 .8rem}
+.ans{flex:1 1 24rem;background:#0f1115;border:1px solid #232833;border-radius:6px;
+padding:.55rem .75rem}
+.ans.off{border-left:3px solid #ff8391}
+.ans.on{border-left:3px solid #5dd98c}
+.ans>b{display:block;color:#8b93a1;font-size:.67rem;letter-spacing:.08em;
+text-transform:uppercase;margin-bottom:.35rem}
+.ans dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.15rem .8rem;font-size:.78rem}
+.ans dt{color:#8b93a1;font-family:ui-monospace,Consolas,monospace;font-size:.72rem}
+.ans dd{margin:0;color:#fff;word-break:break-word}
 table.compare{border-collapse:collapse;width:100%;max-width:74rem}
 table.compare th,table.compare td{text-align:left;padding:.26rem .8rem;
 border-bottom:1px solid #1b1f27;vertical-align:top}
@@ -683,10 +693,34 @@ function verdict(msg) {
   const crashed = (msg.crashed || []).map(c =>
     `<p class="rec bad">The ${LANES[c.arm].title.toLowerCase()} arm threw rather than
      ending, so it has no log to compare against.</p>`).join("");
-  box.innerHTML = `<h3>${head}</h3>${list}${rec}${crashed}<div class="grid"></div>
+  box.innerHTML = `<h3>${head}</h3>${list}${rec}${crashed}
+    <div class="answers"></div><div class="grid"></div>
     <div class="note">Every figure was read back from the sealed log after the run closed,
     not from the objects that produced it. "Acted on the world" comes from the tool port's
     own out-of-band record (AD-15), not from the log's account of it.</div>`;
+
+  // What each arm actually answered, read back from the evidence sidecar. The
+  // tree shows the machinery; without this the page never says whether the
+  // question got answered at all.
+  const answers = box.querySelector(".answers");
+  // Lane order, like the table below, so the eye does not have to switch sides.
+  const gave = ["baseline", "governed"]
+    .map(a => msg.summaries.find(s => s.arm === a))
+    .filter(s => s && s.answer);
+  if (!gave.length) answers.remove();
+  for (const s of gave) {
+    const block = document.createElement("div");
+    block.className = "ans " + LANES[s.arm].css;
+    block.innerHTML = `<b>${LANES[s.arm].title} answered</b><dl></dl>`;
+    const dl = block.querySelector("dl");
+    for (const [k, v] of Object.entries(s.answer)) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd");
+      dd.textContent = typeof v === "string" ? v : JSON.stringify(v);
+      dl.append(dt, dd);
+    }
+    answers.appendChild(block);
+  }
 
   // One row per figure, one column per arm, in lane order. Two stacked lists
   // made you eye-track between them to find what differed; here a difference is
