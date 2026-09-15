@@ -7,10 +7,10 @@ Standard library only — `ThreadingHTTPServer` and server-sent events. A web
 framework would be a dependency this repo has not taken and does not need for
 one page and one stream.
 
-**Local only, on purpose.** It binds to 127.0.0.1, serves five routes, and the
-only values it reads from a request are a job key and a case id, each checked
-against the frozen set. It runs scripted agents against synthetic corpora, so
-there is nothing here worth reaching over a network for.
+**Local only, on purpose.** It binds to 127.0.0.1, serves four routes, and the
+only value it reads from a request is a job key checked against the gallery. It
+runs scripted agents against synthetic corpora, so there is nothing here worth
+reaching over a network for.
 """
 
 from __future__ import annotations
@@ -74,24 +74,11 @@ def card(job: jobs.Job) -> dict:
     }
 
 
-def cases(job: jobs.Job) -> list[dict]:
-    """Every calibration case for this job's work, so it is not stuck on one."""
-    return [
-        {
-            "case_id": subject.case_id,
-            "difficulty": subject.difficulty,
-            "prompt": " ".join(subject.prompt.split()),
-            "answerable": subject.expected_outcome == "answer",
-        }
-        for subject in compose.cases(job.workload)
-    ]
-
-
-def context(job: jobs.Job, case_id: str) -> dict:
+def context(job: jobs.Job) -> dict:
     """The actual task. Without it the tree is machinery with no subject."""
     doing = work.by_workload(job.workload)
     spec = compose.contract(job.workload)
-    subject = compose.case(case_id, job.workload)
+    subject = compose.case(job.case_id, job.workload)
     answerable = subject.expected_outcome == "answer"
     return {
         "work": doing.name,
@@ -136,11 +123,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._html(PAGE.read_bytes())
             elif route.path == "/jobs":
                 self._json(gallery())
-            elif route.path == "/cases":
-                self._json(cases(_job_of(query)))
             elif route.path == "/context":
-                job = _job_of(query)
-                self._json(context(job, _case_of(query, job)))
+                self._json(context(_job_of(query)))
             elif route.path == "/run":
                 self._stream(query)
             else:
@@ -189,7 +173,6 @@ class Handler(BaseHTTPRequestHandler):
 
     def _stream(self, query: dict[str, list[str]]) -> None:
         job = _job_of(query)
-        case_id = _case_of(query, job)
         delay = min(_float(query.get("delay"), DEFAULT_DELAY), MAX_DELAY)
         arms = _arms_of(query)
 
@@ -213,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
             for payload in stream.play(
                 job,
                 RUNS,
-                case_id=case_id,
+                case_id=job.case_id,
                 delay=delay,
                 approval=port,
                 session=session,
@@ -248,14 +231,12 @@ def _float(values: list[str] | None, fallback: float) -> float:
 
 
 def _job_of(query: dict[str, list[str]]) -> jobs.Job:
-    """A job from the gallery, or `KeyError`. Never an arbitrary string."""
+    """A job from the gallery, or `KeyError`. Never an arbitrary string.
+
+    The only value any route reads from a request. A job carries its own task, so
+    the case is not something a caller gets to choose.
+    """
     return jobs.by_key((query.get("job") or [jobs.JOBS[0].key])[0])
-
-
-def _case_of(query: dict[str, list[str]], job: jobs.Job) -> str:
-    """The job's own case, or another from its work's frozen set."""
-    wanted = query.get("case")
-    return jobs.case_of(job, wanted[0] if wanted else None)
 
 
 def _arms_of(query: dict[str, list[str]]) -> tuple[str, ...]:

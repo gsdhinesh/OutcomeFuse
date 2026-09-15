@@ -5,10 +5,11 @@ That is a matrix, and a matrix is a thing you verify, not a thing you show
 someone. No real job goes wrong nine different ways, and being asked to choose
 which way it goes wrong gives the game away before the run has started.
 
-So the gallery is flat. One card is one job, on one frozen case, that
-demonstrates **one** mechanism — the way a person would actually meet it: *the
-agent wants to message the planner*, *the document fetch keeps failing*, *the
-agent asks for git blame*. Click it and it runs, with the governor and without.
+So the gallery is flat, and **one card is one job is one task**. No picker, no
+variants: a job names the frozen case it runs and runs that, the way a person
+would actually meet it — *the agent wants to message the planner*, *the document
+fetch keeps failing*, *the agent asks for git blame*. Click it and it runs, with
+the governor and without.
 
 The four kinds of work and their agents live in `features/work.py`. The full
 situation-by-work matrix still exists and is still swept — by `compare.py` and
@@ -22,8 +23,6 @@ wrong, because detecting a stall requires a stall.
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from features import compose
 
 #: How the gallery is grouped. Order matters; it reads top to bottom.
 GROUPS = (
@@ -282,13 +281,3 @@ def by_key(key: str) -> Job:
         if job.key == key:
             return job
     raise KeyError(key)
-
-
-def case_of(job: Job, case_id: str | None = None) -> str:
-    """The job's own case, or another from the same frozen set. Never anything else."""
-    if case_id is None:
-        return job.case_id
-    known = {c.case_id for c in compose.cases(job.workload)}
-    if case_id not in known:
-        raise KeyError(case_id)
-    return case_id

@@ -66,6 +66,7 @@ margin-top:.55rem;font-size:.81rem;max-width:70rem}
 .unans{margin-top:.5rem;padding:.45rem .7rem;background:#1b1508;border-left:3px solid #e0af68;
 border-radius:4px;color:#c9b489;font-size:.78rem;max-width:66rem}
 .pace{display:flex;gap:.5rem;align-items:center;color:#8b93a1;font-size:.74rem}
+.controls{display:flex;gap:1rem;align-items:center;margin-left:auto}
 
 /* ---------------------------------------------------- the two lanes */
 .lanes{flex:1;display:flex;gap:1px;background:#232833;min-height:0}
@@ -166,14 +167,15 @@ text-align:right}
         <h2 id="r-title"></h2>
         <div class="mech" id="r-mech"></div>
       </div>
-      <select id="case-pick"></select>
       <span class="spacer"></span>
-      <div class="pace">
-        <span>pace</span>
-        <input type="range" id="speed" min="0" max="500" step="20" value="120">
-        <span id="speedv">120ms</span>
+      <div class="controls">
+        <div class="pace">
+          <span>pace</span>
+          <input type="range" id="speed" min="0" max="500" step="20" value="120">
+          <span id="speedv">120ms</span>
+        </div>
+        <button id="again">Run again</button>
       </div>
-      <button id="again">Run again</button>
     </div>
     <p class="prompt" id="r-prompt"></p>
     <div class="facts" id="r-facts"></div>
@@ -210,7 +212,7 @@ const LANES = {
 };
 
 const el = id => document.getElementById(id);
-let chosen = null, caseId = null;
+let chosen = null;
 let source = null, session = null, ticking = null, lanes = {};
 
 el("speed").oninput = e => el("speedv").textContent = e.target.value + "ms";
@@ -280,9 +282,7 @@ function md(text) {
 
 function start(job) {
   closeStream();
-  const fresh = job !== chosen;
   chosen = job;
-  if (fresh) caseId = job.case_id;
   show("view-run");
   el("r-title").textContent = job.title;
   el("r-mech").textContent = `${job.work} \u2014 ${job.feature}`;
@@ -290,36 +290,20 @@ function start(job) {
     ? `<b>Expect the arms to differ:</b> ${escape(job.expect)}`
     : `<b>Expect the arms to agree</b> \u2014 on this one the governor changes nothing
        about what happened, which is what the recorded campaign mostly found.`);
-  if (fresh) loadCases(job);
   loadTask(job);
 
   const arms = el("compare").checked ? ["baseline", "governed"] : ["governed"];
   reset(arms);
   el("again").disabled = true;
   source = new EventSource(
-    `/run?job=${encodeURIComponent(job.key)}&case=${encodeURIComponent(caseId)}` +
+    `/run?job=${encodeURIComponent(job.key)}` +
     `&delay=${el("speed").value / 1000}&compare=${el("compare").checked ? 1 : 0}`);
   source.onmessage = m => handle(JSON.parse(m.data));
   source.onerror = () => stop();
 }
 
-function loadCases(job) {
-  fetch(`/cases?job=${encodeURIComponent(job.key)}`).then(r => r.json()).then(rows => {
-    const pick = el("case-pick");
-    pick.innerHTML = "";
-    for (const c of rows) {
-      const o = document.createElement("option");
-      o.value = c.case_id;
-      o.textContent = `${c.case_id} \u00b7 ${c.difficulty} \u00b7 ${c.prompt.slice(0, 56)}\u2026`;
-      pick.appendChild(o);
-    }
-    pick.value = caseId;
-    pick.onchange = () => { caseId = pick.value; start(chosen); };
-  });
-}
-
 function loadTask(job) {
-  fetch(`/context?job=${encodeURIComponent(job.key)}&case=${encodeURIComponent(caseId)}`)
+  fetch(`/context?job=${encodeURIComponent(job.key)}`)
     .then(r => r.json()).then(c => {
       el("r-prompt").textContent = c.prompt;
       const tools = c.tools.map(t => t.side_effecting

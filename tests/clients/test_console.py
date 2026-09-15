@@ -36,12 +36,10 @@ from outcomefuse.core.record import open_store
 WORKLOADS = [w.workload for w in work_module.WORK]
 
 
-def _play(key: str, tmp_path, case_id: str | None = None, **kwargs):
+def _play(key: str, tmp_path, **kwargs):
     """One job, governed arm only, which is what most of these are about."""
     job = jobs.by_key(key)
-    frames = list(
-        stream.play(job, tmp_path, case_id=case_id or job.case_id, delay=0, **kwargs)
-    )
+    frames = list(stream.play(job, tmp_path, case_id=job.case_id, delay=0, **kwargs))
     assert frames[0]["type"] == "start"
     last = frames[-1]
     assert last["type"] == "done", last
@@ -49,14 +47,14 @@ def _play(key: str, tmp_path, case_id: str | None = None, **kwargs):
     return events, last["summaries"][0]
 
 
-def _both(key: str, tmp_path, case_id: str | None = None, **kwargs):
+def _both(key: str, tmp_path, **kwargs):
     """Both arms at once, and the comparison the stream derived from them."""
     job = jobs.by_key(key)
     frames = list(
         stream.play(
             job,
             tmp_path,
-            case_id=case_id or job.case_id,
+            case_id=job.case_id,
             delay=0,
             arms=(scenarios.GOVERNED, scenarios.BASELINE),
             **kwargs,
@@ -136,15 +134,19 @@ class TestTheGalleryIsTwelveDifferentThings:
         with pytest.raises(KeyError):
             jobs.by_key("no-such-job")
 
-    def test_a_case_from_outside_the_frozen_set_is_refused(self) -> None:
-        job = jobs.by_key("message-the-planner")
-        assert jobs.case_of(job) == job.case_id
-        assert jobs.case_of(job, "sc-c-005") == "sc-c-005"
-        with pytest.raises(KeyError):
-            jobs.case_of(job, "../../etc/passwd")
-        # A case belonging to another workload is outside this job's set.
-        with pytest.raises(KeyError):
-            jobs.case_of(job, "dr-c-001")
+    def test_a_job_owns_its_task_outright(self) -> None:
+        # One card is one job is one task. The case is not a request parameter
+        # and there is no picker, so a caller cannot point a card's claim at a
+        # task the card was never written about.
+        import inspect
+
+        from console import server
+
+        assert not hasattr(jobs, "case_of")
+        assert not hasattr(server, "cases")
+        source = inspect.getsource(server)
+        assert 'query.get("case")' not in source
+        assert list(inspect.signature(server.context).parameters) == ["job"]
 
 
 class TestEveryCardsClaimIsTrue:
@@ -533,18 +535,8 @@ class TestTheComparisonLogic:
         assert "tokens 100 -> 150 (+50%)" in delta.material(on, off)
 
 
-class TestTheCaseCanBeChanged:
-    """A job has its own case, and every other case of its work is selectable."""
-
-    @pytest.mark.parametrize(
-        "case_id", [c.case_id for c in compose.cases("doc-research")]
-    )
-    def test_the_ordinary_job_works_on_every_case_of_its_work(
-        self, case_id, tmp_path
-    ) -> None:
-        _events, summary = _play("ordinary-run", tmp_path, case_id=case_id)
-        assert summary["run_id"].startswith(case_id)
-        assert summary["verified"] is True
+class TestTheTaskIsTheJobs:
+    """A job names one frozen case and runs it. Nothing else is selectable."""
 
     def test_every_work_has_exactly_one_unanswerable_calibration_case(self) -> None:
         for workload in WORKLOADS:
@@ -554,7 +546,22 @@ class TestTheCaseCanBeChanged:
                 if c.expected_outcome != "answer"
             ]
             assert len(unanswerable) == 1, workload
-        assert jobs.by_key("cannot-be-answered").case_id == "sc-c-012"
+        # And exactly one card is built on one, deliberately.
+        built_on = [
+            job.key
+            for job in jobs.JOBS
+            if compose.case(job.case_id, job.workload).expected_outcome != "answer"
+        ]
+        assert built_on == ["cannot-be-answered"]
+
+    def test_the_other_eleven_jobs_run_answerable_tasks(self) -> None:
+        # A card claiming a mechanism cannot rest on a case that fail-closes for
+        # an unrelated reason, or the claim is untestable.
+        for job in jobs.JOBS:
+            if job.key == "cannot-be-answered":
+                continue
+            subject = compose.case(job.case_id, job.workload)
+            assert subject.expected_outcome == "answer", job.key
 
 
 class TestTheServerSurface:
@@ -577,13 +584,10 @@ class TestTheServerSurface:
 
     @pytest.mark.parametrize("key", [j.key for j in jobs.JOBS])
     def test_the_context_describes_that_job_s_actual_task(self, key) -> None:
-        from console.server import cases as case_rows
         from console.server import context
 
         job = jobs.by_key(key)
-        rows = case_rows(job)
-        assert len(rows) == 12
-        ctx = context(job, job.case_id)
+        ctx = context(job)
         assert ctx["workload"] == job.workload
         assert ctx["case_id"] == job.case_id
         assert ctx["prompt"]
@@ -600,14 +604,13 @@ class TestTheServerSurface:
         one = jobs.by_key("message-the-planner")
         two = jobs.by_key("order-after-order")
         assert one.workload == two.workload
-        assert context(one, one.case_id)["prompt"] != context(two, two.case_id)["prompt"]
+        assert context(one)["prompt"] != context(two)["prompt"]
 
-    def test_the_unanswerable_case_says_so(self) -> None:
+    def test_the_unanswerable_case_says_so_and_only_there(self) -> None:
         from console.server import context
 
-        job = jobs.by_key("cannot-be-answered")
-        assert context(job, job.case_id)["unanswerable_note"]
-        assert context(job, "sc-c-001")["unanswerable_note"] == ""
+        noted = [j.key for j in jobs.JOBS if context(j)["unanswerable_note"]]
+        assert noted == ["cannot-be-answered"]
 
     def test_a_frame_is_terminated_so_the_reader_does_not_hang(self) -> None:
         assert stream.frame({"type": "start"}).endswith(b"\n\n")

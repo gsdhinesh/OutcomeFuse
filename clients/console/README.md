@@ -12,9 +12,9 @@ uv run python clients/console/compare.py --matrix   # everything behind them
 The UI opens `http://127.0.0.1:8765`. Standard library only —
 `ThreadingHTTPServer` and server-sent events. A web framework would be a
 dependency this repo has not taken and does not need for one page and one
-stream. Local-only bind, five routes, and the only values read from a request
-are a job key and a case id, each checked against the frozen set. Nothing is
-spent; sealed logs land in `runs/console/`.
+stream. Local-only bind, four routes, and the only value read from a request is
+a job key checked against the gallery. Nothing is spent; sealed logs land in
+`runs/console/`.
 
 ## Why the gallery is flat
 
@@ -23,8 +23,9 @@ It used to ask twice: pick a kind of work, then pick what goes wrong. That is a
 real job goes wrong nine different ways, and being asked to choose which way it
 goes wrong gives the game away before the run has started.
 
-So there is one screen. **One card is one job, on one frozen case, meeting one
-mechanism** — the way a person would actually meet it.
+So there is one screen. **One card is one job is one task** — one real task, on
+one frozen case, meeting one mechanism, the way a person would actually meet it.
+There is no picker and no variant: a job names the case it runs and runs that.
 
 | | job | work | case | shows |
 | --- | --- | --- | --- | --- |
@@ -42,7 +43,8 @@ mechanism** — the way a person would actually meet it.
 | 12 | The agent simply does the job properly | policy question | `dr-c-003` | the whole loop, changing nothing |
 
 Twelve different tasks across all four frozen workloads. No two jobs are the
-same `(workload, case)` pair, and tests pin that.
+same `(workload, case)` pair, and tests pin that. Eleven run answerable cases;
+card 11 is deliberately the one that cannot be answered.
 
 Click one and it runs **twice, at once** — with the governor and without — in two
 lanes side by side. Both arms get the same agent, the same contract and the same
@@ -54,8 +56,9 @@ governed run stops at the gate while the ungoverned one carries on, and running
 them one after the other would hide the only thing worth seeing — that the
 message is already sent by the time you have decided.
 
-The case selector on the run screen offers all twelve calibration cases of that
-job's work, so no card is stuck on one example.
+The case is not a request parameter. A card makes a claim about a particular
+task, and letting a caller point that claim at a different one would make it
+untestable — so `job` is the only value any route reads, and a test pins that.
 
 ## Three cards, one mechanism, one finding
 
@@ -215,7 +218,7 @@ so. Nothing measured should ever be read off one.
 | [approval.py](approval.py) | the port that blocks the run until a person answers |
 | [delta.py](delta.py) | what differs between two arms, shared by the page and the CLI |
 | [stream.py](stream.py) | both arms on worker threads, events as frames |
-| [server.py](server.py) | five routes, the SSE stream, and the session registry |
+| [server.py](server.py) | four routes, the SSE stream, and the session registry |
 | [app.html](app.html) | the page: the gallery, the task, two lanes, the verdict |
 | [compare.py](compare.py) | the twelve headless, or `--matrix` for everything behind them |
 
