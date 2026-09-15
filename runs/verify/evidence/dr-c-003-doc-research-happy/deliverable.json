@@ -1,0 +1,15 @@
+{
+  "answer": "The controlling document sets the figure named in answer_code.",
+  "answer_code": "hours-72",
+  "citations": [
+    {
+      "id": "doc-009"
+    },
+    {
+      "id": "doc-002"
+    }
+  ],
+  "confidence": "high",
+  "excluded_candidates": [],
+  "primary_source_id": "doc-009"
+}

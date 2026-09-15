@@ -1,0 +1,10 @@
+{
+  "assumptions": [],
+  "result_value": 3.0,
+  "row_count": 2,
+  "sql": "SELECT COUNT(*) FROM orders WHERE order_date >= '2026-01-01'",
+  "tables_used": [
+    "orders"
+  ],
+  "units": "count"
+}

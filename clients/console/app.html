@@ -289,7 +289,7 @@ const LANES = {
 };
 
 const el = id => document.getElementById(id);
-let chosen = null;
+let chosen = null, answered = null;
 let source = null, session = null, ticking = null, lanes = {};
 
 el("speed").oninput = e => el("speedv").textContent = e.target.value + "ms";
@@ -363,13 +363,21 @@ function start(job) {
   show("view-run");
   el("r-title").textContent = job.title;
   el("r-mech").textContent = `${job.work} \u2014 ${job.feature}`;
-  el("r-watch").innerHTML = md(job.watch) + " " + (job.expect
+  el("r-watch").innerHTML = md(job.watch) + " " + (job.interactive
+    // These two cannot promise an outcome, because the outcome is the viewer's
+    // to choose. Saying "expect them to differ" and then reporting "the arms
+    // agree" because they approved would make the card wrong half the time.
+    ? `<b>What happens next is your call.</b> Refuse and the governed lane never sends
+       it; approve and both do \u2014 the gate is not there to say no, it is there so a
+       person gets to.`
+    : job.expect
     ? `<b>Expect the arms to differ:</b> ${escape(job.expect)}`
     : `<b>Expect the arms to agree</b> \u2014 on this one the governor changes nothing
        about what happened, which is what the recorded campaign mostly found.`);
   loadTask(job);
 
   const arms = el("compare").checked ? ["baseline", "governed"] : ["governed"];
+  answered = null;
   reset(arms);
   el("again").disabled = true;
   source = new EventSource(
@@ -626,6 +634,7 @@ function ask(arm, req) {
 }
 
 function answer(decision, said) {
+  answered = decision;
   fetch(`/answer?session=${encodeURIComponent(session)}&decision=${decision}`,
         { method: "POST" })
     .then(r => settle(r.ok ? said : "the run was no longer waiting"));
@@ -660,9 +669,16 @@ function verdict(msg) {
   const list = v.material.length
     ? `<ul>${v.material.map(d => `<li>${escape(d)}</li>`).join("")}</ul>`
     : v.compared
-      ? `<p class="rec">On this one the governor changed nothing about what happened.
-         That is a result, not a gap \u2014 the recorded campaign found the same on most
-         runs.</p>` : "";
+      ? (answered === "approved"
+        // The figures are identical because the viewer said yes, not because
+        // nothing happened. Reporting "the governor changed nothing" here would
+        // bury the one thing it did.
+        ? `<p class="rec">You approved it, so the same thing happened either way.
+           What the governor contributed is not in these figures — it is in the tree,
+           where the run stopped and asked before anything left the dataset.</p>`
+        : `<p class="rec">On this one the governor changed nothing about what happened.
+           That is a result, not a gap — the recorded campaign found the same on most
+           runs.</p>`) : "";
   const rec = v.recorded.map(d => `<p class="rec">Recorded only: ${escape(d)}</p>`).join("");
   const crashed = (msg.crashed || []).map(c =>
     `<p class="rec bad">The ${LANES[c.arm].title.toLowerCase()} arm threw rather than
