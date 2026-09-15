@@ -58,6 +58,9 @@ font-size:.82rem;cursor:pointer}
 .task h2{font-size:1.02rem}
 .task .mech{color:#7aa2f7;font-size:.78rem;font-weight:600;margin-top:.1rem}
 .task .prompt{margin:.55rem 0 0;font-size:.93rem;color:#fff;max-width:66rem;line-height:1.5}
+.task .asks{margin:.3rem 0 0;font-size:.82rem;color:#8b93a1;max-width:66rem}
+.task .asks span{color:#5a6270;font-size:.67rem;letter-spacing:.09em;
+text-transform:uppercase;margin-right:.4rem}
 .task .facts{display:flex;gap:1.3rem;flex-wrap:wrap;margin-top:.45rem;font-size:.73rem;
 color:#8b93a1;max-width:70rem}
 .task .facts b{color:#d7dae0}
@@ -216,6 +219,7 @@ table.compare tr.differs th.lbl{color:#e0af68;font-weight:600}
       </div>
     </div>
     <p class="prompt" id="r-prompt"></p>
+    <p class="asks" id="r-asks"></p>
     <details class="brief" open>
       <summary>the contract, what to watch for, and how to read the tree</summary>
       <div class="facts" id="r-facts"></div>
@@ -401,6 +405,9 @@ function loadTask(job) {
   fetch(`/context?job=${encodeURIComponent(job.key)}`)
     .then(r => r.json()).then(c => {
       el("r-prompt").textContent = c.prompt;
+      // The prompt above is frozen and cannot be reworded. This is the console
+      // saying the same thing in plainer words; the agent never sees it.
+      el("r-asks").innerHTML = `<span>it wants</span> ${escape(c.asks)}`;
       const tools = c.tools.map(t => t.side_effecting
         ? `<b>${t.name}</b> (acts on the world)` : t.name).join(" \u00b7 ");
       el("r-facts").innerHTML = `

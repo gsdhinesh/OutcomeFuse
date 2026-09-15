@@ -44,6 +44,10 @@ class Work:
     blurb: str
     #: What this contract asks for that the others do not.
     shows: str
+    #: The frozen prompt's deliverable list, in plain words. The prompt itself is
+    #: frozen and cannot be reworded, so the reader gets this and the agent gets
+    #: the frozen text — which is the only arrangement that keeps both honest.
+    asks: str
     investigate: Callable[[Case], list[Turn]]
     deliverable: Callable[[dict[str, Any], Case], dict[str, Any]]
     #: Which field to corrupt to make a well-formed answer that is wrong.
@@ -280,6 +284,9 @@ WORK: tuple[Work, ...] = (
         shows="The one job where the agent can message a person. That message is gated on "
         "a human — and a second clause, gating the recommendation itself, is declared "
         "and never evaluated.",
+        asks="What kind of exception it is, what caused it, which orders it hits, what to "
+        "do about it, which policy clauses say so, how many days late, and what the "
+        "alternatives are.",
         investigate=_sc_investigate,
         deliverable=_sc_answer,
         spoil=_sc_spoil,
@@ -301,6 +308,8 @@ WORK: tuple[Work, ...] = (
         "and you must hand back the SQL you ran and how many rows it touched.",
         shows="The contract checks the query you claim you ran is **read-only**, with a "
         "regex. The one tool that can write is gated on a human.",
+        asks="The number, what unit it is in, the SQL you ran, how many rows that number "
+        "came from, which tables you used, and anything you had to assume.",
         investigate=_ds_investigate,
         deliverable=_ds_answer,
         spoil=_ds_spoil,
@@ -321,6 +330,8 @@ WORK: tuple[Work, ...] = (
         shows="The answer must land inside a line span taken from the answer key, and the "
         "fix summary must use one of exactly ten verbs. Its approval clause "
         "**never fires**, so the tool that runs tests is ungated.",
+        asks="Which file and which line, how bad it is, what would fix it, what evidence "
+        "points there, and a test that would have caught it.",
         investigate=_ct_investigate,
         deliverable=_ct_answer,
         spoil=_ct_spoil,
@@ -340,6 +351,8 @@ WORK: tuple[Work, ...] = (
         "and effective-from dates all bear on which document governs.",
         shows="Nothing here acts on the world, so the contract declares **no approval at "
         "all** — correctly. Instead it demands at least two distinct sources.",
+        asks="The answer, the document it rests on, at least two sources, which candidate "
+        "documents you ruled out, and how sure you are.",
         investigate=_dr_investigate,
         deliverable=_dr_answer,
         spoil=_dr_spoil,

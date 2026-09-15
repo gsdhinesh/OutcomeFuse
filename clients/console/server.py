@@ -84,6 +84,7 @@ def context(job: jobs.Job) -> dict:
         "work": doing.name,
         "blurb": doing.blurb,
         "shows": doing.shows,
+        "asks": doing.asks,
         "gate_note": doing.gate_note,
         "workload": job.workload,
         "case_id": subject.case_id,

@@ -743,6 +743,35 @@ class TestTheAnswerIsShown:
         assert sql.lower().startswith("update")
 
 
+    def test_the_plain_restatement_covers_what_the_contract_wants(self) -> None:
+        """The frozen prompt cannot be reworded, so the console says it again.
+
+        `asks` is the console's own words, shown beside the frozen text and
+        never given to the agent. It has to cover every field the contract
+        requires, or it is a paraphrase that quietly drops a requirement.
+        """
+        from console.server import context
+
+        for job in jobs.JOBS:
+            doing = work_module.by_workload(job.workload)
+            fields = compose.contract(job.workload).deliverable.structure
+            assert len(doing.asks) > 60, job.workload
+            # One clause per required field, so nothing the contract wants is
+            # missing from the plain-English version.
+            assert doing.asks.count(",") >= len(fields) - 2, job.workload
+            assert context(job)["asks"] == doing.asks
+
+    def test_the_frozen_prompt_is_shown_verbatim(self) -> None:
+        # The restatement sits beside the prompt, never instead of it. Showing a
+        # paraphrase as though it were the task would make every run unreadable
+        # against the frozen case.
+        from console.server import context
+
+        for job in jobs.JOBS:
+            frozen = compose.case(job.case_id, job.workload).prompt
+            assert context(job)["prompt"] == " ".join(frozen.split())
+
+
 class TestTheTaskIsTheJobs:
     """A job names one frozen case and runs it. Nothing else is selectable."""
 
