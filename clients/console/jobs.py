@@ -201,17 +201,25 @@ JOBS: tuple[Job, ...] = (
     Job(
         key="withdrawn-policy",
         group=GROUPS[2],
-        title="The agent answers from a policy that was withdrawn",
+        title="The agent cites the right document and still gets the figure wrong",
         workload="doc-research",
         case_id="dr-c-002",
         situation="escalation",
-        does="Refuses the answer at the quality gate and retries on a stronger model, "
-        "inheriting the evidence already gathered rather than re-fetching it.",
-        without="A retention period from a superseded document is quoted as though it "
-        "still governs. It is scored once, afterwards, too late to matter.",
-        feature="Model routing and escalation (FR35)",
-        watch="gate fail, then an escalate decision moving gpt-5-mini to gpt-5, then a "
-        "second answer that passes.",
+        does="Checks the answer at the quality gate, refuses it, and spends the one retry "
+        "the contract allows \u2014 reusing the evidence already gathered rather than fetching "
+        "it again. **Zero tool calls after the escalation**, and the second answer passes.",
+        without="`days-1` is published with impeccable citations. Nothing checks the "
+        "figure, so nothing objects, and the answer is scored once afterwards \u2014 too late "
+        "to matter.",
+        feature="The quality gate, then `on_gate_fail: retry-then-escalate` (FR35)",
+        watch="One unmet criterion, `answer-matches-key`, then an escalate decision "
+        "moving gpt-5-mini to gpt-5, then a second answer that passes. **Two things that "
+        "are not what they look like.** The gate catches this by comparing `answer_code` "
+        "against the case's frozen answer key \u2014 a reference-backed check that has no key "
+        "to consult outside calibration. And the stronger model is recorded but is not "
+        "what fixed it: the demo is scripted, the script ignores which model is asked, "
+        "and the same second answer would have come back from gpt-5-mini. What genuinely "
+        "fixes it is being made to try again.",
         expect="the governed arm retries and gets it right; the ungoverned one keeps its "
         "first, wrong answer",
     ),

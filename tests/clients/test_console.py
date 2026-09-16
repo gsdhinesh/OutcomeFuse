@@ -883,6 +883,75 @@ class TestTheAnswerIsShown:
             assert context(job)["prompt"] == " ".join(frozen.split())
 
 
+    def test_the_wrong_answer_cites_the_right_document(self, tmp_path) -> None:
+        """Only the figure is wrong, and the card must not imply otherwise.
+
+        This card used to be titled "answers from a policy that was withdrawn"
+        and said a superseded document was quoted. Neither happens: `_dr_spoil`
+        overwrites `answer_code` and leaves the citations pointing at the
+        controlling document. The impeccable citations are the interesting part,
+        because they are what makes the wrong figure survive an eyeball check.
+        """
+        doing = work_module.by_workload("doc-research")
+        good = {"answer_code": "days-90", "citations": [{"id": "doc-006"}, {"id": "doc-002"}]}
+        spoiled = doing.spoil(good)
+        assert spoiled["answer_code"] != good["answer_code"]
+        assert spoiled["citations"] == good["citations"], "the citations must stay correct"
+
+        job = jobs.by_key("withdrawn-policy")
+        assert "withdrawn" not in job.title.lower()
+        assert "superseded" not in job.without.lower()
+
+    def test_the_stronger_model_is_recorded_but_is_not_what_fixed_it(self, tmp_path) -> None:
+        """A scripted port returns the same turn whichever model is named.
+
+        The escalation is real and worth recording, but attributing the better
+        answer to gpt-5 would be inventing a result the fixture cannot produce.
+        """
+        from outcomefuse.ports.model import Message, ModelRequest, ScriptedModelPort
+
+        scripted = ScriptedModelPort(turns=["first", "second"])
+        asked = [
+            scripted.complete(
+                ModelRequest(
+                    model_id=name,
+                    messages=(Message(role="user", content="same prompt"),),
+                    tools=(),
+                    max_output_tokens=256,
+                )
+            ).text
+            for name in ("gpt-5-mini", "gpt-5")
+        ]
+        assert asked == ["first", "second"], "the script, not the model, chose these"
+        assert len({r.model_id for r in scripted.calls}) == 2, "two models really were asked"
+
+        job = jobs.by_key("withdrawn-policy")
+        assert "not what fixed it" in job.watch
+
+    def test_the_gate_catches_it_against_the_answer_key(self, tmp_path) -> None:
+        # `exact-match-against-answer-key` is reference-backed: outside a frozen
+        # case there is no key to compare with, so this criterion cannot fire.
+        # The card has to say that rather than imply the gate knows the answer.
+        job = jobs.by_key("withdrawn-policy")
+        tag = "key"
+        run = scenarios.run(
+            scenarios.by_key(job.situation), work_module.by_workload(job.workload),
+            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id=job.case_id, token=tag,
+        )
+        escalated = next(
+            e for e in run.events if e.decision_reason == "escalation-gate-fail"
+        )
+        assert escalated.payload["unmet"] == ["answer-matches-key"]
+        assert run.quality_state == "pass", "and the retry has to actually pass"
+        assert "answer key" in job.watch
+
+        # The retry inherits the evidence: nothing is fetched a second time.
+        after = [
+            e for e in run.events
+            if e.seq > escalated.seq and e.kind == "decision-proposed"
+        ]
+        assert not after, "the retry re-fetched evidence"
+
     def test_the_ceiling_is_a_tripwire_not_a_wall(self, tmp_path) -> None:
         """The run ends over its ceiling, and the card has to say so.
 
