@@ -883,6 +883,61 @@ class TestTheAnswerIsShown:
             assert context(job)["prompt"] == " ".join(frozen.split())
 
 
+    def test_the_ceiling_is_a_tripwire_not_a_wall(self, tmp_path) -> None:
+        """The run ends over its ceiling, and the card has to say so.
+
+        `run_case` calls the model, adds the usage to the reported spend, and
+        only then asks the ledger whether it was affordable. So the turn that
+        breaks the ceiling has already been generated and paid for. A tool call
+        is priced before it runs and never gets that far; a model turn cannot
+        be, because its cost is not known until it exists.
+
+        Pinned because the card used to claim the ceiling was never crossed
+        while the figure beside it read 2,051 against 2,000.
+        """
+        job = jobs.by_key("order-after-order")
+        situation = scenarios.by_key(job.situation)
+        ceiling = compose.variant(situation.mutate, job.workload).budget.max_tokens
+        tag = "ceil"
+        run = scenarios.run(
+            situation, work_module.by_workload(job.workload), arm=scenarios.GOVERNED,
+            runs_dir=tmp_path, case_id=job.case_id, token=tag,
+        )
+        assert run.terminated == "halt-exhausted"
+
+        reported = run.outcome.spend.total_tokens
+        assert reported > ceiling, "the overshoot is the point; if it is gone, say so"
+
+        # What the ledger actually settled stays under the ceiling.
+        settled = sum(
+            e.tokens_consumed or 0 for e in run.events if e.kind == "spend-settled"
+        )
+        assert settled <= ceiling
+
+        # And the overshoot is bounded by the one turn that was not settled.
+        turns = [
+            e.tokens_consumed
+            for e in run.events
+            if e.kind == "spend-settled" and (e.tokens_consumed or 0) > 100
+        ]
+        assert reported - ceiling < max(turns), "over by more than a single model turn"
+        assert "2,051 against that 2,000" in job.watch
+
+    def test_neither_arm_answers_when_the_budget_runs_out(self, tmp_path) -> None:
+        # "tokens 8,703 -> 2,051 (-76%)" reads as a discount until you notice
+        # that no answer came out of either arm.
+        job = jobs.by_key("order-after-order")
+        situation = scenarios.by_key(job.situation)
+        doing = work_module.by_workload(job.workload)
+        for arm in (scenarios.GOVERNED, scenarios.BASELINE):
+            run = scenarios.run(
+                situation, doing, arm=arm, runs_dir=tmp_path,
+                case_id=job.case_id, token=arm[:4],
+            )
+            assert run.quality_state == "not-evaluated", arm
+            assert not run.deliverable, f"{arm} published something"
+        assert "Neither arm answers" in job.watch
+
     def test_a_failed_call_is_not_cached_so_the_retry_gets_through(self, tmp_path) -> None:
         """The same fingerprint, collapsed in one job and allowed through in the other.
 

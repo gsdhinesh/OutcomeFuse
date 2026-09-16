@@ -180,13 +180,20 @@ JOBS: tuple[Job, ...] = (
         workload="supply-chain",
         case_id="sc-c-007",
         situation="exhaustion",
-        does="Asks whether the next step is affordable **before** deciding to take it, so "
-        "the ceiling is never crossed \u2014 the run halts at it.",
+        does="Prices every step against a ledger and halts the run when the next one "
+        "cannot be afforded. A **tool call** is priced before it runs, so it never runs. "
+        "A **model turn** is priced after the provider has already produced it — so the "
+        "ceiling is not a wall, it is a tripwire, and the run can end one turn past it.",
         without="`order_lookup` walks the next twelve POs and nothing is counting, so "
-        "nothing stops it.",
+        "nothing stops it. It ends only because the agent runs out of turns.",
         feature="The ledger and the budget ceiling (FR92)",
-        watch="The ledger draining against a 2,000-token ceiling, then halt-exhausted \u2014 "
-        "an ending, not a fault. No cache-hits here: every call really is different.",
+        watch="The ledger draining against a 2,000-token ceiling, then halt-exhausted — an "
+        "ending, not a fault. **The total reads 2,051 against that 2,000**, and it is "
+        "meant to: the turn that broke the ceiling had already been generated and paid "
+        "for by the time the ledger could price it. The ledger itself settled 1,241 and "
+        "refused the rest. **Neither arm answers** — the gate is never evaluated on "
+        "either side, so the 76% is not a discount on the same result, it is the cost "
+        "of a run that was going nowhere being cut off sooner.",
         expect="the governed arm stops at the ceiling; the ungoverned one has no ceiling "
         "to stop at",
     ),
