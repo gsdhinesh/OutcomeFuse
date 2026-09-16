@@ -293,15 +293,18 @@ JOBS: tuple[Job, ...] = (
         case_id="sc-c-012",
         situation="happy",
         does="Turns it into a **decision**: the answer key pins no values, so a "
-        "reference-backed criterion cannot be evaluated, and the run ends fail-closed — "
+        "reference-backed criterion cannot be evaluated, and the run ends fail-closed \u2014 "
         "recorded, sealed, and verifiable afterwards.",
-        without="**It raises.** There is no gate to refuse with and no posture to fall "
-        "back on, so `GateUnavailable` comes straight out of the harness and the run "
-        "ends with no log at all.",
+        without="**It raises.** There is no posture to fall back on, so `GateUnavailable` "
+        "comes out of the harness and there is no result to compare. Its log is not lost, "
+        "though: the recorder writes the reason and closes before it re-raises, so that "
+        "arm seals and verifies too \u2014 what it lacks is an ending it chose.",
         feature="Fail-closed when a governing component cannot answer",
-        watch="A well-behaved agent, doing everything right, still ending fail-closed — "
-        "and the ungoverned lane not ending at all. This is what excluded sc-e-008 "
-        "from the recorded campaign's proof card.",
+        watch="A well-behaved agent, doing everything right, still ending fail-closed \u2014 "
+        "and the ungoverned lane raising instead. **Both lanes seal.** The difference is "
+        "that one names a terminal reason and the other stops mid-sentence with an "
+        "exception. This is what excluded sc-e-008 from the recorded campaign's proof "
+        "card.",
         expect="the governed arm refuses and seals; the ungoverned one throws",
         authored=False,
     ),

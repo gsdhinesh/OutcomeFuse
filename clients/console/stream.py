@@ -242,7 +242,13 @@ def play(
             )
             finished[arm] = summarise(run, arm)
         except Exception as exc:  # noqa: BLE001 - reported to the viewer, never swallowed
-            finished[arm] = {"arm": arm, "error": f"{type(exc).__name__}: {exc}"}
+            finished[arm] = {
+                "arm": arm,
+                "error": f"{type(exc).__name__}: {exc}",
+                # The arm raised instead of returning a result, but its log is
+                # closed and sealed. Saying otherwise reads as data loss.
+                "sealed": getattr(exc, "sealed", {}),
+            }
         finally:
             channel.put(("end", arm, None))
 

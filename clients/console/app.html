@@ -620,10 +620,17 @@ function threw(crash) {
   if (!lane.started) { lane.tree.innerHTML = ""; lane.started = true; }
   const box = document.createElement("div");
   box.className = "threw";
-  box.innerHTML = `<h3>this arm threw</h3>
-    <p>It did not end, so there is nothing to seal and nothing to verify.</p>
-    <code></code>`;
-  box.querySelector("code").textContent = crash.error;
+  const s = crash.sealed || {};
+  // It raised instead of returning a result, which is not the same as losing
+  // the run: the recorder writes the reason and closes before re-raising.
+  const kept = s.seal
+    ? `<p>There is no result to compare \u2014 but the run <b>did</b> close: ${s.events}
+       events, chain verified, sealed <code class="sl"></code>. The reason is in the log,
+       not only in this box.</p>`
+    : `<p>It did not end, so there is nothing to seal and nothing to verify.</p>`;
+  box.innerHTML = `<h3>this arm threw</h3>${kept}<code class="er"></code>`;
+  box.querySelector(".er").textContent = crash.error;
+  if (s.seal) box.querySelector(".sl").textContent = s.seal.slice(0, 16) + "\u2026";
   lane.tree.appendChild(box);
   // After layout, or the tree scrolls to the height it had before the box existed.
   requestAnimationFrame(() => box.scrollIntoView({ block: "end" }));

@@ -1021,6 +1021,43 @@ class TestTheAnswerIsShown:
         ).read_text(encoding="utf-8")
         assert "never written to the log" in page
 
+    def test_an_arm_that_raises_still_leaves_a_sealed_log(self, tmp_path) -> None:
+        """Raising is not losing the run, and the console said it was.
+
+        `BaselineRecorder` appends the reason and calls `_close()` before it
+        re-raises, so the log is complete, chained and sealable - 13 events
+        ending in `run-closed`. `compose.ungoverned` let the exception escape
+        before reading it back, so the viewer was told "it did not end, so there
+        is nothing to seal and nothing to verify" about a run that had sealed
+        and does verify.
+        """
+        job = jobs.by_key("cannot-be-answered")
+        tag = "threw"
+        with pytest.raises(Exception) as caught:
+            scenarios.run(
+                scenarios.by_key(job.situation),
+                work_module.by_workload(job.workload),
+                arm=scenarios.BASELINE, runs_dir=tmp_path,
+                case_id=job.case_id, token=tag,
+            )
+        sealed = getattr(caught.value, "sealed", None)
+        assert sealed, "the log was read back and thrown away"
+        assert sealed["events"] > 1
+        assert sealed["seal"], "it sealed"
+        assert sealed["verified"] is True, "and the chain verifies"
+        assert "could not be evaluated" in sealed["why"]
+
+        _frames, _by_arm, last = _both(job.key, tmp_path)
+        crashed = last["crashed"]
+        assert crashed and crashed[0]["sealed"]["seal"]
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "chain verified, sealed" in page
+        assert "no log at all" not in jobs.by_key("cannot-be-answered").without
+
     def test_a_referral_names_what_it_could_not_settle(self, tmp_path) -> None:
         """A case handed to a person has to say what is wrong with it.
 

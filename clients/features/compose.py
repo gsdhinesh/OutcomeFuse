@@ -355,6 +355,9 @@ def ungoverned(
     store, path = _store(runs_dir, run_id, sink)
     # Nothing routes an ungoverned loop, so it sits on the strong model.
     model = spec.models.eligible[-1] if spec.models else "gpt-5"
+    raised: Exception | None = None
+    outcome = None
+    quality = "not-evaluated"
     try:
         evidence = EvidenceStore(runs_dir / "evidence", data_class="synthetic")
         recorder = BaselineRecorder(
@@ -378,11 +381,33 @@ def ungoverned(
             max_iterations=spec.budget.max_iterations,
         )
         quality = recorder.verdict.verdict if recorder.verdict else "not-evaluated"
+    except Exception as exc:  # noqa: BLE001 - re-raised below, never swallowed
+        raised = exc
     finally:
         store.close()
         _release(run_id)
 
     events, seal, verified = _read_back(path, run_id)
+    if raised is not None:
+        # `BaselineRecorder` appends the reason and closes before it re-raises,
+        # so the log is complete, chained and sealable even though there is no
+        # `Outcome` to return. Dropping it here is what made the console say
+        # there was nothing to seal, which is the opposite of what happened.
+        raised.sealed = {  # type: ignore[attr-defined]
+            "run_id": run_id,
+            "events": len(events),
+            "seal": seal,
+            "verified": verified,
+            "why": next(
+                (
+                    str(e.payload.get("gate_unavailable"))
+                    for e in events
+                    if (e.payload or {}).get("gate_unavailable")
+                ),
+                "",
+            ),
+        }
+        raise raised
     return Run(
         run_id=run_id,
         outcome=outcome,
