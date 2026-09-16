@@ -965,7 +965,7 @@ class TestTheAnswerIsShown:
         assert len({r.model_id for r in scripted.calls}) == 2, "two models really were asked"
 
         job = jobs.by_key("counted-by-overwriting")
-        assert "not what fixed it" in job.watch
+        assert "the script supplies a better answer" in job.watch
 
     def test_the_card_shows_a_read_query_answered_with_a_write(self, tmp_path) -> None:
         job = jobs.by_key("counted-by-overwriting")
@@ -984,6 +984,41 @@ class TestTheAnswerIsShown:
         )
         assert escalated.payload["unmet"] == ["sql-is-read-only"]
         assert "no answer key" in job.does
+
+    def test_the_retry_is_never_told_what_was_wrong(self, tmp_path, monkeypatch) -> None:
+        """`retry-then-escalate` re-asks the identical question.
+
+        On a gate failure `run_case` does `continue` before the assistant turn
+        is appended, so the rejected answer never enters the history and nothing
+        names the unmet criterion. The retry sees the same messages as the
+        attempt that failed, on a different model.
+
+        That is worth pinning rather than fixing here - the driver is library
+        code and the freeze is final - because it bounds the claim. In this demo
+        the script supplies a better second answer. A real model handed the same
+        conversation has no signal that anything was refused.
+        """
+        from outcomefuse.ports.model import ScriptedModelPort
+
+        seen: list[tuple] = []
+
+        class Spy(ScriptedModelPort):
+            def complete(self, request):
+                seen.append(tuple(request.messages))
+                return super().complete(request)
+
+        monkeypatch.setattr(compose, "ScriptedModelPort", Spy)
+        job = jobs.by_key("counted-by-overwriting")
+        tag = "blind"
+        run = scenarios.run(
+            scenarios.by_key(job.situation), work_module.by_workload(job.workload),
+            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id=job.case_id, token=tag,
+        )
+        assert run.escalations == 1, "there has to be a retry to be blind"
+        assert len(seen) >= 2
+        rejected, retry = seen[-2], seen[-1]
+        assert retry == rejected, "the retry was given something the first attempt was not"
+        assert "retry is blind" in job.watch
 
     def test_the_result_line_says_the_sql_is_a_write(self) -> None:
         # Both arms compute 16 from 16 rows, so the figure is identical and the

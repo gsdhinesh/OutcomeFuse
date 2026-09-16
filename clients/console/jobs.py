@@ -219,9 +219,11 @@ JOBS: tuple[Job, ...] = (
         "that check the *figure* compare it against a frozen answer key, and no "
         "deployment has one of those \u2014 but nothing about a regex needs ground truth. "
         "Escalate when the cheap model returns something structurally unusable, not when "
-        "it returns something untrue, because only the first is detectable. One caveat "
-        "kept in view: the stronger model is recorded but is not what fixed it \u2014 the "
-        "script ignores which model is asked, and the retry is what does the work.",
+        "it returns something untrue, because only the first is detectable. **The retry "
+        "is blind, though.** It is handed the same six messages as the attempt that "
+        "failed \u2014 not told it was refused, not shown what it said, not told which "
+        "criterion it missed. Here the script supplies a better answer; a real model "
+        "asked the identical question would have little reason to give one.",
         expect="the governed arm retries and gets a read-only query; the ungoverned one "
         "publishes the UPDATE",
     ),
