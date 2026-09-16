@@ -8,7 +8,7 @@ situation cannot say one thing on the gallery and a card say another.
 A situation is data and so is a `Work`, and one runner takes both plus an arm.
 Any situation therefore runs on any work, with the governor plugged in or out,
 from a single definition — so the arms cannot drift and neither can the work.
-The console shows twelve chosen points of that matrix; `compare.py` and the
+The console shows eleven chosen points of that matrix; `compare.py` and the
 tests sweep all of it, which is where verification belongs.
 
 Not every situation fits every work. `applies` says which, and the one that does

@@ -80,7 +80,7 @@ def _run(situation_key: str, workload: str, tmp_path, arm=scenarios.GOVERNED):
     )
 
 
-class TestTheGalleryIsTwelveDifferentThings:
+class TestTheGalleryIsElevenDifferentThings:
     """One card, one job, one mechanism. Not one job shown nine ways."""
 
     def test_each_job_shows_a_mechanism_no_other_job_shows(self) -> None:
@@ -96,10 +96,37 @@ class TestTheGalleryIsTwelveDifferentThings:
             if key not in {"acts", "happy"}:
                 assert len(shown) == 1, key
 
-    def test_every_situation_reaches_the_gallery(self) -> None:
-        # A mechanism nobody can see demonstrated is a mechanism nobody believes.
+    def test_every_situation_is_either_shown_or_swept(self) -> None:
+        # A mechanism nobody can see demonstrated is a mechanism nobody believes,
+        # so the default is that every situation earns a card. `NOT_SHOWN` is the
+        # deliberate exception list, and it has to stay honest in both directions:
+        # nothing may be omitted without a reason, and nothing may be listed as
+        # omitted while still holding a card.
         offered = {job.situation for job in jobs.JOBS}
-        assert offered == {s.key for s in scenarios.SITUATIONS}
+        every = {s.key for s in scenarios.SITUATIONS}
+        assert offered.isdisjoint(jobs.NOT_SHOWN)
+        assert offered | set(jobs.NOT_SHOWN) == every
+        for key, reason in jobs.NOT_SHOWN.items():
+            scenarios.by_key(key)
+            assert len(reason) > 20, key
+
+    def test_what_a_card_shows_is_a_kind_the_page_can_style(self) -> None:
+        for job in jobs.JOBS:
+            assert job.shows in jobs.SLUG, job.key
+
+    def test_only_the_cards_claiming_a_difference_promise_one(self) -> None:
+        # The four cards that move no figure are the ones most likely to be read
+        # as wins they never claimed, so the kind and the claim are pinned to
+        # each other rather than left to drift apart in prose.
+        moves = (jobs.DIFFERENCE, jobs.DEFECT)
+        for job in jobs.JOBS:
+            assert bool(job.expect) == (job.shows in moves), job.key
+
+    def test_the_gallery_is_not_a_row_of_wins(self) -> None:
+        kinds = {job.shows for job in jobs.JOBS}
+        assert jobs.GAP in kinds, "the gap we found has to stay on the wall"
+        assert jobs.DEFECT in kinds, "so does the defect"
+        assert jobs.NO_COST in kinds, "and the control the rest are read against"
 
     def test_every_kind_of_work_reaches_the_gallery(self) -> None:
         used = {job.workload for job in jobs.JOBS}
@@ -173,7 +200,6 @@ class TestEveryCardsClaimIsTrue:
             ("write-to-the-table", "fail-closed"),
             ("nobody-is-asked", "stop-sufficient"),
             ("same-file-again", "halt-no-progress"),
-            ("fetch-keeps-failing", "stop-sufficient"),
             ("order-after-order", "halt-exhausted"),
             ("withdrawn-policy", "stop-sufficient"),
             ("figure-never-right", "returned-partial"),
@@ -860,17 +886,16 @@ class TestTheAnswerIsShown:
     def test_a_failed_call_is_not_cached_so_the_retry_gets_through(self, tmp_path) -> None:
         """The same fingerprint, collapsed in one job and allowed through in the other.
 
-        This is the whole of "a failure is not a denial", and neither arm of the
-        comparison shows it - both run four calls and agree on everything - so it
-        is pinned here instead. A result that failed is not a result, so it never
-        enters the cache and the retry is not answered from it.
+        This is the whole of "a failure is not a denial". It held no card in the
+        end - both arms run the same four calls and agree on everything, so there
+        was nothing for a viewer to watch - but the mechanism is real and stays
+        swept here.
         """
-        job = jobs.by_key("fetch-keeps-failing")
-        doing = work_module.by_workload(job.workload)
+        doing = work_module.by_workload("doc-research")
         tag = "fail"
         failing = scenarios.run(
             scenarios.by_key("failing-tool"), doing, arm=scenarios.GOVERNED,
-            runs_dir=tmp_path, case_id=job.case_id, token=tag,
+            runs_dir=tmp_path, case_id="dr-c-005", token=tag,
         )
         keys = [
             e.payload.get("canonical_key")
@@ -898,11 +923,10 @@ class TestTheAnswerIsShown:
         assert [e for e in stalling.events if e.decision_reason == "cache-hit"]
 
     def test_the_reservations_come_back_on_every_failure(self, tmp_path) -> None:
-        job = jobs.by_key("fetch-keeps-failing")
         tag = "res"
         run = scenarios.run(
-            scenarios.by_key("failing-tool"), work_module.by_workload(job.workload),
-            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id=job.case_id, token=tag,
+            scenarios.by_key("failing-tool"), work_module.by_workload("doc-research"),
+            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id="dr-c-005", token=tag,
         )
         reserved = sum(1 for e in run.events if e.kind == "budget-reserved")
         settled = sum(1 for e in run.events if e.kind == "spend-settled")
@@ -1019,8 +1043,10 @@ class TestTheServerSurface:
         assert len(payload["jobs"]) == len(jobs.JOBS)
         assert set(payload["jobs"][0]) == {
             "key", "group", "title", "does", "without", "feature", "watch", "expect",
-            "authored", "interactive", "variant", "work", "workload", "case_id",
+            "shows", "shows_kind", "authored", "interactive", "variant", "work",
+            "workload", "case_id",
         }
+        assert {j["shows_kind"] for j in payload["jobs"]} <= set(jobs.SLUG.values())
 
     def test_only_a_gate_that_fires_offers_you_a_decision(self) -> None:
         from console.server import gallery

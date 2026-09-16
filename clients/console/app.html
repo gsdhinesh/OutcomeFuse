@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>OutcomeFuse &mdash; twelve jobs, one mechanism each</title>
+<title>OutcomeFuse &mdash; eleven jobs, one mechanism each</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#0f1115;color:#d7dae0;height:100vh;overflow:hidden;
@@ -48,6 +48,10 @@ border-radius:3px;border:1px solid}
 .flag.authored{color:#e0af68;border-color:#6b5220}
 .flag.variant{color:#7aa2f7;border-color:#2d4470}
 .flag.defect{color:#ff8391;border-color:#6b2f37}
+.flag.gap{color:#ff8391;border-color:#6b2f37}
+.flag.difference{color:#9ece6a;border-color:#3f5c2c}
+.flag.decision{color:#bb9af7;border-color:#4a3a6b}
+.flag.nocost{color:#8d93a8;border-color:#3b4055}
 .job .go{margin-top:.85rem;align-self:flex-start}
 .compare{display:flex;gap:.5rem;align-items:center;margin:0 0 .4rem;color:#8b93a1;
 font-size:.82rem;cursor:pointer}
@@ -202,7 +206,7 @@ table.compare tr.differs th.lbl{color:#e0af68;font-weight:600}
 <div class="scroll" id="view-gallery">
   <div class="pad">
     <div class="eyebrow">pick a job</div>
-    <h1>Twelve jobs. Each one shows exactly one thing.</h1>
+    <h1>Eleven jobs. Each one shows exactly one thing.</h1>
     <div class="lede">Real tasks from four frozen workloads &mdash; a flagged purchase
       order, a question over a database, a support ticket, a policy question. Each card is
       <b>one job that meets one mechanism</b>, and clicking it runs that job for real:
@@ -363,11 +367,12 @@ function cardFor(job) {
   card.querySelector(".w").innerHTML = md(job.without);
   card.querySelector(".mech").textContent = job.feature;
   const flags = card.querySelector(".flags");
+  // What this card is for, always first. Four of the eleven move no figure, and
+  // an unlabelled card among the ones that do reads as a win it never claimed.
+  flag(flags, job.shows_kind, job.shows);
   if (job.interactive) flag(flags, "live", "you answer \u2014 nothing pre-answered");
   if (job.authored) flag(flags, "authored", "agent authored to misbehave");
   if (job.variant) flag(flags, "variant", "variant contract: " + job.variant);
-  if (/defect/i.test(job.feature)) flag(flags, "defect", "a known defect, shown not hidden");
-  else if (/gap/i.test(job.feature)) flag(flags, "defect", "a known gap, shown not hidden");
   card.onclick = () => start(job);
   return card;
 }

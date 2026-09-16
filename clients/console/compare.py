@@ -1,6 +1,6 @@
-"""The comparison, headless. The gallery's twelve, or the whole matrix behind it.
+"""The comparison, headless. The gallery's eleven, or the whole matrix behind it.
 
-    uv run python clients/console/compare.py                  # the twelve cards
+    uv run python clients/console/compare.py                  # the eleven cards
     uv run python clients/console/compare.py --matrix         # every situation x work
     uv run python clients/console/compare.py --matrix --work code-triage
     uv run python clients/console/compare.py --quiet
@@ -47,6 +47,9 @@ class Pair:
     #: None where the ungoverned arm raised instead of ending. That is a result.
     baseline: compose.Run | None
     threw: str = ""
+    #: What the card claims to show. Empty for matrix rows, which are the
+    #: instrument rather than the show and claim nothing.
+    shows: str = ""
 
     @property
     def material(self) -> list[str]:
@@ -71,6 +74,7 @@ def compare(
     work: work_module.Work,
     case_id: str,
     runs_dir: Path,
+    shows: str = "",
 ) -> Pair:
     governed = scenarios.run(
         situation, work, arm=scenarios.GOVERNED, runs_dir=runs_dir, case_id=case_id
@@ -86,7 +90,7 @@ def compare(
         # to fall back on, so a gate that cannot be evaluated comes out as an
         # exception rather than a decision.
         threw = f"{type(exc).__name__}: {exc}"
-    return Pair(label, work, situation, case_id, governed, baseline, threw)
+    return Pair(label, work, situation, case_id, governed, baseline, threw, shows)
 
 
 def _row(pair: Pair) -> None:
@@ -118,13 +122,17 @@ def _row(pair: Pair) -> None:
     if pair.material:
         print(f"  {'DIFFERENCE':<20}{'; '.join(pair.material)}")
     else:
+        # Four cards move no figure on purpose. Printing only "the arms agree"
+        # left a gap, a defect and a deliberate control looking like one thing.
         print(f"  {'difference':<20}none in what happened - {AGREE}")
+        if pair.shows:
+            print(f"  {'which is the point':<20}this card shows {pair.shows}")
     for note in pair.recorded:
         print(f"  {'recorded only':<20}{note}")
 
 
 def _gallery(runs_dir: Path, quiet: bool) -> list[Pair]:
-    """The twelve cards the console offers, each checked against its own claim."""
+    """The eleven cards the console offers, each checked against its own claim."""
     pairs = []
     for job in jobs.JOBS:
         doing = work_module.by_workload(job.workload)
@@ -135,7 +143,9 @@ def _gallery(runs_dir: Path, quiet: bool) -> list[Pair]:
             if not quiet:
                 print(f"\n{job.title}\n  {'skipped':<20}this one waits on a person")
             continue
-        pairs.append(compare(job.title, situation, doing, job.case_id, runs_dir))
+        pairs.append(
+            compare(job.title, situation, doing, job.case_id, runs_dir, job.shows)
+        )
     return pairs
 
 
@@ -189,10 +199,13 @@ def main() -> int:
     )
     print(f"\n{'=' * 72}")
     print(f"{differed} of {len(pairs)} comparisons differ in what happened.")
-    print(
-        "The rest differ only in what was written down, which is worth something "
-        "and is not the same thing."
-    )
+    # Naming them beats a single sentence about "what was written down", which
+    # put a gap, a deliberate control and a recorded disposition in one bucket.
+    agreed = [p for p in pairs if not p.material and p.shows]
+    if agreed:
+        print("The rest agree, and each of them agrees for its own reason:")
+        for pair in agreed:
+            print(f"  - {pair.label}: {pair.shows}")
     if moved:
         print(
             f"In {moved} the ungoverned arm acted on the world and the governed one "

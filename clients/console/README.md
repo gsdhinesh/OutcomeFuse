@@ -1,11 +1,11 @@
-# The console — twelve jobs, each showing exactly one thing
+# The console — eleven jobs, each showing exactly one thing
 
 An interactive client. Nothing under `src/` imports it and the wheel does not
 ship it (AD-17).
 
 ```powershell
 uv run python clients/console/server.py       # the UI
-uv run python clients/console/compare.py      # the same twelve, headless
+uv run python clients/console/compare.py      # the same eleven, headless
 uv run python clients/console/compare.py --matrix   # everything behind them
 ```
 
@@ -27,24 +27,38 @@ So there is one screen. **One card is one job is one task** — one real task, o
 one frozen case, meeting one mechanism, the way a person would actually meet it.
 There is no picker and no variant: a job names the case it runs and runs that.
 
-| | job | work | case | shows |
-| --- | --- | --- | --- | --- |
-| 1 | The agent wants to message the planner | purchase order | `sc-c-001` | human approval — **you answer** |
-| 2 | The agent wants to write to the orders table | database question | `ds-c-004` | the same gate over a *write* |
-| 3 | The agent runs the test suite, and nobody is asked | bug report | `ct-c-001` | **the gap**: that clause cannot fire |
-| 4 | The agent reads the same file over and over | bug report | `ct-c-002` | cache, then the loop fuse |
-| 5 | The document fetch keeps failing | policy question | `dr-c-005` | holds released on failure |
-| 6 | The agent works through order after order | purchase order | `sc-c-007` | the ledger and the ceiling |
-| 7 | The agent answers from a policy that was withdrawn | policy question | `dr-c-002` | escalation to a stronger model |
-| 8 | The agent cannot get the figure right | database question | `ds-c-002` | the FR103 ladder — partial |
-| 9 | Still cannot settle it, and the contract wants a buyer | purchase order | `sc-c-004` | the FR103 ladder — referred |
-| 10 | The agent asks for git blame | bug report | `ct-c-003` | **a known defect** |
-| 11 | The dataset cannot support an answer | purchase order | `sc-c-012` | fail-closed vs an exception |
-| 12 | The agent simply does the job properly | policy question | `dr-c-003` | the whole loop, changing nothing |
+| | job | work | case | shows | kind |
+| --- | --- | --- | --- | --- | --- |
+| 1 | The agent wants to message the planner | purchase order | `sc-c-001` | human approval — **you answer** | difference |
+| 2 | The agent wants to write to the orders table | database question | `ds-c-004` | the same gate over a *write* | difference |
+| 3 | The agent runs the test suite, and nobody is asked | bug report | `ct-c-001` | that clause cannot fire | **a gap** |
+| 4 | The agent reads the same file over and over | bug report | `ct-c-002` | cache, then the loop fuse | difference |
+| 5 | The agent works through order after order | purchase order | `sc-c-007` | the ledger and the ceiling | difference |
+| 6 | The agent answers from a policy that was withdrawn | policy question | `dr-c-002` | escalation to a stronger model | difference |
+| 7 | The agent cannot get the figure right | database question | `ds-c-002` | the FR103 ladder — partial | difference |
+| 8 | Still cannot settle it, and the contract wants a buyer | purchase order | `sc-c-004` | the FR103 ladder — referred | a decision |
+| 9 | The agent asks for git blame | bug report | `ct-c-003` | the governor is worse than none | **a defect** |
+| 10 | The dataset cannot support an answer | purchase order | `sc-c-012` | fail-closed vs an exception | difference |
+| 11 | The agent simply does the job properly | policy question | `dr-c-003` | the whole loop, changing nothing | no cost |
 
-Twelve different tasks across all four frozen workloads. No two jobs are the
-same `(workload, case)` pair, and tests pin that. Eleven run answerable cases;
-card 11 is deliberately the one that cannot be answered.
+Eleven different tasks across all four frozen workloads. No two jobs are the
+same `(workload, case)` pair, and tests pin that. Ten run answerable cases;
+card 10 is deliberately the one that cannot be answered.
+
+**Read the kind column first.** Four of the eleven move no figure at all, and a
+gallery that lets them sit unlabelled beside the ones that do is inviting you to
+assume every card is a win. One is a gap, one is a defect where the governor is
+strictly worse than no governor, one records a disposition without changing an
+outcome, and one exists precisely to show that governing a clean run costs
+nothing. Each card carries its kind as a badge, and a test pins the kind against
+the measured pair so the two cannot drift apart.
+
+A twelfth card — *the document fetch keeps failing* — was removed rather than
+explained. Both arms made the same four failing calls and agreed on every
+figure, so there was nothing for a viewer to watch. The mechanism behind it is
+real and still swept: `compare.py --matrix` runs it, two tests pin it, and each
+of its two claims has a mutant in `scripts/mutate_check.py` that the suite
+catches. `jobs.NOT_SHOWN` records the omission and why.
 
 Click one and it runs **twice, at once** — with the governor and without — in two
 lanes side by side. Both arms get the same agent, the same contract and the same
@@ -93,7 +107,7 @@ happened**. That sweep is how the approval gap was found and is the only thing
 that keeps it found; the tests run it too. The gallery is the showing, this is
 the checking, and they are deliberately different shapes.
 
-Running the twelve cards headless instead (`compare.py` with no flags) checks
+Running the eleven cards headless instead (`compare.py` with no flags) checks
 each card's own claim: **6 of 10 differ** once the two that wait on a person are
 skipped.
 
@@ -197,22 +211,22 @@ would make the tree unverifiable against the record.
 
 ## The agents are the job's own
 
-The invented tool on card 10 is one that work might plausibly have been given
+The invented tool on card 9 is one that work might plausibly have been given
 and was not — `git_blame`, and `supplier_scorecard` / `table_stats` /
 `policy_timeline` for the others — rather than a placeholder. The budget agent on
-card 6 makes a genuinely **different** call every turn (twelve POs, twelve
+card 5 makes a genuinely **different** call every turn (twelve POs, twelve
 SELECTs, twelve greps, twelve search terms), because repeating one would let the
 cache absorb it and you would be watching a stall wearing a ceiling's card. Tests
 pin both.
 
-Nine of the twelve agents are **authored to misbehave**, and every such card says
+Six of the eleven agents are **authored to misbehave**, and every such card says
 so. Nothing measured should ever be read off one.
 
 ## Files
 
 | file | what it holds |
 | --- | --- |
-| [jobs.py](jobs.py) | the twelve cards as **data**: a task, a case, a mechanism, and the claim |
+| [jobs.py](jobs.py) | the eleven cards as **data**: a task, a case, a mechanism, a kind, and the claim |
 | [../features/work.py](../features/work.py) | the four kinds of work, and agents that do each well and badly |
 | [scenarios.py](scenarios.py) | the mechanisms and the agents that provoke them; **no wording** |
 | [approval.py](approval.py) | the port that blocks the run until a person answers |
@@ -220,7 +234,7 @@ so. Nothing measured should ever be read off one.
 | [stream.py](stream.py) | both arms on worker threads, events as frames |
 | [server.py](server.py) | four routes, the SSE stream, and the session registry |
 | [app.html](app.html) | the page: the gallery, the task, two lanes, the verdict |
-| [compare.py](compare.py) | the twelve headless, or `--matrix` for everything behind them |
+| [compare.py](compare.py) | the eleven headless, or `--matrix` for everything behind them |
 
 The tee itself is `TeeStore` in [../features/compose.py](../features/compose.py),
 beside the rest of the wiring.

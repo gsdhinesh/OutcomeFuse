@@ -1,4 +1,4 @@
-"""Twelve jobs. Each one is a real task, and each one shows exactly one thing.
+"""Eleven jobs. Each one is a real task, and each one shows exactly one thing.
 
 The console used to ask twice: pick a kind of work, then pick what goes wrong.
 That is a matrix, and a matrix is a thing you verify, not a thing you show
@@ -7,22 +7,57 @@ which way it goes wrong gives the game away before the run has started.
 
 So the gallery is flat, and **one card is one job is one task**. No picker, no
 variants: a job names the frozen case it runs and runs that, the way a person
-would actually meet it — *the agent wants to message the planner*, *the document
-fetch keeps failing*, *the agent asks for git blame*. Click it and it runs, with
-the governor and without.
+would actually meet it — *the agent wants to message the planner*, *the agent
+asks for git blame*. Click it and it runs, with the governor and without.
 
 The four kinds of work and their agents live in `features/work.py`. The full
 situation-by-work matrix still exists and is still swept — by `compare.py` and
 by the tests, which is where verification belongs. This file is the showing.
 
-**Every job names the work it is, the case it runs, and whether its agent was
-authored to misbehave.** Nine of the twelve need an agent that does something
-wrong, because detecting a stall requires a stall.
+**Every job names the work it is, the case it runs, whether its agent was
+authored to misbehave, and what kind of thing it shows.** Six of the eleven
+need an agent that does something wrong, because detecting a stall requires a
+stall.
+
+That last field is the one to read first. Four of these cards move no figure at
+all, and a gallery that lets them sit unlabelled beside the ones that do is
+inviting the reader to assume every card is a win. One of them is a gap, one is
+a defect where the governor is worse than nothing, one records a decision
+without changing an outcome, and one exists precisely to show that governing a
+clean run costs nothing. A card that showed neither a difference nor a point
+was deleted rather than explained.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+#: What a card is for. The gallery is not twelve wins and never was.
+DIFFERENCE = "a difference you can measure"
+DECISION = "a decision, recorded"
+NO_COST = "no cost when nothing goes wrong"
+GAP = "a gap we found"
+DEFECT = "a defect we found"
+
+#: The page styles each kind differently, and matching on the prose would put
+#: that decision in two places in two languages.
+SLUG = {
+    DIFFERENCE: "difference",
+    DECISION: "decision",
+    NO_COST: "nocost",
+    GAP: "gap",
+    DEFECT: "defect",
+}
+
+#: Situations with no card. Swept by `compare.py --matrix` and by the tests, but
+#: not shown, because a card has to give a viewer something to look at.
+NOT_SHOWN = {
+    "failing-tool": (
+        "both arms make the same four failing calls and agree on every figure; "
+        "the two claims behind it - holds released, a failure is not a denial - "
+        "are each pinned by a mutant in scripts/mutate_check.py"
+    ),
+}
 
 #: How the gallery is grouped. Order matters; it reads top to bottom.
 GROUPS = (
@@ -53,6 +88,8 @@ class Job:
     feature: str
     #: What to look for in the tree.
     watch: str
+    #: Which of the five kinds above. Pinned against the measured pair.
+    shows: str = DIFFERENCE
     #: Where the arms should part company. Empty means they should agree.
     expect: str = ""
     #: False where the agent is simply doing the work properly.
@@ -109,6 +146,7 @@ JOBS: tuple[Job, ...] = (
         feature="The gap: only `when: always` can fire",
         watch="Watch for an approval request that never comes. Compare it against the two "
         "cards above, which are the same mechanism on a clause that works.",
+        shows=GAP,
         expect="",
         authored=False,
     ),
@@ -134,29 +172,6 @@ JOBS: tuple[Job, ...] = (
         "number never counted.",
         expect="the governed arm executes the tool once; the ungoverned one runs it every "
         "time and only stops at the cap",
-    ),
-    Job(
-        key="fetch-keeps-failing",
-        group=GROUPS[1],
-        title="The document fetch keeps failing",
-        workload="doc-research",
-        case_id="dr-c-005",
-        situation="failing-tool",
-        does="Gives back the budget it had reserved for each failed call, records the "
-        "error, and tells the agent it **failed** rather than that it was barred. It "
-        "does not stop the failures \u2014 nothing can.",
-        without="Four errors are recorded and nothing else. There was no reservation to "
-        "give back, because nothing was holding any.",
-        feature="Holds released on failure; a failure is not a denial",
-        watch="`outcome-observed` carrying a tool_error, and `budget-reserved` events with "
-        "no matching `spend-settled` \u2014 the reservations came back. Then compare it with "
-        "*the agent reads the same file over and over*: **the same fingerprint, repeated, "
-        "and no cache-hit here at all.** A result that failed is not a result, so each "
-        "retry is allowed through instead of being answered from the cache.",
-        # Measured, not assumed: both arms try the same calls, get the same errors
-        # and reach the same answer. The contribution here is accounting, not
-        # prevention, and claiming otherwise is a lie the comparison would catch.
-        expect="",
     ),
     Job(
         key="order-after-order",
@@ -221,8 +236,10 @@ JOBS: tuple[Job, ...] = (
         without="It stops, and nothing on it says a person needs to look.",
         feature="The FR103 ladder — referred-human",
         watch="referred-human, from the same failing agent as the card above. **The arms "
-        "agree on what happened** — the difference is entirely in what was written "
-        "down, and the verdict panel files it as such rather than claiming more.",
+        "agree on what happened** — both publish the same answer over the same failed "
+        "gate. What the governed run adds is a disposition: this one goes to a person. "
+        "That is recorded, not enforced, and the verdict panel files it as such.",
+        shows=DECISION,
         expect="",
     ),
     # --------------------------------------- when something is missing
@@ -241,6 +258,7 @@ JOBS: tuple[Job, ...] = (
         feature="A known defect in the failure posture",
         watch="A handful of events and then nothing. On the commonest model mistake the "
         "governor is strictly worse than no governor.",
+        shows=DEFECT,
         expect="the governed arm dies with no answer; the ungoverned one shrugs and passes "
         "\u2014 the governor is strictly worse here",
     ),
@@ -276,8 +294,10 @@ JOBS: tuple[Job, ...] = (
         "settled in that order, and the run is stopped once the floor is met.",
         without="The same tools, the same answer, the same tokens.",
         feature="The whole loop: contract, ledger, gate, sufficiency stop",
-        watch="The shape of an ordinary governed run. **The arms agree** \u2014 which is what "
-        "the recorded campaign found on most runs, and is a result rather than a gap.",
+        watch="The shape of an ordinary governed run. **Every figure is identical** — same "
+        "two tools, same tokens, same answer — and that is the claim, not a shortfall. "
+        "It is the control the other ten are read against.",
+        shows=NO_COST,
         expect="",
         authored=False,
     ),

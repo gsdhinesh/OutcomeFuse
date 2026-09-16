@@ -64,6 +64,8 @@ def card(job: jobs.Job) -> dict:
         "without": job.without,
         "feature": job.feature,
         "watch": job.watch,
+        "shows": job.shows,
+        "shows_kind": jobs.SLUG[job.shows],
         "expect": job.expect,
         "authored": job.authored,
         "interactive": scenarios.is_interactive(situation, doing),
