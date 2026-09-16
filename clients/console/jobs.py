@@ -199,29 +199,31 @@ JOBS: tuple[Job, ...] = (
     ),
     # ----------------------------------------- when the agent is wrong
     Job(
-        key="withdrawn-policy",
+        key="counted-by-overwriting",
         group=GROUPS[2],
-        title="The agent cites the right document and still gets the figure wrong",
-        workload="doc-research",
-        case_id="dr-c-002",
+        title="Asked how many orders, the agent hands back an UPDATE",
+        workload="data-sql",
+        case_id="ds-c-001",
         situation="escalation",
-        does="Checks the answer at the quality gate, refuses it, and spends the one retry "
-        "the contract allows \u2014 reusing the evidence already gathered rather than fetching "
-        "it again. **Zero tool calls after the escalation**, and the second answer passes.",
-        without="`days-1` is published with impeccable citations. Nothing checks the "
-        "figure, so nothing objects, and the answer is scored once afterwards \u2014 too late "
-        "to matter.",
-        feature="The quality gate, then `on_gate_fail: retry-then-escalate` (FR35)",
-        watch="One unmet criterion, `answer-matches-key`, then an escalate decision "
-        "moving gpt-5-mini to gpt-5, then a second answer that passes. **Two things that "
-        "are not what they look like.** The gate catches this by comparing `answer_code` "
-        "against the case's frozen answer key \u2014 a reference-backed check that has no key "
-        "to consult outside calibration. And the stronger model is recorded but is not "
-        "what fixed it: the demo is scripted, the script ignores which model is asked, "
-        "and the same second answer would have come back from gpt-5-mini. What genuinely "
-        "fixes it is being made to try again.",
-        expect="the governed arm retries and gets it right; the ungoverned one keeps its "
-        "first, wrong answer",
+        does="Refuses it at the gate on the **text of the SQL alone** \u2014 `sql-is-read-only` "
+        "is a regex, so it needs no answer key, no corpus and no execution to know this "
+        "must not be published \u2014 then spends the one retry the contract allows, reusing "
+        "the evidence already gathered. **Zero tool calls after the escalation.**",
+        without="The UPDATE is published as the query behind the figure. Nothing reads "
+        "it, so nothing objects, and it sits in the report waiting for the next person "
+        "who trusts the SQL enough to run it.",
+        feature="`sql-is-read-only`, then `on_gate_fail: retry-then-escalate` (FR35)",
+        watch="One unmet criterion, `sql-is-read-only`, then an escalate decision moving "
+        "gpt-5-mini to gpt-5, then a second answer that passes. **This is the escalation "
+        "trigger that survives contact with production.** The criteria on this contract "
+        "that check the *figure* compare it against a frozen answer key, and no "
+        "deployment has one of those \u2014 but nothing about a regex needs ground truth. "
+        "Escalate when the cheap model returns something structurally unusable, not when "
+        "it returns something untrue, because only the first is detectable. One caveat "
+        "kept in view: the stronger model is recorded but is not what fixed it \u2014 the "
+        "script ignores which model is asked, and the retry is what does the work.",
+        expect="the governed arm retries and gets a read-only query; the ungoverned one "
+        "publishes the UPDATE",
     ),
     Job(
         key="figure-never-right",

@@ -201,7 +201,7 @@ class TestEveryCardsClaimIsTrue:
             ("nobody-is-asked", "stop-sufficient"),
             ("same-file-again", "halt-no-progress"),
             ("order-after-order", "halt-exhausted"),
-            ("withdrawn-policy", "stop-sufficient"),
+            ("counted-by-overwriting", "stop-sufficient"),
             ("figure-never-right", "returned-partial"),
             ("send-it-to-a-buyer", "referred-human"),
             ("asks-for-git-blame", "fail-closed"),
@@ -495,7 +495,7 @@ class TestTheAgents:
 
 class TestTheStreamCannotGetAheadOfTheLog:
     def test_it_is_the_sealed_log_in_order_and_nothing_else(self, tmp_path) -> None:
-        events, summary = _play("withdrawn-policy", tmp_path)
+        events, summary = _play("counted-by-overwriting", tmp_path)
         with open_store(tmp_path / f"{summary['run_id']}.db", writer=False) as store:
             recorded = store.events(summary["run_id"])
         # The manifest at seq 0 is included: `open_run` appends it through the
@@ -694,7 +694,7 @@ class TestTheAnswerIsShown:
     """
 
     @pytest.mark.parametrize(
-        "key", ["ordinary-run", "nobody-is-asked", "withdrawn-policy"]
+        "key", ["ordinary-run", "nobody-is-asked", "counted-by-overwriting"]
     )
     def test_a_run_that_answers_carries_its_answer(self, key, tmp_path) -> None:
         _events, summary = _play(key, tmp_path)
@@ -883,26 +883,65 @@ class TestTheAnswerIsShown:
             assert context(job)["prompt"] == " ".join(frozen.split())
 
 
-    def test_the_wrong_answer_cites_the_right_document(self, tmp_path) -> None:
-        """Only the figure is wrong, and the card must not imply otherwise.
+    def test_the_escalation_trigger_needs_no_answer_key(self) -> None:
+        """Every workload escalates on a criterion a deployment could run.
 
-        This card used to be titled "answers from a policy that was withdrawn"
-        and said a superseded document was quoted. Neither happens: `_dr_spoil`
-        overwrites `answer_code` and leaves the citations pointing at the
-        controlling document. The impeccable citations are the interesting part,
-        because they are what makes the wrong figure survive an eyeball check.
+        The escalation card used to trip `answer-matches-key`, which compares
+        the deliverable against a sheet of right answers derived before the run
+        existed. Outside a frozen case there is no such sheet, so it was showing
+        a gate no deployment has. `malform` breaks a constraint-backed criterion
+        instead, and this pins the intent for all four rather than just the one
+        the card happens to run.
         """
-        doing = work_module.by_workload("doc-research")
-        good = {"answer_code": "days-90", "citations": [{"id": "doc-006"}, {"id": "doc-002"}]}
-        spoiled = doing.spoil(good)
-        assert spoiled["answer_code"] != good["answer_code"]
-        assert spoiled["citations"] == good["citations"], "the citations must stay correct"
+        keyless = {
+            "field-present", "numeric-range", "regex-match", "set-membership", "type-is",
+        }
+        tripped = {
+            "supply-chain": "delay-estimate-bounded",
+            "data-sql": "sql-is-read-only",
+            "code-triage": "fix-summary-substantive",
+            "doc-research": "citations-sufficient",
+        }
+        for doing in work_module.WORK:
+            spec = compose.contract(doing.workload)
+            by_id = {
+                c.id: c.verifier.type
+                for _band, crits in spec.criteria
+                for c in crits
+                if c.verifier is not None
+            }
+            wanted = tripped[doing.workload]
+            assert by_id[wanted] in keyless, f"{doing.workload}: {wanted} needs a key"
 
-        job = jobs.by_key("withdrawn-policy")
-        assert "withdrawn" not in job.title.lower()
-        assert "superseded" not in job.without.lower()
+    @pytest.mark.parametrize("workload", WORKLOADS)
+    def test_a_malformed_answer_is_refused_then_retried(self, workload, tmp_path) -> None:
+        run = _run("escalation", workload, tmp_path)
+        escalated = next(
+            e for e in run.events if e.decision_reason == "escalation-gate-fail"
+        )
+        unmet = escalated.payload["unmet"]
+        assert len(unmet) == 1, unmet
+        spec = compose.contract(workload)
+        verifier = next(
+            c.verifier.type
+            for band, crits in spec.criteria
+            for c in crits
+            if c.id == unmet[0] and c.verifier
+        )
+        assert verifier != "exact-match-against-answer-key", (
+            f"{workload} escalates on a criterion that needs the answer key"
+        )
+        assert run.escalations == 1
+        assert run.quality_state == "pass", "the retry has to actually pass"
 
-    def test_the_stronger_model_is_recorded_but_is_not_what_fixed_it(self, tmp_path) -> None:
+        # The retry inherits the evidence: nothing is fetched a second time.
+        after = [
+            e for e in run.events
+            if e.seq > escalated.seq and e.kind == "decision-proposed"
+        ]
+        assert not after, "the retry re-fetched evidence"
+
+    def test_the_stronger_model_is_recorded_but_is_not_what_fixed_it(self) -> None:
         """A scripted port returns the same turn whichever model is named.
 
         The escalation is real and worth recording, but attributing the better
@@ -925,32 +964,26 @@ class TestTheAnswerIsShown:
         assert asked == ["first", "second"], "the script, not the model, chose these"
         assert len({r.model_id for r in scripted.calls}) == 2, "two models really were asked"
 
-        job = jobs.by_key("withdrawn-policy")
+        job = jobs.by_key("counted-by-overwriting")
         assert "not what fixed it" in job.watch
 
-    def test_the_gate_catches_it_against_the_answer_key(self, tmp_path) -> None:
-        # `exact-match-against-answer-key` is reference-backed: outside a frozen
-        # case there is no key to compare with, so this criterion cannot fire.
-        # The card has to say that rather than imply the gate knows the answer.
-        job = jobs.by_key("withdrawn-policy")
-        tag = "key"
+    def test_the_card_shows_a_read_query_answered_with_a_write(self, tmp_path) -> None:
+        job = jobs.by_key("counted-by-overwriting")
+        doing = work_module.by_workload(job.workload)
+        case = compose.case(job.case_id, job.workload)
+        good = doing.deliverable(compose.key_for(job.case_id, job.workload), case)
+        assert "select" in good["sql"].lower(), "the honest answer is a query"
+        assert "update" in doing.malform(good)["sql"].lower(), "the refused one is a write"
+        tag = "sql"
         run = scenarios.run(
-            scenarios.by_key(job.situation), work_module.by_workload(job.workload),
-            arm=scenarios.GOVERNED, runs_dir=tmp_path, case_id=job.case_id, token=tag,
+            scenarios.by_key(job.situation), doing, arm=scenarios.GOVERNED,
+            runs_dir=tmp_path, case_id=job.case_id, token=tag,
         )
         escalated = next(
             e for e in run.events if e.decision_reason == "escalation-gate-fail"
         )
-        assert escalated.payload["unmet"] == ["answer-matches-key"]
-        assert run.quality_state == "pass", "and the retry has to actually pass"
-        assert "answer key" in job.watch
-
-        # The retry inherits the evidence: nothing is fetched a second time.
-        after = [
-            e for e in run.events
-            if e.seq > escalated.seq and e.kind == "decision-proposed"
-        ]
-        assert not after, "the retry re-fetched evidence"
+        assert escalated.payload["unmet"] == ["sql-is-read-only"]
+        assert "no answer key" in job.does
 
     def test_the_ceiling_is_a_tripwire_not_a_wall(self, tmp_path) -> None:
         """The run ends over its ceiling, and the card has to say so.

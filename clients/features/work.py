@@ -52,6 +52,12 @@ class Work:
     deliverable: Callable[[dict[str, Any], Case], dict[str, Any]]
     #: Which field to corrupt to make a well-formed answer that is wrong.
     spoil: Callable[[dict[str, Any]], dict[str, Any]]
+    #: Which field to corrupt to make an answer the gate can refuse **without an
+    #: answer key** — malformed, out of bounds, or outside a closed vocabulary.
+    #: `spoil` produces a wrong answer, which only a reference-backed criterion
+    #: can catch, so a demo built on it shows a gate no production deployment
+    #: has. This one trips a constraint-backed criterion instead.
+    malform: Callable[[dict[str, Any]], dict[str, Any]]
     #: One call the agent can make over and over, for the stall.
     repeatable: Callable[[Case], ToolInvocation]
     #: A *different* call each turn, for the budget ceiling. Distinctness matters:
@@ -104,6 +110,11 @@ _SC_TYPES = (
 def _sc_spoil(body: dict[str, Any]) -> dict[str, Any]:
     wrong = next(t for t in _SC_TYPES if t != body["exception_type"])
     return {**body, "exception_type": wrong}
+
+
+def _sc_malform(body: dict[str, Any]) -> dict[str, Any]:
+    # `delay-estimate-bounded` allows 0-180 days. 999 is refusable on sight.
+    return {**body, "est_delay_days": 999}
 
 
 # ------------------------------------------------------ 2. the database question
@@ -168,6 +179,12 @@ def _ds_subject(case: Case) -> str:
 #: that last one counts a shipment whose status is 'lost'. Only the first
 #: matches the derived key.
 _DS_SQL = {
+    # The fallback for this table is `order_date >= '2026-01-01'`, which returns
+    # 30 against a key of 16. "First quarter" has an upper bound.
+    "ds-c-001": (
+        "SELECT COUNT(*) FROM orders "
+        "WHERE order_date BETWEEN '2026-01-01' AND '2026-03-31'"
+    ),
     "ds-c-004": "SELECT COUNT(*) FROM shipments WHERE status = 'in_transit'",
     "ds-c-002": (
         "SELECT COUNT(DISTINCT p.product_id) FROM products p "
@@ -206,6 +223,13 @@ def _ds_spoil(body: dict[str, Any]) -> dict[str, Any]:
     return {**body, "result_value": float(body["result_value"]) + 1}
 
 
+def _ds_malform(body: dict[str, Any]) -> dict[str, Any]:
+    # A reporting question answered with a mutation. `sql-is-read-only` refuses
+    # it on the text alone, which is the whole point: no key, no corpus, no
+    # execution needed to know this must not be published.
+    return {**body, "sql": "UPDATE shipments SET status = 'delivered'"}
+
+
 # ------------------------------------------------------------ 3. the bug report
 
 
@@ -236,6 +260,11 @@ def _ct_answer(key: dict[str, Any], _case: Case) -> dict[str, Any]:
 
 def _ct_spoil(body: dict[str, Any]) -> dict[str, Any]:
     return {**body, "severity": "minor" if body["severity"] != "minor" else "major"}
+
+
+def _ct_malform(body: dict[str, Any]) -> dict[str, Any]:
+    # `fix-summary-substantive` wants 40+ characters and a verb from its list.
+    return {**body, "fix_summary": "cache bug"}
 
 
 # ------------------------------------------------------- 4. the policy question
@@ -269,6 +298,11 @@ def _dr_answer(key: dict[str, Any], _case: Case) -> dict[str, Any]:
 
 def _dr_spoil(body: dict[str, Any]) -> dict[str, Any]:
     return {**body, "answer_code": "days-1"}
+
+
+def _dr_malform(body: dict[str, Any]) -> dict[str, Any]:
+    # `citations-sufficient` wants 2 distinct; one citation fails it with no key.
+    return {**body, "citations": list(body.get("citations") or [])[:1]}
 
 
 # ------------------------------------------ what the misbehaving agents reach for
@@ -317,6 +351,7 @@ WORK: tuple[Work, ...] = (
         investigate=_sc_investigate,
         deliverable=_sc_answer,
         spoil=_sc_spoil,
+        malform=_sc_malform,
         repeatable=lambda c: call(9, "order_lookup", po_id=int(c.prompt_context["po_id"])),
         varied=lambda c, i: call(
             i, "order_lookup", po_id=int(c.prompt_context["po_id"]) + i + 1
@@ -340,6 +375,7 @@ WORK: tuple[Work, ...] = (
         investigate=_ds_investigate,
         deliverable=_ds_answer,
         spoil=_ds_spoil,
+        malform=_ds_malform,
         repeatable=lambda _c: call(9, "schema_describe"),
         varied=lambda _c, i: call(i, "sql_query", sql=_DS_PROBES[i % len(_DS_PROBES)]),
         broken=lambda _c: call(9, "sql_query"),
@@ -362,6 +398,7 @@ WORK: tuple[Work, ...] = (
         investigate=_ct_investigate,
         deliverable=_ct_answer,
         spoil=_ct_spoil,
+        malform=_ct_malform,
         repeatable=lambda _c: call(9, "read_file", path="orderflow/cache.py"),
         varied=lambda _c, i: call(i, "repo_grep", pattern=_CT_HUNTS[i % len(_CT_HUNTS)]),
         broken=lambda _c: call(9, "read_file"),
@@ -383,6 +420,7 @@ WORK: tuple[Work, ...] = (
         investigate=_dr_investigate,
         deliverable=_dr_answer,
         spoil=_dr_spoil,
+        malform=_dr_malform,
         repeatable=lambda c: call(9, "corpus_search", region=c.prompt_context.get("region")),
         varied=lambda _c, i: call(i, "corpus_search", text=_DR_HUNTS[i % len(_DR_HUNTS)]),
         broken=lambda _c: call(9, "document_fetch"),
@@ -432,15 +470,33 @@ def _wrong(work: Work, answer: dict[str, Any]) -> dict[str, Any]:
     return work.spoil(answer)
 
 
+def _unusable(work: Work, answer: dict[str, Any]) -> dict[str, Any]:
+    """The same answer, made refusable without knowing the right one."""
+    if answer.get("insufficient_evidence"):
+        return answer
+    return work.malform(answer)
+
+
 def correct(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     return [*work.investigate(case), _deliver(body(work, key, case))]
 
 
-def wrong_then_right(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
+def unusable_then_right(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
+    """Hands back something the gate can refuse on sight, then the real answer.
+
+    Deliberately *not* `spoil`. A spoiled answer is wrong but well-formed, and
+    only `exact-match-against-answer-key` catches that — a criterion no
+    deployment has, because it needs a sheet of right answers written in
+    advance. Escalating on it demonstrates a gate that cannot exist outside a
+    frozen case. `malform` breaks a constraint-backed criterion instead: out of
+    bounds, too few sources, a mutation where a query was asked for. Those a
+    real contract can check on any traffic, which makes this the escalation
+    trigger worth showing.
+    """
     answer = body(work, key, case)
     return [
         *work.investigate(case),
-        _deliver(_wrong(work, answer)),
+        _deliver(_unusable(work, answer)),
         _deliver(answer),
     ]
 

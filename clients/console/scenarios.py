@@ -113,9 +113,9 @@ SITUATIONS: tuple[Situation, ...] = (
         does="Refuses the answer at the quality gate and retries on a stronger model, "
         "inheriting the evidence already gathered rather than re-fetching it.",
         feature="Model routing and escalation (FR35)",
-        agent=work.wrong_then_right,
+        agent=work.unusable_then_right,
         expect="the governed arm retries and gets it right; the ungoverned one keeps its "
-        "first, wrong answer",
+        "first, unusable answer",
     ),
     Situation(
         key="partial",
