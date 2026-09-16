@@ -110,6 +110,9 @@ border-left:3px solid #ff8391;border-radius:6px}
 .why{font-size:.74rem;color:#9ece6a}
 .step.sup .why{color:#e0af68}
 .gloss{font-size:.73rem;color:#6b7280}
+/* Why an escalation happened, and whether that reason could exist off a frozen case. */
+.unmet{font-size:.73rem;color:#e0af68;flex-basis:100%;padding-left:.2rem}
+.keyed{font-size:.68rem;color:#8d93a8;flex-basis:100%;padding-left:.2rem;font-style:italic}
 .leaf{display:flex;gap:.42rem;align-items:baseline;flex-wrap:wrap;
 padding:.07rem 0 .07rem 2.2rem;font-size:.76rem}
 .leaf .act{font-size:.64rem}
@@ -326,6 +329,8 @@ const LANES = {
 const el = id => document.getElementById(id);
 let chosen = null, answered = null, verdictOpen = true;
 let source = null, session = null, ticking = null, lanes = {};
+//: What each of the contract's criteria checks, sent on the start frame.
+let criteria = {};
 
 el("speed").oninput = e => el("speedv").textContent = e.target.value + "ms";
 el("back").onclick = () => { closeStream(); show("view-gallery"); };
@@ -480,7 +485,7 @@ function reset(arms) {
 }
 
 function handle(msg) {
-  if (msg.type === "start") { session = msg.session; return; }
+  if (msg.type === "start") { session = msg.session; criteria = msg.criteria || {}; return; }
   if (msg.type === "event") return draw(msg.arm, msg.event);
   if (msg.type === "approval") return ask(msg.arm, msg.request);
   if (msg.type === "done") {
@@ -564,6 +569,15 @@ function draw(arm, e) {
   if (e.terminal_reason) {
     leaf.querySelector(".termr").textContent = e.terminal_reason;
     if (ENDING[e.terminal_reason]) push(leaf, "gloss", "\u2014 " + ENDING[e.terminal_reason]);
+  }
+  // The log names the criterion; the contract says what it checks. Without this
+  // an escalation reads as "it tried harder" with no stated cause.
+  for (const id of e.unmet || []) {
+    const c = criteria[id] || {};
+    push(leaf, "unmet", "because " + (c.says || id));
+    if (c.needs_key) {
+      push(leaf, "keyed", "this check compares against the case answer key");
+    }
   }
   lane.current.node.appendChild(leaf);
   lane.tree.scrollTop = lane.tree.scrollHeight;

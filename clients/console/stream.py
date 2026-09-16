@@ -22,6 +22,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from features import compose
 from features import work as work_module
 
 from outcomefuse.core.record import Event
@@ -53,8 +54,46 @@ def as_json(event: Event) -> dict[str, Any]:
         "model_used": event.model_used,
         "tokens": event.tokens_consumed,
         "tool": (event.payload or {}).get("tool"),
+        "unmet": list((event.payload or {}).get("unmet") or []),
         "detail": _detail(event),
     }
+
+
+#: Verifier types that read the case answer key or the citable index. Whether a
+#: criterion can fire outside a frozen case turns on this, so the viewer is told.
+REFERENCE_BACKED = frozenset({"exact-match-against-answer-key", "citation-resolves"})
+
+
+def criteria_of(workload: str) -> dict[str, dict[str, Any]]:
+    """What each criterion checks, so an escalation can say why in words.
+
+    The log records `unmet: ['result-matches-key']`, which is the right thing
+    for a log and useless on a screen. The wording comes from the frozen
+    contract rather than being restated here, so the two cannot drift - but only
+    the first sentence of it. These descriptions go on to explain the authoring
+    decision behind the criterion, which belongs in the contract and not on a
+    line in a tree.
+    """
+    spec = compose.contract(workload)
+    return {
+        c.id: {
+            "says": _first_sentence(c.description) or c.id,
+            "verifier": c.verifier.type if c.verifier else "",
+            "needs_key": bool(
+                c.verifier and c.verifier.type == "exact-match-against-answer-key"
+            ),
+            "reference_backed": bool(c.verifier and c.verifier.type in REFERENCE_BACKED),
+        }
+        for _band, crits in spec.criteria
+        for c in crits
+        if c.verifier is not None
+    }
+
+
+def _first_sentence(text: str) -> str:
+    flat = " ".join((text or "").split())
+    head, stop, _rest = flat.partition(". ")
+    return head + "." if stop else flat
 
 
 def _detail(event: Event) -> str:
@@ -148,6 +187,7 @@ def play(
         "interactive": scenarios.is_interactive(situation, work),
         "arms": list(arms),
         "expect": job.expect,
+        "criteria": criteria_of(job.workload),
     }
 
     running = len(arms)

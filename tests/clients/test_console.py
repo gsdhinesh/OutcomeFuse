@@ -985,6 +985,58 @@ class TestTheAnswerIsShown:
         assert escalated.payload["unmet"] == ["sql-is-read-only"]
         assert "no answer key" in job.does
 
+    def test_an_escalation_says_why_in_words(self, tmp_path) -> None:
+        """The log names a criterion; the screen has to say what it checks.
+
+        `unmet: ['result-matches-key']` is right for a log and useless on a
+        screen, and without it an escalation reads as "it tried harder" with no
+        stated cause. The wording comes from the frozen contract, so the page
+        cannot describe a criterion differently from the document that defines
+        it.
+        """
+        job = jobs.by_key("figure-never-right")
+        frames, _by_arm, _last = _both(job.key, tmp_path)
+        start = frames[0]
+        assert start["type"] == "start"
+
+        escalated = [
+            f["event"]
+            for f in frames
+            if f["type"] == "event" and f["event"].get("unmet")
+        ]
+        assert escalated, "this card has to escalate on a named criterion"
+
+        spec = compose.contract(job.workload)
+        says = {
+            c.id: " ".join(c.description.split())
+            for _band, crits in spec.criteria
+            for c in crits
+            if c.verifier is not None
+        }
+        for event in escalated:
+            for name in event["unmet"]:
+                assert name in start["criteria"], f"{name} has no description to show"
+                shown = start["criteria"][name]["says"]
+                # The first sentence, verbatim. The rest of these descriptions
+                # explain the authoring decision, which is not a tree leaf.
+                assert says[name].startswith(shown.rstrip(".")), name
+                assert len(shown) <= 120, f"{name} is too long for a leaf: {shown}"
+
+    def test_a_check_that_needs_the_answer_key_says_so(self, tmp_path) -> None:
+        # Two of the eleven cards escalate on a comparison against the frozen
+        # answer key, which no deployment has. The viewer is told which.
+        frames, _by_arm, _last = _both("figure-never-right", tmp_path)
+        criteria = frames[0]["criteria"]
+        assert criteria["result-matches-key"]["needs_key"] is True
+        assert criteria["sql-is-read-only"]["needs_key"] is False
+        assert criteria["tables-used-plausible"]["needs_key"] is False
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "compares against the case answer key" in page
+
     def test_the_retry_is_never_told_what_was_wrong(self, tmp_path, monkeypatch) -> None:
         """`retry-then-escalate` re-asks the identical question.
 
