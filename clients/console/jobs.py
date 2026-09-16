@@ -245,19 +245,23 @@ JOBS: tuple[Job, ...] = (
     Job(
         key="send-it-to-a-buyer",
         group=GROUPS[2],
-        title="Still cannot settle it, and this contract wants a buyer to look",
+        title="Still cannot settle it, so the run is marked for a buyer",
         workload="supply-chain",
         case_id="sc-c-004",
         situation="refer",
-        does="Same ladder, different row: refers the case to a human instead of handing "
-        "back a partial answer. **The contract chooses, not the code** — two lines of "
-        "contract are the only difference between this and the card above.",
+        does="Same ladder, different row: ends the run `referred-human` instead of "
+        "handing back a partial answer. **The contract chooses, not the code** \u2014 two "
+        "lines of contract are the only difference between this and the card above.",
         without="It stops, and nothing on it says a person needs to look.",
-        feature="The FR103 ladder — referred-human",
-        watch="referred-human, from the same failing agent as the card above. **The arms "
-        "agree on what happened** — both publish the same answer over the same failed "
-        "gate. What the governed run adds is a disposition: this one goes to a person. "
-        "That is recorded, not enforced, and the verdict panel files it as such.",
+        feature="The FR103 ladder \u2014 referred-human",
+        watch="**Nobody is asked anything.** `request-human` is a disposition, not a "
+        "question: the policy writes the terminal reason `referred-human` and the run "
+        "closes. No approval request is raised, no channel is opened, nothing waits \u2014 "
+        "and this contract has a working approval channel, which `notify_planner` uses "
+        "on the first card in the gallery. This rung never touches it. What you get is a "
+        "run stamped *a person needs to look at this*, for whatever picks the queue up. "
+        "**The arms agree on everything else** \u2014 both publish the same answer over the "
+        "same failed gate.",
         shows=DECISION,
         expect="",
     ),

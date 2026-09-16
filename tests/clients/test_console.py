@@ -1021,6 +1021,41 @@ class TestTheAnswerIsShown:
         ).read_text(encoding="utf-8")
         assert "never written to the log" in page
 
+    def test_referring_to_a_human_asks_no_human(self, tmp_path) -> None:
+        """`request-human` is a disposition, not a question.
+
+        The policy maps `contract_directs == "request-human"` straight to the
+        terminal reason `referred-human`, and the ApprovalPort is reached only
+        through `ToolGovernor.requires_approval` for a tool call. So this rung
+        raises no request, opens no channel and waits for nobody - on a contract
+        that has a working approval channel, which `notify_planner` uses on the
+        first card in the gallery.
+
+        The card used to say it "refers the case to a human", which reads as
+        somebody being asked. Nothing is.
+        """
+        job = jobs.by_key("send-it-to-a-buyer")
+        doing = work_module.by_workload(job.workload)
+        situation = scenarios.by_key(job.situation)
+        spec = compose.variant(situation.mutate, job.workload)
+        assert spec.escalation.on_gate_fail == "request-human"
+        assert any(c.tool == "notify_planner" for c in spec.human_approval_conditions), (
+            "the asymmetry is the point: this contract can ask, and this rung does not"
+        )
+
+        assert not scenarios.is_interactive(situation, doing)
+        tag = "refer"
+        run = scenarios.run(
+            situation, doing, arm=scenarios.GOVERNED, runs_dir=tmp_path,
+            case_id=job.case_id, token=tag,
+        )
+        assert run.terminated == "referred-human"
+        assert not [
+            e for e in run.events
+            if "approval" in e.kind or "approval" in str(e.decision_reason or "")
+        ], "something asked for approval on a path that has no channel"
+        assert "Nobody is asked anything" in job.watch
+
     def test_one_reason_covers_escalating_and_giving_up(self, tmp_path) -> None:
         """`escalation-gate-fail` is written twice, meaning opposite things.
 
