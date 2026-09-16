@@ -734,12 +734,22 @@ const GATE = {
   "not-evaluated": "never got a quality check",
 };
 
+// The write verbs `sql-is-read-only` refuses, so the clause below names the
+// same thing the gate did rather than a second opinion about it.
+const WRITE_SQL = /\b(insert|update|delete|drop|alter|truncate|create|grant)\b/i;
+
 // How one arm ended, as three short clauses rather than one long sentence:
 // what it answered, whether that survived the gate, and what it did to the
 // world. Built only from the sealed summary.
 function resultParts(s) {
   const parts = [];
   parts.push(s.answer ? headline(s.answer) : "no answer");
+  // The figure can be right while the receipt beside it is dangerous, and then
+  // both arms lead with the same number. Say which one is handing back a write.
+  if (s.answer && WRITE_SQL.test(s.answer.sql || "")) {
+    parts.push(`but the SQL it credits is ${
+      escape(s.answer.sql.trim().split(/\s+/)[0].toUpperCase())}, not a query`);
+  }
   parts.push(GATE[s.quality] || s.quality);
   // stop-sufficient is what "passed" already means; naming it again is noise.
   if (s.terminal && s.terminal !== "stop-sufficient") {

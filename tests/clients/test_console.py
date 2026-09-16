@@ -985,6 +985,29 @@ class TestTheAnswerIsShown:
         assert escalated.payload["unmet"] == ["sql-is-read-only"]
         assert "no answer key" in job.does
 
+    def test_the_result_line_says_the_sql_is_a_write(self) -> None:
+        # Both arms compute 16 from 16 rows, so the figure is identical and the
+        # result line led with it twice. The whole difference was in a field the
+        # line never mentioned.
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "WRITE_SQL" in page
+        assert "not a query" in page
+        spec = compose.contract("data-sql")
+        pattern = next(
+            c.verifier.args["pattern"]
+            for _band, crits in spec.criteria
+            for c in crits
+            if c.id == "sql-is-read-only"
+        )
+        # The clause must name the same verbs the contract refuses, or the page
+        # is offering a second opinion instead of reporting the gate's.
+        for verb in ("insert", "update", "delete", "drop", "alter", "truncate", "grant"):
+            assert verb in pattern
+            assert verb in page[page.index("WRITE_SQL"):page.index("WRITE_SQL") + 200]
+
     def test_the_ceiling_is_a_tripwire_not_a_wall(self, tmp_path) -> None:
         """The run ends over its ceiling, and the card has to say so.
 
