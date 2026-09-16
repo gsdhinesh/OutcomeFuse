@@ -468,7 +468,13 @@ class Driver:
             gate_verdict=verdict.verdict,
             verification_mode=verdict.qualifier,
             quality_state=verdict.verdict,
-            payload={"when": "mid-run" if mid_run else "at-submission"},
+            # Which criteria failed used to be written only on an escalation, so
+            # a run that referred straight to a person without escalating named
+            # a terminal reason and nothing a person could act on.
+            payload={
+                "when": "mid-run" if mid_run else "at-submission",
+                "unmet": sorted(verdict.unmet),
+            },
         )
         if verdict.passed:
             return self._resolve(

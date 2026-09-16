@@ -70,6 +70,32 @@ def _first_sentence(text: str) -> str:
     return head + "." if stop else flat
 
 
+def referral(job: Job, summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    """What a person picking up a `referred-human` run would need to see.
+
+    `request-human` never reaches the ApprovalPort: the policy writes the
+    terminal reason and the run closes. That is the right shape - by this rung
+    the work is finished, so there is nothing to authorise, only a case to
+    route - but it leaves the demonstration ending on a label with nobody
+    looking at it.
+
+    So the console picks the case up, which is what a queue would do. Everything
+    here happened *after* the seal and none of it is written to the run.
+    """
+    for summary in summaries:
+        if summary.get("terminal") != "referred-human":
+            continue
+        return {
+            "arm": summary["arm"],
+            "run_id": summary["run_id"],
+            "seal": summary["seal"],
+            "answer": summary.get("answer") or {},
+            "unmet": list(summary.get("unmet") or ()),
+            "case_id": job.case_id,
+        }
+    return {}
+
+
 def compared(job: Job, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The two values the gate put side by side, for each criterion it refused.
 
@@ -279,6 +305,7 @@ def play(
         "crashed": crashed,
         "verdict": verdict(summaries),
         "compared": compared(job, summaries),
+        "referred": referral(job, summaries),
     }
 
 

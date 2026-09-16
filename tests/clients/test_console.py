@@ -1021,6 +1021,67 @@ class TestTheAnswerIsShown:
         ).read_text(encoding="utf-8")
         assert "never written to the log" in page
 
+    def test_a_referral_names_what_it_could_not_settle(self, tmp_path) -> None:
+        """A case handed to a person has to say what is wrong with it.
+
+        `unmet` was written only on the escalate decision, so a contract with
+        `max_escalations: 0` referred straight to a human and recorded a
+        terminal reason and nothing actionable. The gate knew - `verdict.unmet`
+        is computed either way - it simply was not written down. It now goes on
+        the gate-verdict event, which every path passes through.
+        """
+        run = _run("refer", "supply-chain", tmp_path)
+        assert run.terminated == "referred-human"
+        assert run.escalations == 0, "this is the path that never escalates"
+
+        on_verdict = [
+            e for e in run.events
+            if e.kind == "gate-verdict" and (e.payload or {}).get("unmet")
+        ]
+        assert on_verdict, "the gate knew which criteria failed and did not say"
+        named = sorted({u for e in run.events for u in (e.payload or {}).get("unmet") or []})
+        assert named, "a referral with nothing named is not actionable"
+
+        frames, _by_arm, last = _both("send-it-to-a-buyer", tmp_path)
+        assert last["referred"]["unmet"] == named
+        assert all(n in frames[0]["criteria"] for n in named), "and each has wording"
+
+    def test_a_referred_run_is_handed_to_the_viewer_after_it_closes(self, tmp_path) -> None:
+        """The missing piece was the queue, not the pause.
+
+        `request-human` writes a terminal reason and closes; the ApprovalPort is
+        only ever reached by a tool call, so nothing asks and nothing waits.
+        Rather than forcing a gate disposition through a tool-shaped port, the
+        console picks the closed run up the way a queue would - which is the
+        honest shape, because by this rung the work is finished and there is
+        nothing left to authorise.
+        """
+        frames, _by_arm, last = _both("send-it-to-a-buyer", tmp_path)
+        assert last["type"] == "done"
+        referred = last["referred"]
+        assert referred["run_id"], "a referred run has to reach the viewer"
+        assert referred["seal"], "and it is already sealed when it does"
+        assert referred["answer"], "with the answer it could not settle"
+
+        # Still nothing asked during the run itself.
+        assert not [
+            f for f in frames if f["type"] == "approval"
+        ], "a referral must not masquerade as an approval"
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "already closed and sealed" in page
+        assert "You are the queue" in page
+
+    def test_only_a_referred_run_offers_that_panel(self, tmp_path) -> None:
+        # Every other card closes without a referral, so the panel must not
+        # appear on runs that were never routed anywhere.
+        for key in ("ordinary-run", "figure-never-right", "same-file-again"):
+            _frames, _by_arm, last = _both(key, tmp_path)
+            assert not last["referred"], key
+
     def test_referring_to_a_human_asks_no_human(self, tmp_path) -> None:
         """`request-human` is a disposition, not a question.
 

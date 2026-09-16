@@ -117,6 +117,9 @@ border-left:3px solid #ff8391;border-radius:6px}
 padding-left:.6rem}
 .cmp code{color:#7aa2f7}
 .cmp b{color:#e0af68}
+.referral{border-color:#4a3a6b}
+.referral h3{color:#bb9af7}
+.referral .unmetlist{color:#e0af68;font-size:.82rem}
 .leaf{display:flex;gap:.42rem;align-items:baseline;flex-wrap:wrap;
 padding:.07rem 0 .07rem 2.2rem;font-size:.76rem}
 .leaf .act{font-size:.64rem}
@@ -509,7 +512,7 @@ function handle(msg) {
   if (msg.type === "done") {
     settle("the window elapsed");
     for (const c of msg.crashed || []) threw(c);
-    verdict(msg); stop();
+    verdict(msg); refer(msg.referred); stop();
   }
   if (msg.type === "error") { settle("the run ended"); oops(msg.message); stop(); }
 }
@@ -627,6 +630,50 @@ function threw(crash) {
 }
 
 // -------------------------------------------------- the human at the gate
+
+// A `referred-human` run closes without asking anyone: `request-human` writes a
+// terminal reason, and the ApprovalPort is only ever reached by a tool call. So
+// what is missing is the queue, not the pause -- and this is the console being
+// the queue, entirely after the seal.
+function refer(r) {
+  const old = el("referral");
+  if (old) old.remove();
+  if (!r || !r.run_id) return;
+  const box = document.createElement("div");
+  box.className = "ask referral"; box.id = "referral";
+  box.innerHTML = `
+    <h3>This one was referred to you</h3>
+    <p class="doing">The run is <b>already closed and sealed</b>. Nothing is waiting on
+       you, and nothing you do here is written to it \u2014 <code>request-human</code> ends
+       the run and marks it, and a queue picks it up. You are the queue.</p>
+    <p class="found">What it could not settle:</p>
+    <div class="gathered unmetlist"></div>
+    <p class="found">What it produced anyway:</p>
+    <div class="callbox"><dl class="args"></dl></div>
+    <p class="why">Run <code class="rid"></code>, sealed <code class="sl"></code>.</p>
+    <div class="row"><button class="yes">Accept it</button>
+      <button class="no">Send it back</button></div>
+    <div class="clock"></div>`;
+  box.querySelector(".rid").textContent = r.run_id;
+  box.querySelector(".sl").textContent = (r.seal || "").slice(0, 16) + "\u2026";
+  box.querySelector(".unmetlist").textContent =
+    (r.unmet || []).map(id => (criteria[id] || {}).says || id).join(" ") || "nothing named";
+  const args = box.querySelector(".args");
+  for (const [k, v] of Object.entries(r.answer || {})) {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = JSON.stringify(v);
+    args.append(dt, dd);
+  }
+  const settleIt = said => {
+    box.querySelector(".row").remove();
+    box.querySelector(".clock").textContent =
+      `You said: ${said}. Recorded on this screen and nowhere else \u2014 the run closed `
+      + `before you were shown it, and its seal is unchanged.`;
+  };
+  box.querySelector(".yes").onclick = () => settleIt("accept");
+  box.querySelector(".no").onclick = () => settleIt("send it back");
+  el("lanes").parentNode.insertBefore(box, el("lanes"));
+}
 
 function ask(arm, req) {
   const lane = lanes[arm];
