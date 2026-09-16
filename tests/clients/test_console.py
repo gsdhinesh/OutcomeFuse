@@ -985,6 +985,68 @@ class TestTheAnswerIsShown:
         assert escalated.payload["unmet"] == ["sql-is-read-only"]
         assert "no answer key" in job.does
 
+    def test_the_verdict_shows_the_two_values_the_gate_compared(self, tmp_path) -> None:
+        """"unmet: result-matches-key" does not say what was compared.
+
+        The gate builds a full per-criterion breakdown - `Verdict.breakdown`,
+        whose detail reads "3.0 does not equal the key's 2" - and the driver
+        writes only the ids. The breakdown never reaches the record, so the two
+        values are rebuilt from the sealed deliverable and the frozen answer
+        key, both of which outlive the run. That is the only reason
+        reconstructing them is honest, and the panel says so.
+        """
+        frames, _by_arm, last = _both("figure-never-right", tmp_path)
+        assert last["type"] == "done"
+        rows = last["compared"]
+        assert rows, "a refused criterion has to say what it refused"
+
+        refused = next(r for r in rows if r["criterion"] == "result-matches-key")
+        key = compose.key_for("ds-c-002", "data-sql")
+        assert refused["kept"] is True, "this run ends on the deliverable it refused"
+        assert refused["path"] == "$.result_value"
+        assert refused["wanted"] == key["result_value"]
+        assert refused["got"] != refused["wanted"], "nothing to show if they agree"
+
+        # And the log genuinely does not carry it, or this would be reading the
+        # record rather than rebuilding it.
+        bodies = [
+            f["event"] for f in frames if f["type"] == "event" and f["event"].get("unmet")
+        ]
+        assert bodies, "the run has to record an unmet criterion"
+        assert all("breakdown" not in str(e) for e in bodies)
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "never written to the log" in page
+
+    def test_a_refused_draft_that_was_retried_is_not_quoted(self, tmp_path) -> None:
+        """A retry overwrites the sidecar, so the refused values are gone.
+
+        `deliverable.json` is written again over the same path, and only the log
+        keeps the old hash. Quoting the replacement here would show a passing
+        value beside the criterion that failed - which is what this did on its
+        first attempt, reporting `est_delay_days` as 0 against a criterion that
+        refused 999.
+        """
+        run = _run("escalation", "supply-chain", tmp_path)
+        assert run.escalations == 1
+        assert run.quality_state == "pass", "the retry passed, so the draft is gone"
+        rows = stream.compared(
+            jobs.by_key("send-it-to-a-buyer"), [delta.summarise(run, "governed")]
+        )
+        bounded = next(r for r in rows if r["criterion"] == "delay-estimate-bounded")
+        assert bounded["kept"] is False
+        assert "got" not in bounded, "the replacement must not be quoted"
+        assert bounded["wanted"] == "between 0 and 180"
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "replaced by the retry and is not kept" in page
+
     def test_an_escalation_says_why_in_words(self, tmp_path) -> None:
         """The log names a criterion; the screen has to say what it checks.
 

@@ -64,6 +64,63 @@ def as_json(event: Event) -> dict[str, Any]:
 REFERENCE_BACKED = frozenset({"exact-match-against-answer-key", "citation-resolves"})
 
 
+def _first_sentence(text: str) -> str:
+    flat = " ".join((text or "").split())
+    head, stop, _rest = flat.partition(". ")
+    return head + "." if stop else flat
+
+
+def compared(job: Job, summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The two values the gate put side by side, for each criterion it refused.
+
+    The gate builds a full per-criterion breakdown - `Verdict.breakdown`, with a
+    detail string reading "3.0 does not equal the key's 2" - and the driver logs
+    only the ids in `unmet`. The breakdown never reaches the record, so this
+    cannot be read out of the log and is rebuilt instead from two durable
+    artefacts: the sealed deliverable sidecar, and the frozen answer key.
+
+    Which only works while the published deliverable *is* the refused one. A
+    retry writes `deliverable.json` again over the same path, so on a run that
+    escalated and then passed, the draft the gate objected to is gone - the log
+    keeps its hash and nothing keeps its body. Those rows say so rather than
+    quoting the replacement, which would show a passing value beside the
+    criterion that failed it.
+    """
+    spec = compose.contract(job.workload)
+    args = {
+        c.id: (c.verifier.args, c.verifier.type)
+        for _band, crits in spec.criteria
+        for c in crits
+        if c.verifier is not None
+    }
+    key = compose.key_for(job.case_id, job.workload)
+    rows: list[dict[str, Any]] = []
+    for summary in summaries:
+        answer = summary.get("answer") or {}
+        kept = summary.get("quality") == "fail"
+        for name in summary.get("unmet") or ():
+            spec_args, kind = args.get(name, ({}, ""))
+            path = str(spec_args.get("path", ""))
+            row: dict[str, Any] = {
+                "arm": summary["arm"],
+                "criterion": name,
+                "path": path,
+                "kept": kept,
+            }
+            if kept:
+                row["got"] = answer.get(path.removeprefix("$.").split("[")[0])
+            if kind == "exact-match-against-answer-key":
+                row["wanted"] = key.get(str(spec_args.get("key", "")))
+            elif kind == "numeric-range":
+                row["wanted"] = (
+                    f"between {spec_args.get('min')} and {spec_args.get('max')}"
+                )
+            elif kind == "regex-match":
+                row["wanted"] = "to match the contract's pattern"
+            rows.append(row)
+    return rows
+
+
 def criteria_of(workload: str) -> dict[str, dict[str, Any]]:
     """What each criterion checks, so an escalation can say why in words.
 
@@ -88,12 +145,6 @@ def criteria_of(workload: str) -> dict[str, dict[str, Any]]:
         for c in crits
         if c.verifier is not None
     }
-
-
-def _first_sentence(text: str) -> str:
-    flat = " ".join((text or "").split())
-    head, stop, _rest = flat.partition(". ")
-    return head + "." if stop else flat
 
 
 def _detail(event: Event) -> str:
@@ -227,6 +278,7 @@ def play(
         "summaries": summaries,
         "crashed": crashed,
         "verdict": verdict(summaries),
+        "compared": compared(job, summaries),
     }
 
 

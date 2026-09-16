@@ -34,6 +34,11 @@ def summarise(run: Any, arm: str) -> dict[str, Any]:
         "turns": run.outcome.iterations,
         "tokens": run.outcome.spend.total_tokens,
         "models": list(run.outcome.models_used),
+        # Which criteria the gate refused. The driver logs the ids and drops the
+        # per-criterion breakdown that produced them, so this is all there is.
+        "unmet": sorted(
+            {u for e in run.events for u in (e.payload or {}).get("unmet", []) or []}
+        ),
         # What it actually answered. A console that shows only the machinery
         # never shows whether the question got answered.
         "answer": run.deliverable,

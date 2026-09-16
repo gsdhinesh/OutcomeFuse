@@ -113,6 +113,10 @@ border-left:3px solid #ff8391;border-radius:6px}
 /* Why an escalation happened, and whether that reason could exist off a frozen case. */
 .unmet{font-size:.73rem;color:#e0af68;flex-basis:100%;padding-left:.2rem}
 .keyed{font-size:.68rem;color:#8d93a8;flex-basis:100%;padding-left:.2rem;font-style:italic}
+.cmp{margin:.35rem 0;font-size:.84rem;color:#c8cdd8;border-left:2px solid #6b5220;
+padding-left:.6rem}
+.cmp code{color:#7aa2f7}
+.cmp b{color:#e0af68}
 .leaf{display:flex;gap:.42rem;align-items:baseline;flex-wrap:wrap;
 padding:.07rem 0 .07rem 2.2rem;font-size:.76rem}
 .leaf .act{font-size:.64rem}
@@ -798,16 +802,38 @@ function verdict(msg) {
            That is a result, not a gap — the recorded campaign found the same on most
            runs.</p>`) : "";
   const rec = v.recorded.map(d => `<p class="rec">Recorded only: ${escape(d)}</p>`).join("");
+  // The gate builds a per-criterion breakdown and the driver logs only the ids,
+  // so this is rebuilt from the sealed deliverable and the frozen key. Saying so
+  // matters: every other figure on this panel came out of the log itself.
+  const refused = (msg.compared || []).map(c => {
+    const what = criteria[c.criterion] || {};
+    const who = escape(LANES[c.arm] ? LANES[c.arm].title.toLowerCase() : c.arm);
+    const wanted = c.wanted === undefined ? ""
+      : ` the contract wanted <b>${escape(JSON.stringify(c.wanted))}</b>`;
+    // A retry overwrites the sidecar, so on a run that escalated and then
+    // passed the refused draft no longer exists to quote.
+    const body = c.kept
+      ? `<code>${escape(c.path)}</code> was <b>${escape(JSON.stringify(c.got))}</b>,${wanted}.`
+      : `the draft it refused was replaced by the retry and is not kept, so the
+         values are gone \u2014${wanted || " only the criterion is on the record"}.`;
+    return `<p class="cmp"><b>${escape(c.criterion)}</b> refused ${who}: ${body}
+      <span class="gloss">${escape(what.says || "")}</span></p>`;
+  }).join("");
   const crashed = (msg.crashed || []).map(c =>
     `<p class="rec bad">The ${LANES[c.arm].title.toLowerCase()} arm threw rather than
      ending, so it has no log to compare against.</p>`).join("");
   box.innerHTML = `<details class="vd"${verdictOpen ? " open" : ""}>
     <summary>${head}</summary>
-    <div class="outcomes"></div>${list}${rec}${crashed}
+    <div class="outcomes"></div>${list}${refused}${rec}${crashed}
     <div class="answers"></div><div class="grid"></div>
     <div class="note">Every figure was read back from the sealed log after the run closed,
     not from the objects that produced it. "Acted on the world" comes from the tool port's
-    own out-of-band record (AD-15), not from the log's account of it.</div></details>`;
+    own out-of-band record (AD-15), not from the log's account of it.${
+      (msg.compared || []).length
+        ? ` The refused-criterion lines are the exception: the gate's per-criterion
+           breakdown is never written to the log, so those two values were rebuilt from
+           the sealed deliverable and the frozen answer key.`
+        : ""}</div></details>`;
   // Survives the next run, or collapsing it would undo itself on every click.
   box.querySelector(".vd").addEventListener(
     "toggle", e => { verdictOpen = e.target.open; });
