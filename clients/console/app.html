@@ -272,13 +272,27 @@ const MEANING = {
   "approval-required": "a contract clause requires a human to authorise this",
   "approval-denied": "a human was asked, and refused",
   "approval-timeout": "nobody answered inside the contract's window",
-  "escalation-gate-fail": "the floor was not met, so a stronger model was tried",
+  "escalation-gate-fail": "the floor was not met",
   "sufficiency": "the quality floor was met",
   "exhaustion": "the budget ran out",
   "no-progress": "the run stopped making progress",
   "fail-closed": "a governing component failed, so the run refused to continue",
   "unaffordable": "the budget could not cover it",
 };
+// `escalation-gate-fail` is written twice on a run that escalates and still
+// fails: once when a stronger model is tried, and again when the budget for
+// that is gone. Same closed-vocabulary reason, opposite meanings, so the gloss
+// has to read the action rather than the reason alone.
+function meaning(e) {
+  const said = MEANING[e.decision_reason];
+  if (!said) return "";
+  if (e.decision_reason !== "escalation-gate-fail") return said;
+  // The log's value is lowercase; the uppercase on screen is CSS.
+  return String(e.policy_action).toLowerCase() === "escalate"
+    ? said + ", so a stronger model was tried"
+    : said + ", and the escalation it was allowed had already been spent";
+}
+
 const SUPPRESSING = new Set([
   "cache-hit","duplicate","optional-satisfied","approval-denied","approval-timeout",
   "unaffordable","fail-closed",
@@ -538,7 +552,8 @@ function draw(arm, e) {
   }
   if (e.decision_reason && !hd.querySelector(".why")) {
     push(hd, "why", e.decision_reason);
-    if (MEANING[e.decision_reason]) push(hd, "gloss", "\u2014 " + MEANING[e.decision_reason]);
+    const said = meaning(e);
+    if (said) push(hd, "gloss", "\u2014 " + said);
   }
   // The library gives one step_id to a whole turn, so several decisions can land
   // in one group. Counting only the header's would hide every suppression after

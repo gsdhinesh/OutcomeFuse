@@ -1021,6 +1021,34 @@ class TestTheAnswerIsShown:
         ).read_text(encoding="utf-8")
         assert "never written to the log" in page
 
+    def test_one_reason_covers_escalating_and_giving_up(self, tmp_path) -> None:
+        """`escalation-gate-fail` is written twice, meaning opposite things.
+
+        The vocabulary is closed, so the driver reuses it: once when a stronger
+        model is tried, and again when the escalation it was allowed has been
+        spent and the run hands back what it has. The tree glossed both as "a
+        stronger model was tried", which is false on the second - by then
+        nothing was tried at all.
+        """
+        run = _run("partial", "data-sql", tmp_path)
+        assert run.terminated == "returned-partial"
+        recorded = [
+            e for e in run.events if e.decision_reason == "escalation-gate-fail"
+        ]
+        assert len(recorded) == 2, "this run has to write the reason twice"
+        # Lowercase in the record; the uppercase in the tree is CSS, and the
+        # gloss reads the record.
+        assert recorded[0].policy_action == "escalate"
+        assert recorded[1].policy_action != "escalate"
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert '"escalation-gate-fail": "the floor was not met",' in page
+        assert "had already been spent" in page
+        assert "so a stronger model was tried" in page
+
     def test_a_refused_draft_that_was_retried_is_not_quoted(self, tmp_path) -> None:
         """A retry overwrites the sidecar, so the refused values are gone.
 
