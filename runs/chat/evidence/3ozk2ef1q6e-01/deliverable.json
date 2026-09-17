@@ -1,0 +1,14 @@
+{
+  "amount_cents": 0,
+  "explanation": "This order is out for delivery and the refund window does not open until it arrives, so there is nothing to refund yet. The carrier's last scan was today.",
+  "next_steps": [
+    "check again if it has not arrived in three days"
+  ],
+  "order_id": 1002,
+  "policy_refs": [
+    {
+      "id": "RP-1"
+    }
+  ],
+  "resolution": "in-transit-no-action"
+}

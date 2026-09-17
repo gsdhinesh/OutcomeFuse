@@ -1,0 +1,14 @@
+{
+  "amount_cents": 0,
+  "explanation": "I could not retrieve order 9999 from the order book, so I cannot tell whether anything is owed on it.",
+  "next_steps": [
+    "confirm the order number with the customer"
+  ],
+  "order_id": 9999,
+  "policy_refs": [
+    {
+      "id": "RP-1"
+    }
+  ],
+  "resolution": "not-eligible"
+}

@@ -521,7 +521,11 @@ class TestTheLoopTerminates:
             max_output_tokens=25000,
             reasoning_effort="medium",
         )
-        assert seen == [1, 2]
+        # Consulted on both tool turns, and told the truth about both: the two
+        # calls are the same call, so the second was served from the cache and
+        # the run learned nothing it did not already have. Counting proposals
+        # here would have read `[1, 2]` and made a stall look like progress.
+        assert seen == [1, 1]
 
     def test_a_fired_fuse_stops_the_loop(self, case, contract, governed):
         arm, _ = governed()

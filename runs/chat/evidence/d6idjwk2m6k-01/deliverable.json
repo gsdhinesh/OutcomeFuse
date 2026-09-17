@@ -1,0 +1,14 @@
+{
+  "amount_cents": 0,
+  "explanation": "Standing desk mat is with Northwind on tracking NW-90114, last scanned 2026-09-15 (out for delivery). It is moving to the carrier's schedule, so the desk leaves it alone.",
+  "next_steps": [
+    "check again if it has not arrived in three days"
+  ],
+  "order_id": 1002,
+  "policy_refs": [
+    {
+      "id": "RP-6"
+    }
+  ],
+  "resolution": "in-transit-no-action"
+}

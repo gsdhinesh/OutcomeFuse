@@ -61,6 +61,15 @@ def canonical_key(call: ToolCall) -> str:
     return hash_structure({"arguments": call.arguments, "tool": call.tool}).sha256
 
 
+def optimisable(declared: Any) -> bool:
+    """FR33, in one place, so every optimisation mechanism reads the same rule.
+
+    The Context Governor asks this too. Two copies of the predicate is two
+    chances to exempt a payment call from one of them and not the other.
+    """
+    return bool(declared.deterministic) and not declared.side_effecting
+
+
 class ToolGovernor:
     """One per run. Holds the run-scoped cache."""
 
@@ -83,8 +92,7 @@ class ToolGovernor:
 
     def optimisable(self, tool: str) -> bool:
         """FR33, as one predicate rather than three scattered conditions."""
-        declared = self._declaration(tool)
-        return declared.deterministic and not declared.side_effecting
+        return optimisable(self._declaration(tool))
 
     def requires_approval(self, call: ToolCall) -> str | None:
         """The triggering clause, or None."""

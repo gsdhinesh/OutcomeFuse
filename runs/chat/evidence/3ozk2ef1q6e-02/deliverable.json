@@ -1,0 +1,17 @@
+{
+  "amount_cents": 7400,
+  "explanation": "The item arrived damaged, which is refundable regardless of the window, and $74.00 is inside the desk's authority, so I am refunding the order in full.",
+  "next_steps": [
+    "no return needed for a damaged item"
+  ],
+  "order_id": 1001,
+  "policy_refs": [
+    {
+      "id": "RP-2"
+    },
+    {
+      "id": "RP-4"
+    }
+  ],
+  "resolution": "refund-issued"
+}

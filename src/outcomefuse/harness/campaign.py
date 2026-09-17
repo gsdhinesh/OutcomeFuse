@@ -42,7 +42,7 @@ from ..core.verify import CitableIndex
 from ..evidence.counter_metrics import BlindReview
 from ..evidence.store import EvidenceStore
 from ..ports import ModelPort
-from ..runtime import BaselineRecorder, Driver, ToolGovernor
+from ..runtime import BaselineRecorder, ContextGovernor, Driver, ToolGovernor
 from ..workloads import WorkloadToolPort, citable_index_for, tool_port_for
 from .answer_keys import load_answer_keys
 from .attribution import (
@@ -339,6 +339,7 @@ def build_manifest(
 #: emptiness is the experiment rather than an omission.
 GOVERNED_MECHANISMS: dict[str, str] = {
     "tool-governor": "v1",
+    "context-governor": "v1",
     "quality-gate": "v1",
     "budget-ledger": "v1",
     "loop-fuse": "v1",
@@ -547,6 +548,7 @@ def _driver(
         ),
         governor=ToolGovernor(plan.contract),
         tools=tools,
+        context=ContextGovernor(plan.contract),
         evidence=evidence,
     )
 

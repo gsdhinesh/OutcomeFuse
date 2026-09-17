@@ -1,11 +1,11 @@
-# The console — eleven jobs, each showing exactly one thing
+# The console — Twelve jobs, each showing exactly one thing
 
 An interactive client. Nothing under `src/` imports it and the wheel does not
 ship it (AD-17).
 
 ```powershell
 uv run python clients/console/server.py       # the UI
-uv run python clients/console/compare.py      # the same eleven, headless
+uv run python clients/console/compare.py      # the same twelve, headless
 uv run python clients/console/compare.py --matrix   # everything behind them
 ```
 
@@ -41,11 +41,11 @@ There is no picker and no variant: a job names the case it runs and runs that.
 | 10 | The dataset cannot support an answer | purchase order | `sc-c-012` | fail-closed vs an exception | difference |
 | 11 | The agent simply does the job properly | policy question | `dr-c-003` | the whole loop, changing nothing | no cost |
 
-Eleven different tasks across all four frozen workloads. No two jobs are the
+Twelve different tasks across all four frozen workloads. No two jobs are the
 same `(workload, case)` pair, and tests pin that. Ten run answerable cases;
 card 10 is deliberately the one that cannot be answered.
 
-**Read the kind column first.** Four of the eleven move no figure at all, and a
+**Read the kind column first.** Four of the twelve move no figure at all, and a
 gallery that lets them sit unlabelled beside the ones that do is inviting you to
 assume every card is a win. One is a gap, one is a defect where the governor is
 strictly worse than no governor, one records a disposition without changing an
@@ -107,7 +107,7 @@ happened**. That sweep is how the approval gap was found and is the only thing
 that keeps it found; the tests run it too. The gallery is the showing, this is
 the checking, and they are deliberately different shapes.
 
-Running the eleven cards headless instead (`compare.py` with no flags) checks
+Running the twelve cards headless instead (`compare.py` with no flags) checks
 each card's own claim: **6 of 10 differ** once the two that wait on a person are
 skipped.
 
@@ -219,14 +219,14 @@ SELECTs, twelve greps, twelve search terms), because repeating one would let the
 cache absorb it and you would be watching a stall wearing a ceiling's card. Tests
 pin both.
 
-Six of the eleven agents are **authored to misbehave**, and every such card says
+Six of the twelve agents are **authored to misbehave**, and every such card says
 so. Nothing measured should ever be read off one.
 
 ## Files
 
 | file | what it holds |
 | --- | --- |
-| [jobs.py](jobs.py) | the eleven cards as **data**: a task, a case, a mechanism, a kind, and the claim |
+| [jobs.py](jobs.py) | the twelve cards as **data**: a task, a case, a mechanism, a kind, and the claim |
 | [../features/work.py](../features/work.py) | the four kinds of work, and agents that do each well and badly |
 | [scenarios.py](scenarios.py) | the mechanisms and the agents that provoke them; **no wording** |
 | [approval.py](approval.py) | the port that blocks the run until a person answers |
@@ -234,7 +234,7 @@ so. Nothing measured should ever be read off one.
 | [stream.py](stream.py) | both arms on worker threads, events as frames |
 | [server.py](server.py) | four routes, the SSE stream, and the session registry |
 | [app.html](app.html) | the page: the gallery, the task, two lanes, the verdict |
-| [compare.py](compare.py) | the eleven headless, or `--matrix` for everything behind them |
+| [compare.py](compare.py) | the twelve headless, or `--matrix` for everything behind them |
 
 The tee itself is `TeeStore` in [../features/compose.py](../features/compose.py),
 beside the rest of the wiring.

@@ -1,0 +1,14 @@
+{
+  "amount_cents": 0,
+  "explanation": "Wireless keyboard is with Northwind on tracking NW-88213, last scanned 2026-08-06 (delivered). That was 42 days ago. The order carries a note that it arrived with two keys missing; nobody has asked the desk to act on it.",
+  "next_steps": [
+    "ask the customer what they would like done"
+  ],
+  "order_id": 1001,
+  "policy_refs": [
+    {
+      "id": "RP-6"
+    }
+  ],
+  "resolution": "information-provided"
+}

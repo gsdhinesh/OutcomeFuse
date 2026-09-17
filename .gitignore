@@ -39,3 +39,21 @@ runs/compare/
 runs/compare-jobs/
 runs/gallery/
 runs/verify/
+
+# Rendered media. Every frame of it is derived from the sealed logs this repo
+# does publish, so excluding it costs no verifiability — a reader can re-render
+# it — while committing it would put hundreds of megabytes of regenerable binary
+# in a history nobody can prune.
+*.mp4
+*.webm
+*.mov
+*.mkv
+*.wav
+*.m4a
+
+# The executive demo is rendered output plus the node toolchain that renders it.
+# `render.cjs` rebuilds the whole thing from `storyboard.json` and a live
+# console, and `artifact-hashes.json` is a digest of artifacts that are
+# themselves not kept, so the folder proves nothing once its media is gone.
+submission/executive-demo/
+runs/video-tools/

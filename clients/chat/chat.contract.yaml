@@ -1,0 +1,174 @@
+# Outcome Contract — order support desk
+#
+# NOT frozen, and not one of the four workloads in `contracts/`. This is a new
+# use case brought to the governor from outside, which is the point: a contract
+# is the integration surface, and adding one must not require editing `src/`.
+#
+# It is also the first contract here with **no answer key**. Nothing in a live
+# support chat has a reference answer sitting beside it, so every mandatory
+# criterion is constraint-backed: it checks the shape, the bounds and the
+# citations of an answer rather than comparing it to one known in advance. The
+# gate will say so — its qualifier reads `constraint-backed`, and that is a
+# weaker claim than the frozen workloads make. Saying it out loud is the
+# honest option.
+
+contract_id: ofc-support-chat
+version: 1
+workload: support-chat
+
+task_goal: >
+  Resolve one customer's question about one order against the order book, the
+  shipment record and the published refund policy, and state a disposition that
+  the policy supports. Money and mail leave the building only with a person's
+  say-so.
+
+deliverable:
+  structure:
+    resolution: string         # one of the seven dispositions below
+    order_id: integer          # the order the answer is about
+    amount_cents: integer      # 0 where no money moves
+    policy_refs: array         # clause ids resolvable in the citable index
+    explanation: string        # what the customer is told, and why
+    next_steps: array          # optional; what happens if this does not settle it
+
+criteria:
+  mandatory:
+    - id: resolution-is-known
+      description: >
+        The disposition is one of the seven the desk can actually carry out. A
+        free-text resolution cannot be routed, refunded or reported on, and an
+        agent that invents one has produced something no downstream system can
+        act on.
+
+        Two of the seven were added after the fact, and both for the same
+        reason: **the vocabulary has to be able to describe what actually
+        happened.** `referred-to-a-person` exists because with five values there
+        was no way to say *decided, and not carried out*, which is what a denied
+        approval produces — the answer read `refund-issued` while the money sat
+        where it was. `information-provided` exists because there was no way to
+        say *asked a question, answered it, changed nothing*, so a request for a
+        tracking number was pushed into a refund disposition.
+      classification: E
+      verifier:
+        type: set-membership
+        args:
+          path: $.resolution
+          allowed:
+            - refund-issued
+            - replacement-offered
+            - in-transit-no-action
+            - escalate-to-carrier
+            - not-eligible
+            - referred-to-a-person
+            - information-provided
+
+    - id: order-is-identified
+      description: >
+        An answer names the order it is about. Support answers get pasted into
+        tickets and read months later; one that does not say which order is
+        unusable the moment it leaves the chat.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.order_id, of: value, min: 1000, max: 9999 }
+
+    - id: refund-within-cap
+      description: >
+        No single answer authorises more than the desk's cap. This is the one
+        criterion that bounds the blast radius of a wrong answer, and it is
+        checked even where the resolution is not a refund, because a non-refund
+        disposition carrying an amount is exactly the confusion worth catching.
+      classification: E
+      verifier:
+        type: numeric-range
+        args: { path: $.amount_cents, of: value, min: 0, max: 20000 }
+
+    - id: policy-is-cited
+      description: >
+        The clause the disposition rests on exists. An invented clause is the
+        failure mode that would most damage a support desk: it reads as
+        authoritative and is unfalsifiable by the customer.
+      classification: E
+      verifier:
+        type: citation-resolves
+        args: { path: '$.policy_refs[*].id', min_citations: 1 }
+
+    - id: explanation-is-substantive
+      description: >
+        Enough of an explanation to send to a person. Deliberately a length
+        floor and nothing more — a vocabulary list here would reject correct
+        answers for being worded differently, which is a mistake this
+        repository has already made once and disclosed.
+      classification: E
+      verifier:
+        type: regex-match
+        args: { path: $.explanation, pattern: '(?s)^.{40,}$', max_input_bytes: 4096 }
+
+  optional:
+    - id: next-steps-offered
+      description: What happens if this does not settle it. Evaluated, never gates.
+      classification: E
+      verifier: { type: field-present, args: { path: $.next_steps } }
+
+  advisory:
+    - id: tone-is-appropriate
+      description: >
+        Whether this reads like something a person should receive. No
+        deterministic verifier reaches it and none is pretended here.
+      classification: A
+
+    - id: disposition-is-fair
+      description: >
+        Whether the disposition is the right one for this customer, as opposed
+        to a permitted one. The criterion a support manager actually cares
+        about, and the one the gate cannot see.
+      classification: A
+
+budget:
+  max_tokens: 40000
+  max_estimated_cost: 0.30
+  verification_reserve:
+    max_tokens: 6000
+    max_estimated_cost: 0.05
+  max_tool_calls: 20
+  max_iterations: 6
+
+tools:
+  - name: order_lookup
+    deterministic: true
+    side_effecting: false
+  - name: shipment_status
+    deterministic: true
+    side_effecting: false
+  - name: refund_policy_lookup
+    deterministic: true
+    side_effecting: false
+  - name: issue_refund
+    # Moves money. Never suppressed for optimisation, never cached.
+    deterministic: false
+    side_effecting: true
+  - name: email_customer
+    # Reaches a person who cannot un-read it.
+    deterministic: false
+    side_effecting: true
+
+models:
+  eligible: [gpt-5-mini, gpt-5]
+  start: gpt-5-mini
+
+escalation:
+  on_gate_fail: retry-then-escalate
+  max_escalations: 1
+  never_breach_verification_reserve: true
+
+# Both tools that reach outside the desk stop and ask. `when: always` is the
+# only form the Tool Governor evaluates at runtime — a criterion-scoped
+# condition loads and is never read, which is a known gap, so nothing here
+# depends on one.
+human_approval_conditions:
+  - tool: issue_refund
+    when: always
+  - tool: email_customer
+    when: always
+approval_timeout_seconds: 120
+on_timeout: request-human

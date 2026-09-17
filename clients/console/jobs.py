@@ -1,4 +1,4 @@
-"""Eleven jobs. Each one is a real task, and each one shows exactly one thing.
+"""Twelve jobs. Each one is a real task, and each one shows exactly one thing.
 
 The console used to ask twice: pick a kind of work, then pick what goes wrong.
 That is a matrix, and a matrix is a thing you verify, not a thing you show
@@ -15,7 +15,7 @@ situation-by-work matrix still exists and is still swept — by `compare.py` and
 by the tests, which is where verification belongs. This file is the showing.
 
 **Every job names the work it is, the case it runs, whether its agent was
-authored to misbehave, and what kind of thing it shows.** Six of the eleven
+authored to misbehave, and what kind of thing it shows.** Six of the twelve
 need an agent that does something wrong, because detecting a stall requires a
 stall.
 
@@ -158,20 +158,20 @@ JOBS: tuple[Job, ...] = (
         workload="code-triage",
         case_id="ct-c-002",
         situation="stall",
-        does="Serves every repeat from the run's cache, so nine of the ten `read_file` "
-        "calls never happen, then stops the run once it can see no progress is being "
-        "made. **It saves the tool call, not the turn** — the model still ran each time, "
-        "and still charged for it.",
-        without="The file is opened ten times and the same source comes back ten times. "
-        "The loop only ends at the iteration cap.",
+        does="Serves the repeat from the run's cache so the tool is never invoked again, "
+        "and — because the cache tells the fuse the run gained nothing — stops the whole "
+        "run on the second identical turn. **The cache saves the call; the fuse saves "
+        "everything after it.**",
+        without="The file is opened ten times and the same source comes back ten times, "
+        "each copy appended to a transcript every later turn has to carry. The loop only "
+        "ends at the iteration cap.",
         feature="Tool-governor cache, then the loop fuse (FR27/FR28)",
-        watch="One execution, then cache-hit after cache-hit in amber, then "
-        "halt-no-progress — deliberately not filed as running out of money. **The token "
-        "counts come out identical**, because that column is model turns and both arms "
-        "burn the same ones. What the cache saved is nine tool invocations, which that "
-        "number never counted.",
-        expect="the governed arm executes the tool once; the ungoverned one runs it every "
-        "time and only stops at the cap",
+        watch="One execution, one cache-hit in amber, then halt-no-progress — deliberately "
+        "not filed as running out of money. **The token column is model turns, and this is "
+        "where it moves**: two turns against ten, and the ungoverned lane's turns are the "
+        "expensive ones because each carries another copy of the same file.",
+        expect="the governed arm executes the tool once and stops on the second turn; the "
+        "ungoverned one runs it every time and only stops at the cap",
     ),
     Job(
         key="order-after-order",
@@ -317,6 +317,34 @@ JOBS: tuple[Job, ...] = (
         authored=False,
     ),
     # ------------------------------------ when nothing goes wrong at all
+    Job(
+        key="back-to-the-same-file",
+        group=GROUPS[4],
+        title="The agent keeps the file open while it works through the rest",
+        workload="code-triage",
+        case_id="ct-c-004",
+        situation="revisits",
+        does="Sends the file **once**. Every later look at it gets a one-line reference to "
+        "the copy already in the conversation. Nothing is summarised and nothing is "
+        "dropped \u2014 the agent can still read every line of it, once, where it was "
+        "first put.",
+        without="Each re-read appends another full copy of the same file, and because the "
+        "model is sent the whole conversation every turn, every one of those copies is "
+        "paid for again on every turn after it. Four rounds, and the prompt is carrying "
+        "five copies of one file.",
+        feature="The context governor (F7, FR36\u2013FR39)",
+        watch="**The agent here is not doing anything wrong**, which is the point. It "
+        "greps something new, then looks back at the file it is reasoning about \u2014 the "
+        "ordinary way anyone works. So the fuse must not fire and does not: same turns, "
+        "same answer, gate passes on both. Watch the cache fire three times in amber and "
+        "**save no tokens at all** \u2014 it stops the tool running and then hands the same "
+        "bytes back. The `context-compressed` rows beside them are where the whole "
+        "difference comes from.",
+        shows=DIFFERENCE,
+        expect="the governed arm carries the repeated file once; the ungoverned one "
+        "carries a fresh copy in every later prompt",
+        authored=False,
+    ),
     Job(
         key="ordinary-run",
         group=GROUPS[4],

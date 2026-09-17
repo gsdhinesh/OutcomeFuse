@@ -54,7 +54,7 @@ which counts the recorded gpt-5 campaign and disagrees.
 </div>
 
 <div class="tally">
-  <div><b>20</b>demonstrated</div>
+  <div><b>21</b>demonstrated</div>
   <div><b>2</b>gap</div>
   <div><b>1</b>defect</div>
   <div><b>0</b>not demonstrated</div>
@@ -109,6 +109,13 @@ which counts the recorded gpt-5 campaign and disagrees.
   <div class="claim">FR33: caching and deduplication are optimisations, and neither applies to a tool declared side-effecting or non-deterministic. The declaration is consulted before any optimisation is considered, so it cannot be forgotten.</div>
   <div class="ev"><div class="line"><span>order_lookup optimisable</span><span>True</span></div><div class="line"><span>notify_planner optimisable</span><span>False</span></div><div class="line"><span>notify_planner repeated</span><span>pause-for-approval (approval-required)</span></div><div class="line"><span>the rule</span><span>refusing to cache a payment is correct; refusing to stop an unapproved one would not be</span></div></div>
   
+</div><h2>Context governor</h2>
+<div class="f ok">
+  <div class="fh"><h3>The same bytes are never sent to the model twice </h3>
+    <span class="badge ok">demonstrated</span></div>
+  <div class="claim">F7 as specified compresses tool output with a model pass, which is what put it at cut position 7: it spends tokens to save tokens and it can drop a fact. This is the deterministic subset — a result byte-identical to one already in the conversation is replaced by a reference to itself. Nothing is summarised, so FR38 holds structurally rather than on a model&#x27;s judgement, and FR39&#x27;s compression overhead is nil because there is no compression pass.</div>
+  <div class="ev"><div class="line"><span>ablated</span><span>11,019 tokens</span></div><div class="line"><span>registered</span><span>6,457 tokens</span></div><div class="line"><span>saved</span><span>4,562 tokens (41.4%)</span></div><div class="line"><span>results elided</span><span>4</span></div><div class="line"><span>turns, tools, ending, answer</span><span>identical</span></div><div class="line"><span>recorded as</span><span>proceed-with-substitution / context-compressed</span></div></div>
+  <div class="note">Nil on the stall card: there the fuse stops the run on the second identical turn and there is nothing left to save. This is the case the fuse must not touch, because the run is genuinely getting somewhere.</div>
 </div><h2>Human approval</h2>
 <div class="f ok">
   <div class="fh"><h3>Four things a human channel can do, and four different endings </h3>
@@ -163,7 +170,7 @@ which counts the recorded gpt-5 campaign and disagrees.
   <div class="fh"><h3>An agent going round in circles is stopped </h3>
     <span class="badge ok">demonstrated</span></div>
   <div class="claim">FR27/FR28: the host says what changed and the driver decides what it means. A repeated conversational state halts the run — deliberately *not* as budget exhaustion, because filing the product&#x27;s central cost event as a stall would misreport both.</div>
-  <div class="ev"><div class="line"><span>agent</span><span>the same lookup, six turns running (authored to stall)</span></div><div class="line"><span>fuse reason</span><span>never fired</span></div><div class="line"><span>terminal</span><span>halt-no-progress</span></div><div class="line"><span>turns before the stop</span><span>8</span></div></div>
+  <div class="ev"><div class="line"><span>agent</span><span>the same lookup, six turns running (authored to stall)</span></div><div class="line"><span>fuse reason</span><span>repeated-state</span></div><div class="line"><span>terminal</span><span>halt-no-progress</span></div><div class="line"><span>turns before the stop</span><span>2</span></div></div>
   <div class="note">Authored. The measured campaign never produced a stall — see the measured section for how often this fires in life.</div>
 </div><h2>The record</h2>
 <div class="f ok">

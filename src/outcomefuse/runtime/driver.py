@@ -47,6 +47,7 @@ from ..core.policy import (
 from ..core.record import Event, RecordStore
 from ..core.verify import CitableIndex
 from ..ports import ProbedToolPort, ToolCall
+from .context_governor import ContextGovernor, Placement
 from .tool_governor import Disposition, ToolGovernor, canonical_key
 
 WHEN = "2026-09-10T12:00:00Z"
@@ -69,6 +70,10 @@ class StepVerdict(BaseModel):
     #: has not ended, and treating it as ended would make the retry a second run
     #: that no comparison could pair.
     escalate_to: str | None = None
+    #: The result itself, canonicalised, where a mechanism computed it. The
+    #: fuse compares this rather than the text, so a result the Context
+    #: Governor replaced with a reference still reads as the same knowledge.
+    result_digest: str = ""
 
     @property
     def terminates(self) -> bool:
@@ -92,6 +97,7 @@ class Driver:
         fuse: LoopFuse | None = None,
         advisors: AdvisorRegistry | None = None,
         evidence: Any | None = None,
+        context: ContextGovernor | None = None,
     ) -> None:
         self.run_id = run_id
         self.contract = contract
@@ -103,6 +109,9 @@ class Driver:
         self.gate = gate or QualityGate()
         self.fuse = fuse
         self.advisors = advisors
+        #: F7. `None` means the mechanism is not registered, which is what an
+        #: FR62 ablation of it looks like and what cutting it looked like.
+        self.context = context
         #: AD-5b's sidecar. FR69's blind review reads the deliverable from here,
         #: because the decision log carries a reference and a hash, never a body.
         self.evidence = evidence
@@ -232,10 +241,12 @@ class Driver:
                 policy_action="proceed-with-substitution",
                 decision_reason="cache-hit",
             )
+            placed = self._place(call, disposition.cached_result)
             return StepVerdict(
                 action="proceed-with-substitution",
                 decision_reason="cache-hit",
-                result=disposition.cached_result,
+                result=placed.payload,
+                result_digest=placed.digest,
             )
 
         # A real spend: held before it happens (AD-3).
@@ -288,7 +299,39 @@ class Driver:
             if verdict is not None:
                 return verdict
 
-        return StepVerdict(action="proceed", decision_reason=disposition.reason, result=result)
+        placed = self._place(call, result)
+        return StepVerdict(
+            action="proceed",
+            decision_reason=disposition.reason,
+            result=placed.payload,
+            result_digest=placed.digest,
+        )
+
+    def _place(self, call: ToolCall, result: Any) -> Placement:
+        """F7: what goes back to the model, which is not always what came back.
+
+        The log and the evidence store keep the result itself. This decides only
+        what the next prompt carries, and the one thing it will not carry is a
+        second copy of bytes already in the conversation.
+        """
+        if self.context is None:
+            return Placement(elided=False, payload=result)
+        placement = self.context.place(call, result, step_id=call.step_id)
+        if not placement.elided:
+            return placement
+        # The step was proposed once; two mechanisms answered it. A second
+        # proposal row would claim the agent asked twice, and it did not.
+        self._append(
+            "decision-recorded",
+            step_id=call.step_id,
+            policy_action="proceed-with-substitution",
+            decision_reason="context-compressed",
+            payload={
+                "detail": placement.detail,
+                "estimated_tokens_avoided": placement.estimated_tokens_avoided,
+            },
+        )
+        return placement
 
     # ------------------------------------------------------------ internals
 

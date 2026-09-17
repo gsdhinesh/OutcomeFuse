@@ -35,6 +35,7 @@ from outcomefuse.workloads import tool_port_for
 from outcomefuse.workloads.toolport import ToolError
 
 from . import agents, compose
+from . import work as work
 
 DEMONSTRATED = "demonstrated"
 GAP = "gap"
@@ -268,6 +269,67 @@ def side_effects_are_exempt(ctx: Context) -> Finding:
                 "unapproved one would not be",
             ),
         ),
+    )
+
+
+def context_governor(ctx: Context) -> Finding:
+    """F7, the deterministic subset, measured by ablating it against itself.
+
+    Deliberately not the stall: there the Loop Fuse stops the run on the second
+    identical turn and this mechanism saves nothing. It earns its keep on a run
+    that is *making progress* while re-reading the same thing, which is the one
+    the fuse must not touch.
+    """
+    spec = compose.contract("code-triage")
+    case = compose.case("ct-c-002", "code-triage")
+    doing = work.by_workload("code-triage")
+    key = compose.key_for(case.case_id, "code-triage")
+    turns = [(doing.varied(case, i), doing.repeatable(case)) for i in range(5)]
+    turns += work.correct(doing, key, case)[-1:]
+
+    def once(tag: str, *, on: bool):
+        return compose.governed(
+            case,
+            turns=list(turns),
+            runs_dir=ctx.runs_dir,
+            spec=spec,
+            tag=tag,
+            with_context=on,
+            answer_key=key,
+        )
+
+    off = once("ctx-off", on=False)
+    on = once("ctx-on", on=True)
+    elided = [e for e in on.events if e.decision_reason == "context-compressed"]
+    saved = off.outcome.spend.total_tokens - on.outcome.spend.total_tokens
+    same_work = (
+        on.outcome.spend.model_turns == off.outcome.spend.model_turns
+        and len(on.invoked) == len(off.invoked)
+        and on.terminated == off.terminated
+        and on.deliverable == off.deliverable
+    )
+    return Finding(
+        key="context-governor",
+        area="Context governor",
+        title="The same bytes are never sent to the model twice",
+        claim="F7 as specified compresses tool output with a model pass, which is what put "
+        "it at cut position 7: it spends tokens to save tokens and it can drop a fact. "
+        "This is the deterministic subset — a result byte-identical to one already in "
+        "the conversation is replaced by a reference to itself. Nothing is summarised, "
+        "so FR38 holds structurally rather than on a model's judgement, and FR39's "
+        "compression overhead is nil because there is no compression pass.",
+        status=DEMONSTRATED if elided and saved > 0 and same_work else MISSING,
+        evidence=(
+            ("ablated", f"{off.outcome.spend.total_tokens:,} tokens"),
+            ("registered", f"{on.outcome.spend.total_tokens:,} tokens"),
+            ("saved", f"{saved:,} tokens ({saved / off.outcome.spend.total_tokens:.1%})"),
+            ("results elided", str(len(elided))),
+            ("turns, tools, ending, answer", "identical" if same_work else "MOVED"),
+            ("recorded as", "proceed-with-substitution / context-compressed"),
+        ),
+        note="Nil on the stall card: there the fuse stops the run on the second identical "
+        "turn and there is nothing left to save. This is the case the fuse must not "
+        "touch, because the run is genuinely getting somewhere.",
     )
 
 
@@ -834,6 +896,7 @@ CATALOGUE: tuple[Callable[[Context], Finding], ...] = (
     citable_index,
     tool_governor,
     side_effects_are_exempt,
+    context_governor,
     human_approval,
     criterion_approval_is_dead,
     tool_call_ceiling_is_dead,

@@ -80,7 +80,7 @@ def _run(situation_key: str, workload: str, tmp_path, arm=scenarios.GOVERNED):
     )
 
 
-class TestTheGalleryIsElevenDifferentThings:
+class TestTheGalleryIsTwelveDifferentThings:
     """One card, one job, one mechanism. Not one job shown nine ways."""
 
     def test_each_job_shows_a_mechanism_no_other_job_shows(self) -> None:
@@ -1337,7 +1337,7 @@ class TestTheAnswerIsShown:
                 assert len(shown) <= 120, f"{name} is too long for a leaf: {shown}"
 
     def test_a_check_that_needs_the_answer_key_says_so(self, tmp_path) -> None:
-        # Two of the eleven cards escalate on a comparison against the frozen
+        # Two of the twelve cards escalate on a comparison against the frozen
         # answer key, which no deployment has. The viewer is told which.
         frames, _by_arm, _last = _both("figure-never-right", tmp_path)
         criteria = frames[0]["criteria"]
@@ -1550,14 +1550,14 @@ class TestTheAnswerIsShown:
         assert errors > 0, "the card is about failures, so there must be some"
         assert reserved - settled == errors, "a reservation was kept on a failed call"
 
-    def test_a_cache_hit_still_costs_a_model_turn(self, tmp_path) -> None:
-        """The cache saves the tool call. It does not save the turn.
+    def test_the_stall_is_stopped_at_the_second_identical_turn(self, tmp_path) -> None:
+        """The cache saves the tool call; the fuse saves the rest of the run.
 
-        The token column is model turns only, and both arms burn the same ones,
-        so it comes out identical while nine tool invocations disappear. Pinned
-        because the card has been wrong about this in both directions: first it
-        implied a saving, then it claimed a 26% penalty that was really the
-        scripted model running dry and triggering an escalation.
+        The card used to claim the token counts came out identical, and they
+        did: the fuse was fed the number of calls the agent *proposed*, which
+        rises on every turn of a stall, so the fingerprint never repeated and
+        only the iteration cap stopped it. Fed what the run actually gathered,
+        the second identical turn is the last one anybody pays for.
         """
         job = jobs.by_key("same-file-again")
         doing = work_module.by_workload(job.workload)
@@ -1571,24 +1571,70 @@ class TestTheAnswerIsShown:
         }
         on, off = runs[scenarios.GOVERNED], runs[scenarios.BASELINE]
 
-        hits = [e for e in on.events if e.decision_reason == "cache-hit"]
-        assert len(hits) >= 4, "the stall has to actually hit the cache"
-        assert len(on.invoked) == 1, "and execute the tool exactly once"
+        assert [e for e in on.events if e.decision_reason == "cache-hit"], "the cache fired"
+        assert len(on.invoked) == 1, "and the tool ran exactly once"
         assert len(off.invoked) > len(on.invoked)
+        assert on.terminated == "halt-no-progress"
 
-        # Every cache-hit turn still settled model spend.
-        settled = {
-            e.step_id: e.tokens_consumed
-            for e in on.events
-            if e.kind == "spend-settled" and e.tokens_consumed and e.tokens_consumed > 100
-        }
-        for hit in hits:
-            assert settled.get(hit.step_id, 0) > 0, f"{hit.step_id} paid nothing"
+        # Every turn still settled model spend — the cache never saved a turn,
+        # and nothing here claims it did. What saves the turns is stopping.
+        assert on.outcome.spend.model_turns == 2
+        assert off.outcome.spend.model_turns > on.outcome.spend.model_turns
+        assert on.outcome.spend.total_tokens < off.outcome.spend.total_tokens / 2
+        # The card has been wrong about this in both directions: once implying a
+        # saving that was not there, once claiming the counts came out identical.
+        assert "two turns against ten" in job.watch
 
-        # Same model turns, so the same reported tokens. The cache's saving is
-        # in invocations, which that figure never counted.
-        assert on.outcome.spend.total_tokens == off.outcome.spend.total_tokens
-        assert "identical" in job.watch
+    def test_a_revisited_file_is_carried_once_and_the_cache_saves_no_tokens(
+        self, tmp_path
+    ) -> None:
+        """The card the context governor exists for, and its honest attribution.
+
+        The agent does nothing wrong: it looks at something new, then back at
+        the file it is reasoning about. So the fuse must not fire, and the whole
+        saving has to come from the transcript. Ablating the mechanism against
+        itself shows the cache contributing **zero tokens** — it stops the tool
+        running and then hands the identical bytes straight back to the model.
+        """
+        job = jobs.by_key("back-to-the-same-file")
+        doing = work_module.by_workload(job.workload)
+        situation = scenarios.by_key(job.situation)
+
+        def play(arm, **kw):
+            return scenarios.run(
+                situation, doing, arm=arm, runs_dir=tmp_path,
+                case_id=job.case_id, token=f"{arm}{kw.get('token', '')}",
+            )
+
+        off = play(scenarios.BASELINE)
+        on = play(scenarios.GOVERNED)
+
+        # Nothing was stopped: same turns, same answer, gate passes either way.
+        assert on.outcome.spend.model_turns == off.outcome.spend.model_turns
+        assert on.quality_state == off.quality_state == "pass"
+        assert on.deliverable == off.deliverable
+        assert on.terminated == "stop-sufficient"
+
+        cached = [e for e in on.events if e.decision_reason == "cache-hit"]
+        elided = [e for e in on.events if e.decision_reason == "context-compressed"]
+        assert cached and len(elided) == len(cached)
+        assert len(on.invoked) < len(off.invoked), "the cache did save the invocations"
+        assert on.outcome.spend.total_tokens < off.outcome.spend.total_tokens
+
+        # And the cache on its own would have saved none of the tokens.
+        without = compose.governed(
+            compose.case(job.case_id, doing.workload),
+            turns=situation.agent(
+                doing, compose.key_for(job.case_id, doing.workload),
+                compose.case(job.case_id, doing.workload),
+            ),
+            runs_dir=tmp_path,
+            spec=compose.contract(doing.workload),
+            tag="ctx-ablated",
+            with_context=False,
+        )
+        assert without.outcome.spend.total_tokens == off.outcome.spend.total_tokens
+        assert len(without.invoked) == len(on.invoked)
 
     def test_the_stall_reaches_the_fuse_without_the_script_running_dry(self) -> None:
         """At six turns the fixture ended before the fuse did.
@@ -1640,7 +1686,7 @@ class TestTheTaskIsTheJobs:
         ]
         assert built_on == ["cannot-be-answered"]
 
-    def test_the_other_eleven_jobs_run_answerable_tasks(self) -> None:
+    def test_the_other_twelve_jobs_run_answerable_tasks(self) -> None:
         # A card claiming a mechanism cannot rest on a case that fail-closes for
         # an unrelated reason, or the claim is untestable.
         for job in jobs.JOBS:

@@ -36,7 +36,7 @@ from outcomefuse.harness.answer_keys import answer_key_for
 from outcomefuse.harness.cases import Case, load_case_set
 from outcomefuse.harness.runner import BaselineArm, GovernedArm, Outcome, run_case
 from outcomefuse.ports import ApprovalPort, Decision, ScriptedApprovalPort, ScriptedModelPort
-from outcomefuse.runtime import Driver, ToolGovernor
+from outcomefuse.runtime import ContextGovernor, Driver, ToolGovernor
 from outcomefuse.runtime.baseline import BaselineRecorder
 from outcomefuse.workloads import citable_index_for, tool_port_for
 from outcomefuse.workloads.toolport import WorkloadToolPort
@@ -276,6 +276,7 @@ def governed(
     tag: str = "governed",
     answer_key: dict[str, Any] | None = None,
     sink: Sink | None = None,
+    with_context: bool = True,
 ) -> Run:
     """OutcomeFuse plugged in: the loop's `Arm` is a `GovernedArm` over a Driver."""
     spec = spec or contract()
@@ -294,6 +295,7 @@ def governed(
             governor=ToolGovernor(spec, approval=_approval_port(approval)),
             tools=tools,
             fuse=LoopFuse(max_iterations=spec.budget.max_iterations) if with_fuse else None,
+            context=ContextGovernor(spec) if with_context else None,
             evidence=evidence.for_driver(run_id),
         )
         driver.open_run(manifest(run_id, mode="governed", spec=spec, models=eligible))

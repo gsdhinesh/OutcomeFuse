@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>OutcomeFuse &mdash; eleven jobs, one mechanism each</title>
+<title>OutcomeFuse &mdash; Twelve jobs, one mechanism each</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#0f1115;color:#d7dae0;height:100vh;overflow:hidden;
@@ -217,7 +217,7 @@ table.compare tr.differs th.lbl{color:#e0af68;font-weight:600}
 <div class="scroll" id="view-gallery">
   <div class="pad">
     <div class="eyebrow">pick a job</div>
-    <h1>Eleven jobs. Each one shows exactly one thing.</h1>
+    <h1>Twelve jobs. Each one shows exactly one thing.</h1>
     <div class="lede">Real tasks from four frozen workloads &mdash; a flagged purchase
       order, a question over a database, a support ticket, a policy question. Each card is
       <b>one job that meets one mechanism</b>, and clicking it runs that job for real:
@@ -272,6 +272,7 @@ const MEANING = {
   "justified": "worth its budget",
   "duplicate": "this exact call had already been made",
   "cache-hit": "already called with these arguments, so the stored result was reused and the tool was never invoked \u2014 but the model turn that asked still ran, and still cost",
+  "context-compressed": "these exact bytes are already in the conversation, so a reference to them was sent instead of a second copy \u2014 nothing was summarised and nothing was dropped",
   "optional-satisfied": "an enrichment call, and the floor was already met",
   "approval-required": "a contract clause requires a human to authorise this",
   "approval-denied": "a human was asked, and refused",
@@ -396,7 +397,7 @@ function cardFor(job) {
   card.querySelector(".w").innerHTML = md(job.without);
   card.querySelector(".mech").textContent = job.feature;
   const flags = card.querySelector(".flags");
-  // What this card is for, always first. Four of the eleven move no figure, and
+  // What this card is for, always first. Four of the twelve move no figure, and
   // an unlabelled card among the ones that do reads as a win it never claimed.
   flag(flags, job.shows_kind, job.shows);
   if (job.interactive) flag(flags, "live", "you answer \u2014 nothing pre-answered");

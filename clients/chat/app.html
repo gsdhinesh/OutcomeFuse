@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Governed support desk</title>
+<style>
+  :root {
+    --ink: #10151c; --dim: #5d6b7a; --line: #dfe5ec; --bg: #f5f7fa;
+    --ok: #1a7f4b; --no: #b3261e; --warn: #9a6700; --acc: #1c4fd8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    display: grid; grid-template-rows: auto 1fr; height: 100vh;
+  }
+  header {
+    background: #fff; border-bottom: 1px solid var(--line);
+    padding: 10px 18px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; }
+  .chip {
+    font: 11px/1 ui-monospace, Consolas, monospace; color: var(--dim);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 9px;
+  }
+  header label { font-size: 12px; color: var(--dim); margin-left: auto; }
+  main { display: grid; grid-template-columns: minmax(0,1fr) 380px; min-height: 0; }
+  .chat { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+  .scroll { overflow: auto; padding: 18px 22px; }
+  aside {
+    border-left: 1px solid var(--line); background: #fff;
+    display: grid; grid-template-rows: auto 1fr; min-height: 0;
+  }
+  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+             color: var(--dim); margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .log { overflow: auto; padding: 10px 14px; font: 11.5px/1.55 ui-monospace, Consolas, monospace; }
+  .log div { padding: 2px 0; border-bottom: 1px dotted #eef1f5; white-space: pre-wrap; }
+  .log .k { color: var(--acc); }
+  .log .s { color: var(--dim); }
+
+  .row { display: flex; margin: 10px 0; }
+  .row.me { justify-content: flex-end; }
+  .bub {
+    max-width: 78%; padding: 9px 13px; border-radius: 14px;
+    background: #fff; border: 1px solid var(--line);
+  }
+  .me .bub { background: var(--acc); color: #fff; border-color: var(--acc); }
+  .note { color: var(--dim); font-size: 12.5px; margin: 6px 0 6px 4px; }
+  .note b { font-weight: 600; color: var(--ink); }
+  .tool {
+    font: 11.5px/1.5 ui-monospace, Consolas, monospace;
+    margin: 4px 0 4px 4px; color: var(--dim);
+  }
+  .tool .ran { color: var(--ok); }
+  .tool .denied { color: var(--no); font-weight: 600; }
+  .tool .cached { color: var(--warn); }
+  .tool .failed { color: var(--warn); }
+  .ask {
+    border: 2px solid var(--warn); background: #fffaf0; border-radius: 12px;
+    padding: 12px 14px; margin: 10px 0; max-width: 78%;
+  }
+  .ask p { margin: 0 0 4px; font-weight: 600; }
+  .ask small { color: var(--dim); display: block; margin-bottom: 9px; }
+  .ask button {
+    font: inherit; padding: 6px 15px; margin-right: 8px; border-radius: 8px;
+    border: 1px solid var(--line); cursor: pointer; background: #fff;
+  }
+  .ask button.yes { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .ask button.no  { background: var(--no); color: #fff; border-color: var(--no); }
+  .ask[data-done] button { display: none; }
+
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 13px 15px; margin: 10px 0; max-width: 86%;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 13px; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px;
+    padding: 2px 8px; margin-left: 8px; vertical-align: 2px;
+  }
+  .badge.pass { background: #e6f4ec; color: var(--ok); }
+  .badge.fail { background: #fdeceb; color: var(--no); }
+  .badge.none { background: #eef1f5; color: var(--dim); }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 3px 10px; font-size: 12.5px; }
+  .kv dt { color: var(--dim); }
+  .kv dd { margin: 0; }
+  .stop { color: var(--no); font-weight: 600; font-size: 12.5px; margin: 8px 0 8px 4px; }
+  .sum { font-size: 12px; }
+  .sum table { border-collapse: collapse; width: 100%; }
+  .sum td { padding: 2px 0; border-bottom: 1px dotted #eef1f5; }
+  .sum td:last-child { text-align: right; font: 11.5px ui-monospace, Consolas, monospace; }
+
+  form { border-top: 1px solid var(--line); background: #fff; padding: 12px 22px; display: flex; gap: 10px; }
+  input[type=text] { flex: 1; font: inherit; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; }
+  button.send { font: inherit; padding: 10px 20px; border: 0; border-radius: 10px; background: var(--acc); color: #fff; cursor: pointer; }
+  button.send:disabled { background: #9fb0d6; cursor: default; }
+  .hints { padding: 0 22px 10px; }
+  .hints button {
+    font: 12px inherit; background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px; margin: 0 6px 6px 0; cursor: pointer; color: var(--dim);
+  }
+  .split {
+    display: flex; align-items: center; gap: 10px; margin: 20px 0 6px;
+    color: var(--dim); font-size: 12px; font-weight: 600;
+  }
+  .split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  /* Everything after the divider is a replay and must not read as the
+     conversation the person is actually having. */
+  .ung { opacity: .6; border-left: 3px solid var(--line); padding-left: 11px; }
+  .ung .bub { background: #f1f3f6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Governed support desk</h1>
+  <span class="chip" id="spec">loading contract…</span>
+  <span class="chip" id="clauses"></span>
+  <label><input type="checkbox" id="compare"> also run it ungoverned</label>
+</header>
+
+<main>
+  <div class="chat">
+    <div class="scroll" id="scroll">
+      <div class="note">
+        Ask about an order. The desk can look it up, read the policy, and — with your
+        say-so — refund or email the customer. Every decision is written down before
+        it takes effect.
+      </div>
+      <div class="hints" id="hints"></div>
+    </div>
+    <form id="form">
+      <input type="text" id="msg" autocomplete="off" placeholder="e.g. order 1001 arrived damaged, can we refund it?">
+      <button class="send" id="send">Send</button>
+    </form>
+  </div>
+  <aside>
+    <h2>Decision log</h2>
+    <div class="log" id="log"></div>
+  </aside>
+</main>
+
+<script>
+const SESSION = Math.random().toString(36).slice(2, 14);
+const scroll = document.getElementById('scroll');
+const log = document.getElementById('log');
+const form = document.getElementById('form');
+const msg = document.getElementById('msg');
+const send = document.getElementById('send');
+
+let lane = 'governed';
+
+function el(cls, text) {
+  const node = document.createElement('div');
+  const full = (cls || '') + (lane === 'ungoverned' ? ' ung' : '');
+  if (full.trim()) node.className = full.trim();
+  if (text !== undefined) node.textContent = text;
+  scroll.appendChild(node);
+  scroll.scrollTop = scroll.scrollHeight;
+  return node;
+}
+
+function bubble(text, mine) {
+  const row = el('row' + (mine ? ' me' : ''));
+  const bub = document.createElement('div');
+  bub.className = 'bub';
+  bub.textContent = text;
+  row.appendChild(bub);
+  scroll.scrollTop = scroll.scrollHeight;
+}
+const VERB = {
+  ran: 'ran', cached: 'served from cache', denied: 'NOT ALLOWED', failed: 'failed'
+};
+
+function toolLine(f) {
+  const node = el('tool');
+  const args = Object.entries(f.arguments).map(([k, v]) => k + '=' + JSON.stringify(v)).join(' ');
+  const head = document.createElement('span');
+  head.textContent = f.tool + '(' + args + ') ';
+  const tag = document.createElement('span');
+  tag.className = f.how;
+  tag.textContent = VERB[f.how] || f.how;
+  node.appendChild(head); node.appendChild(tag);
+  if (f.how === 'denied' || f.how === 'failed') {
+    const why = document.createElement('div');
+    why.textContent = '   ' + f.detail;
+    node.appendChild(why);
+  }
+}
+
+function approval(f) {
+  const box = el('ask');
+  const q = document.createElement('p');
+  q.textContent = f.request.prompt;
+  const why = document.createElement('small');
+  why.textContent = 'clause "' + f.request.clause + '" · the desk is waiting, nothing has run · '
+                  + f.request.timeout_seconds + 's';
+  box.appendChild(q); box.appendChild(why);
+  for (const [label, decision, cls] of [['Approve', 'approved', 'yes'], ['Deny', 'denied', 'no']]) {
+    const b = document.createElement('button');
+    b.className = cls; b.textContent = label;
+    b.onclick = () => {
+      box.dataset.done = decision;
+      why.textContent = 'you ' + (decision === 'approved' ? 'approved' : 'denied') + ' this';
+      fetch('/answer?session=' + SESSION + '&decision=' + decision, { method: 'POST' });
+    };
+    box.appendChild(b);
+  }
+}
+
+function answer(f) {
+  const card = el('card');
+  const h = document.createElement('h3');
+  h.textContent = 'Answer';
+  const badge = document.createElement('span');
+  badge.className = 'badge ' + (f.gate === 'pass' ? 'pass' : f.gate === 'fail' ? 'fail' : 'none');
+  badge.textContent = 'gate: ' + f.gate;
+  h.appendChild(badge);
+  card.appendChild(h);
+  const d = f.deliverable;
+  const dl = document.createElement('dl');
+  dl.className = 'kv';
+  const rows = [
+    ['resolution', d.resolution],
+    ['order', d.order_id],
+    ['amount', '$' + (d.amount_cents / 100).toFixed(2)],
+    ['policy', (d.policy_refs || []).map(p => p.id).join(', ')],
+    ['explanation', d.explanation],
+  ];
+  if (f.unmet && f.unmet.length) rows.push(['unmet', f.unmet.join(', ')]);
+  if (f.terminal) rows.push(['ended', f.terminal]);
+  for (const [k, v] of rows) {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = v;
+    dl.appendChild(dt); dl.appendChild(dd);
+  }
+  card.appendChild(dl);
+}
+
+function summary(f) {
+  const s = f.summary;
+  const card = el('card sum');
+  const h = document.createElement('h3');
+  h.textContent = s.arm === 'governed' ? 'What the governor did' : 'The same turn, ungoverned';
+  card.appendChild(h);
+  const table = document.createElement('table');
+  const rows = [
+    ['tool calls executed', s.executed],
+    ['suppressed', s.suppressed],
+    ['side effects', s.side_effects.length ? s.side_effects.join(', ') : 'none'],
+    ['model tokens', s.metered ? s.tokens + ' (metered)' : s.tokens + ' (counted only)'],
+    ['gate', s.gate + (s.qualifier ? ' · ' + s.qualifier : '')],
+    ['ended', s.terminal || 'no terminal reason exists'],
+    ['events written', s.events === null ? 'no log at all' : s.events],
+    ['chain verified', s.events === null ? '—' : (s.verified ? 'yes' : 'NO')],
+  ];
+  for (const [k, v] of rows) {
+    const tr = document.createElement('tr');
+    const a = document.createElement('td'); a.textContent = k;
+    const b = document.createElement('td'); b.textContent = v;
+    tr.appendChild(a); tr.appendChild(b); table.appendChild(tr);
+  }
+  card.appendChild(table);
+}
+
+function event(f) {
+  const e = f.event;
+  const row = document.createElement('div');
+  const k = document.createElement('span');
+  k.className = 'k'; k.textContent = String(e.seq).padStart(2, '0') + ' ' + e.kind + ' ';
+  row.appendChild(k);
+  const bits = [e.policy_action, e.decision_reason, e.terminal_reason, e.gate_verdict]
+    .filter(Boolean).join(' · ');
+  if (bits) { const s = document.createElement('span'); s.className = 's'; s.textContent = bits; row.appendChild(s); }
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function handle(f) {
+  if (f.arm === 'ungoverned' && lane !== 'ungoverned') {
+    lane = 'governed';
+    el('split', 'the same message, with nothing in front of the desk');
+    lane = 'ungoverned';
+  }
+  if (f.kind === 'assistant') bubble(f.text, false);
+  else if (f.kind === 'tool') toolLine(f);
+  else if (f.kind === 'approval') approval(f);
+  else if (f.kind === 'answer') answer(f);
+  else if (f.kind === 'summary') summary(f);
+  else if (f.kind === 'event') event(f);
+  else if (f.kind === 'escalated') el('note', 'The gate refused that. Retrying on ' + f.model + '.');
+  else if (f.kind === 'stop') el('stop', 'stopped: ' + f.reason + ' — ' + f.detail);
+  else if (f.kind === 'error') el('stop', f.message);
+}
+
+let source = null;
+form.onsubmit = (e) => {
+  e.preventDefault();
+  const text = msg.value.trim();
+  if (!text || send.disabled) return;
+  lane = 'governed';
+  bubble(text, true);
+  msg.value = '';
+  send.disabled = true;
+  const compare = document.getElementById('compare').checked ? '1' : '0';
+  source = new EventSource('/ask?session=' + SESSION + '&compare=' + compare
+                           + '&message=' + encodeURIComponent(text));
+  source.onmessage = (ev) => {
+    const f = JSON.parse(ev.data);
+    if (f.kind === 'done') { source.close(); send.disabled = false; msg.focus(); return; }
+    handle(f);
+  };
+  source.onerror = () => { source.close(); send.disabled = false; };
+};
+
+fetch('/contract').then(r => r.json()).then(c => {
+  document.getElementById('spec').textContent = c.contract_id + ' · ' + c.digest.slice(0, 12);
+  document.getElementById('clauses').textContent =
+    c.mandatory.length + ' mandatory criteria · ' + c.approval.length + ' approval clauses';
+});
+
+fetch('/orders').then(r => r.json()).then(d => {
+  const hints = document.getElementById('hints');
+  const asks = [
+    ['1002', 'where is order 1002?'],
+    ['1001', 'order 1001 arrived damaged, can we refund it?'],
+    ['1005', 'order 1005 is broken — refund please'],
+    ['1004', 'order 1004 never turned up'],
+    ['1003', 'refund order 1003'],
+    ['1006', 'what about order 1006?'],
+  ];
+  for (const [id, text] of asks) {
+    const order = d.orders.find(o => String(o.order_id) === id);
+    const b = document.createElement('button');
+    b.textContent = text + (order ? '  (' + order.status + ')' : '');
+    b.onclick = () => { msg.value = text; form.requestSubmit(); };
+    hints.appendChild(b);
+  }
+});
+</script>
+</body>
+</html>

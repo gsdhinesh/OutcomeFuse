@@ -9,6 +9,7 @@ nothing, because an unrecorded arm cannot be admitted or paired.
 from __future__ import annotations
 
 from .baseline import BaselineRecorder
+from .context_governor import ContextGovernor, Placement
 from .driver import Driver, StepVerdict
 from .shadow import (
     Divergence,
@@ -28,9 +29,11 @@ from .tool_governor import (
 __all__ = [
     "Action",
     "BaselineRecorder",
+    "ContextGovernor",
     "Disposition",
     "Divergence",
     "Driver",
+    "Placement",
     "ShadowDriver",
     "ShadowRefused",
     "ShadowReport",

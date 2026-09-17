@@ -1,0 +1,18 @@
+{
+  "amount_cents": 0,
+  "explanation": "The item arrived damaged, which is refundable regardless of the window, and $74.00 is inside the desk's authority, so I am refunding the order in full. That needed issue_refund, which did not happen, so nothing on the order has changed and a person has to finish it.",
+  "next_steps": [
+    "a person carries out the decision above",
+    "no return needed for a damaged item"
+  ],
+  "order_id": 1001,
+  "policy_refs": [
+    {
+      "id": "RP-2"
+    },
+    {
+      "id": "RP-4"
+    }
+  ],
+  "resolution": "referred-to-a-person"
+}

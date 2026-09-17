@@ -1,6 +1,6 @@
-"""The comparison, headless. The gallery's eleven, or the whole matrix behind it.
+"""The comparison, headless. The gallery's twelve, or the whole matrix behind it.
 
-    uv run python clients/console/compare.py                  # the eleven cards
+    uv run python clients/console/compare.py                  # the twelve cards
     uv run python clients/console/compare.py --matrix         # every situation x work
     uv run python clients/console/compare.py --matrix --work code-triage
     uv run python clients/console/compare.py --quiet
@@ -132,7 +132,7 @@ def _row(pair: Pair) -> None:
 
 
 def _gallery(runs_dir: Path, quiet: bool) -> list[Pair]:
-    """The eleven cards the console offers, each checked against its own claim."""
+    """the twelve cards the console offers, each checked against its own claim."""
     pairs = []
     for job in jobs.JOBS:
         doing = work_module.by_workload(job.workload)

@@ -572,6 +572,20 @@ def burns_turns(work: Work, _key: dict[str, Any], case: Case, turns: int = 12) -
     return [(work.varied(case, i),) for i in range(turns)]
 
 
+def revisits(work: Work, key: dict[str, Any], case: Case, rounds: int = 4) -> list[Any]:
+    """Look at something new, then re-read the same thing, round after round.
+
+    The ordinary shape of an agent working through a problem: it keeps the file
+    it is reasoning about in front of it while it explores. Every turn learns
+    something, so this is **not** a stall and the Loop Fuse must not touch it —
+    which leaves the duplicate body as the only thing anyone can remove.
+    """
+    return [
+        *[(work.varied(case, i), work.repeatable(case)) for i in range(rounds)],
+        _deliver(body(work, key, case)),
+    ]
+
+
 def invents_a_tool(work: Work, key: dict[str, Any], case: Case) -> list[Any]:
     # A tool a model might plausibly expect here, not a placeholder. The
     # governor's reaction is the same either way; the card is not.

@@ -1,0 +1,17 @@
+{
+  "amount_cents": 0,
+  "explanation": "The item arrived damaged, which is covered whatever the refund window says. A full refund would be $245.00, which is over the desk's authority, so I am offering a replacement instead.",
+  "next_steps": [
+    "send a manager the refund request if a replacement is refused"
+  ],
+  "order_id": 1005,
+  "policy_refs": [
+    {
+      "id": "RP-2"
+    },
+    {
+      "id": "RP-4"
+    }
+  ],
+  "resolution": "replacement-offered"
+}

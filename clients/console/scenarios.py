@@ -8,7 +8,7 @@ situation cannot say one thing on the gallery and a card say another.
 A situation is data and so is a `Work`, and one runner takes both plus an arm.
 Any situation therefore runs on any work, with the governor plugged in or out,
 from a single definition — so the arms cannot drift and neither can the work.
-The console shows eleven chosen points of that matrix; `compare.py` and the
+The console shows twelve chosen points of that matrix; `compare.py` and the
 tests sweep all of it, which is where verification belongs.
 
 Not every situation fits every work. `applies` says which, and the one that does
@@ -134,6 +134,20 @@ SITUATIONS: tuple[Situation, ...] = (
         mutate=_human,
         variant="on_gate_fail: request-human, max_escalations: 0",
         expect="the governed arm refers it to a person",
+    ),
+    Situation(
+        key="revisits",
+        does="Sends a reference to the copy already in the conversation instead of a "
+        "second copy of the same bytes. Nothing is summarised and nothing is dropped, "
+        "so the agent loses no fact \u2014 it just stops being told it twice.",
+        feature="The context governor (F7, FR36-FR39)",
+        agent=work.revisits,
+        # Not authored to misbehave: keeping the thing you are reasoning about in
+        # front of you is what a competent agent does. The waste is in the
+        # transcript, not in the agent.
+        authored=False,
+        expect="the governed arm carries the repeated result once; the ungoverned one "
+        "carries a fresh copy in every later prompt",
     ),
     Situation(
         key="unknown-tool",

@@ -89,6 +89,15 @@ class ToolOutcome(BaseModel):
     terminal_reason: str | None = None
     #: The tool did not run. The agent is told so, plainly, and may try again.
     refused: bool = False
+    #: The run learned something it did not already have. False for a refusal
+    #: and for a substituted result: the fuse asks what was *gained*, and a call
+    #: answered from the cache gained nothing. Counting proposals here instead
+    #: made the evidence count rise on every turn of a stall, so `no-new-evidence`
+    #: could never fire and only the iteration cap ever stopped a loop.
+    gained_evidence: bool = True
+    #: What the run now knows, as opposed to how it was worded. Empty where no
+    #: mechanism computed one, and the wording is then all there is.
+    knowledge: str = ""
 
 
 class Outcome(BaseModel):
@@ -309,9 +318,15 @@ def _from_verdict(verdict: StepVerdict) -> ToolOutcome:
         # Told plainly, because an agent that cannot tell refusal from failure
         # will retry the same call until the loop cap stops it.
         return ToolOutcome(
-            content=f"this call was not allowed: {verdict.decision_reason}", refused=True
+            content=f"this call was not allowed: {verdict.decision_reason}",
+            refused=True,
+            gained_evidence=False,
         )
-    return ToolOutcome(content=_render(verdict.result))
+    return ToolOutcome(
+        content=_render(verdict.result),
+        gained_evidence=verdict.action != "proceed-with-substitution",
+        knowledge=verdict.result_digest,
+    )
 
 
 def _render(output: Any) -> str:
@@ -380,6 +395,11 @@ def run_case(
     stopped_by: str | None = None
     finished = False
     iteration = 0
+    #: What the run actually learned. `spend.tool_calls` counts what the agent
+    #: asked for, which is the wrong number for FR28: an agent asking for the
+    #: same withheld call every turn would show a rising evidence count and
+    #: never look stale.
+    gathered = 0
 
     while True:
         if attempt >= max_iterations:
@@ -466,6 +486,7 @@ def run_case(
         messages.append(
             Message(role="assistant", content=response.text, tool_calls=response.tool_calls)
         )
+        learned: list[tuple[str, str]] = [("assistant", response.text[:200])]
         for invocation in response.tool_calls:
             spend = spend.plus_tool_call()
             if invocation.malformed is not None:
@@ -476,15 +497,19 @@ def run_case(
                         content=f"could not read the arguments: {invocation.malformed}",
                     )
                 )
+                learned.append(("tool", f"malformed: {invocation.malformed}"[:200]))
                 continue
             outcome = arm.run_tool(
                 ToolCall(
                     tool=invocation.tool, arguments=invocation.arguments, step_id=step_id
                 )
             )
+            if outcome.gained_evidence:
+                gathered += 1
             messages.append(
                 Message(role="tool", tool_call_id=invocation.id, content=outcome.content)
             )
+            learned.append(("tool", outcome.knowledge or outcome.content[:200]))
             if outcome.terminal_reason is not None:
                 terminal = outcome.terminal_reason
                 break
@@ -492,13 +517,13 @@ def run_case(
             break
 
         # FR27/FR28: the host says what changed, the arm decides what it means.
-        # `task_state` is the conversation's own shape, so an agent repeating
-        # the same call with the same result produces the same fingerprint.
+        # What changed is what the turn *learned*, not the words it came back
+        # in: a result the Context Governor replaced with a reference to its own
+        # earlier copy is the same knowledge, and fingerprinting the reference
+        # instead would read an elision as progress and buy the stall a turn.
         terminal = arm.observe_progress(
-            task_state=tuple(
-                (m.role, m.content[:200]) for m in messages[-len(response.tool_calls) * 2 :]
-            ),
-            evidence_count=spend.tool_calls,
+            task_state=tuple(learned),
+            evidence_count=gathered,
         )
         if terminal is not None:
             break
