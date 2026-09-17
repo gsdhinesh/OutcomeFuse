@@ -294,7 +294,10 @@ JOBS: tuple[Job, ...] = (
         situation="happy",
         does="Turns it into a **decision**: the answer key pins no values, so a "
         "reference-backed criterion cannot be evaluated, and the run ends fail-closed \u2014 "
-        "recorded, sealed, and verifiable afterwards.",
+        "recorded, sealed, and verifiable afterwards. The disposition beside it is "
+        "`request-human`, and **nobody is asked**: the policy writes it and the run "
+        "closes. The ApprovalPort is reached only by a tool call, and this is not one. "
+        "So the console picks the closed run up the way a queue would, after the seal.",
         without="**It raises.** There is no posture to fall back on, so `GateUnavailable` "
         "comes out of the harness and there is no result to compare. Its log is not lost, "
         "though: the recorder writes the reason and closes before it re-raises, so that "
@@ -303,8 +306,13 @@ JOBS: tuple[Job, ...] = (
         watch="A well-behaved agent, doing everything right, still ending fail-closed \u2014 "
         "and the ungoverned lane raising instead. **Both lanes seal.** The difference is "
         "that one names a terminal reason and the other stops mid-sentence with an "
-        "exception. This is what excluded sc-e-008 from the recorded campaign's proof "
-        "card.",
+        "exception. Then the referral panel opens on the sealed run: **nothing is named "
+        "unmet, because a criterion that could not run did not fail** \u2014 what it shows "
+        "instead is the governor's own sentence, `answer key has no entry "
+        "'exception_type'`, beside the answer the agent handed over that nothing on "
+        "earth can now tell you is right or wrong. That is the errand a person is "
+        "actually being given. This is what excluded sc-e-008 from the recorded "
+        "campaign's proof card.",
         expect="the governed arm refuses and seals; the ungoverned one throws",
         authored=False,
     ),

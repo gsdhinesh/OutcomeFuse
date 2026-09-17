@@ -50,9 +50,12 @@ class TestTheCatalogue:
 class TestTheRowsThatAreNotSuccesses:
     """Pinned by key. A gap that disappears is either fixed or hidden."""
 
-    def test_the_criterion_approval_gap_is_still_reported(self, findings) -> None:
+    def test_the_declared_but_dead_clauses_are_still_reported(self, findings) -> None:
+        # Both are the same shape: the contract states it, the loader validates
+        # it, and no code path reads it. Pinned by key, because a gap that
+        # disappears is either fixed or hidden and the two look identical here.
         gaps = {f.key for f in findings if f.status == GAP}
-        assert gaps == {"criterion-approval"}, gaps
+        assert gaps == {"criterion-approval", "tool-call-ceiling"}, gaps
 
     def test_the_unknown_tool_defect_is_still_reported(self, findings) -> None:
         defects = {f.key for f in findings if f.status == DEFECT}

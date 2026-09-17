@@ -380,6 +380,42 @@ def criterion_approval_is_dead(ctx: Context) -> Finding:
     )
 
 
+def tool_call_ceiling_is_dead(ctx: Context) -> Finding:
+    """`max_tool_calls` is declared, validated, displayed — and read by nothing."""
+    declared = ctx.contract.budget.max_tool_calls
+    small = compose.variant(lambda raw: raw["budget"].update({"max_tool_calls": 1}))
+    run = compose.governed(
+        ctx.case,
+        turns=agents.burns_turns(ctx.key, ctx.po_id),
+        runs_dir=ctx.runs_dir,
+        spec=small,
+        tag="callcap",
+    )
+    executed = len(run.invoked)
+    return Finding(
+        key="tool-call-ceiling",
+        area="Budget",
+        title="A ceiling on the number of tool calls is accepted and never enforced",
+        claim="`budget.max_tool_calls` is required, validated `> 0`, and shown to the "
+        "viewer as a ceiling. No driver, ledger, governor or fuse reads it. A run is "
+        "bounded by tokens and by iterations; the number of calls is bounded only as a "
+        "consequence of those, never on its own terms.",
+        status=GAP if executed > small.budget.max_tool_calls else MISSING,
+        evidence=(
+            ("declared in the frozen contract", f"{declared} calls"),
+            ("variant used here", f"{small.budget.max_tool_calls} call"),
+            ("tools actually executed", str(executed)),
+            ("terminal", str(run.terminated)),
+            ("what stopped the run", "the token ceiling and the iteration cap"),
+            ("code path that reads max_tool_calls", "none"),
+        ),
+        note="The same shape as the criterion-scoped approval clause: contract "
+        "validation is not execution. Tokens and iterations are enforced, so a run "
+        "cannot make calls forever - but a contract asking for at most N calls does "
+        "not get N.",
+    )
+
+
 # ---------------------------------------------------------- budget and ladder
 
 
@@ -800,6 +836,7 @@ CATALOGUE: tuple[Callable[[Context], Finding], ...] = (
     side_effects_are_exempt,
     human_approval,
     criterion_approval_is_dead,
+    tool_call_ceiling_is_dead,
     budget_ceiling,
     verification_reserve,
     escalation,

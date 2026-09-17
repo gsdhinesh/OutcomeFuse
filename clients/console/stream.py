@@ -70,21 +70,39 @@ def _first_sentence(text: str) -> str:
     return head + "." if stop else flat
 
 
+#: The FR103 disposition that puts a run in front of a person. It is the
+#: discriminator rather than the terminal reason, because `fail-closed` arrives
+#: with either: `request-human` where the gate could not produce a verdict, and
+#: `terminate` where a governing component raised. Only the first is a case
+#: anybody can pick up.
+ROUTED_TO_A_PERSON = "request-human"
+
+
 def referral(job: Job, summaries: list[dict[str, Any]]) -> dict[str, Any]:
-    """What a person picking up a `referred-human` run would need to see.
+    """What a person picking up a `request-human` run would need to see.
 
     `request-human` never reaches the ApprovalPort: the policy writes the
-    terminal reason and the run closes. That is the right shape - by this rung
-    the work is finished, so there is nothing to authorise, only a case to
-    route - but it leaves the demonstration ending on a label with nobody
-    looking at it.
+    disposition beside a terminal reason and the run closes. That is the right
+    shape - by this rung the work is finished, so there is nothing to authorise,
+    only a case to route - but it leaves the demonstration ending on a label
+    with nobody looking at it.
 
     So the console picks the case up, which is what a queue would do. Everything
     here happened *after* the seal and none of it is written to the run.
+
+    Two rungs land here and they are not the same errand, so the panel is told
+    which one it is:
+
+    - **referred** - the gate ran, refused the answer, and the contract directs
+      the case to a person. There is a verdict and there are named criteria.
+    - **unevaluable** - the gate never produced a verdict at all, so there is
+      nothing to disagree with. Nothing named it wrong; nothing could say it was
+      right either, and that is the whole reason a person is wanted.
     """
     for summary in summaries:
-        if summary.get("terminal") != "referred-human":
+        if summary.get("disposition") != ROUTED_TO_A_PERSON:
             continue
+        unevaluable = summary.get("terminal") == "fail-closed"
         return {
             "arm": summary["arm"],
             "run_id": summary["run_id"],
@@ -92,6 +110,12 @@ def referral(job: Job, summaries: list[dict[str, Any]]) -> dict[str, Any]:
             "answer": summary.get("answer") or {},
             "unmet": list(summary.get("unmet") or ()),
             "case_id": job.case_id,
+            "terminal": summary.get("terminal"),
+            "reason": "unevaluable" if unevaluable else "referred",
+            #: The governor's own words. On the unevaluable rung this is the
+            #: only thing that says what went wrong, because `unmet` is empty:
+            #: a criterion that could not run did not fail.
+            "why": summary.get("why") or "",
         }
     return {}
 

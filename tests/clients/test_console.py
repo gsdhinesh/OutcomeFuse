@@ -30,7 +30,7 @@ import time
 import pytest
 from console import delta, jobs, scenarios, stream
 from console.approval import LiveApprovalPort
-from features import compose
+from features import agents, compose
 from features import work as work_module
 
 from outcomefuse.core.record import open_store
@@ -1058,6 +1058,42 @@ class TestTheAnswerIsShown:
         assert "chain verified, sealed" in page
         assert "no log at all" not in jobs.by_key("cannot-be-answered").without
 
+    def test_the_token_counter_is_model_spend_and_nothing_else(self, tmp_path) -> None:
+        """Two numbers, and adding them together makes the governor look worse.
+
+        A model turn settles what the provider billed. A tool step settles
+        `Driver.execute_step`'s flat `estimated_tokens` default, which is not a
+        measurement of anything - and only the governed arm has a ledger to
+        charge it to, so summing the two shows it spending more than the
+        ungoverned arm for identical work on identical tools.
+
+        The lane counter did sum them, under a tooltip promising it did not, so
+        the live figure disagreed with the summary row beneath it.
+        """
+        _frames, by_arm, _last = _both("ordinary-run", tmp_path)
+        for arm, summary in by_arm.items():
+            with open_store(tmp_path / f"{summary['run_id']}.db", writer=False) as store:
+                events = store.events(summary["run_id"])
+            billed = sum(e.tokens_consumed or 0 for e in events if e.model_used)
+            charged = sum(
+                e.tokens_consumed or 0 for e in events if e.tokens_consumed and not e.model_used
+            )
+            assert summary["tokens"] == billed, (
+                f"{arm}: the reported total must be model spend, not the ledger's"
+            )
+            if arm == scenarios.BASELINE:
+                assert charged == 0, "the ungoverned arm keeps no ledger to charge"
+            else:
+                assert charged, "the governed arm reserves against every tool step"
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "if (e.model_used) { lane.tokens += e.tokens;" in page, (
+            "the lane counter has to split on which kind of spend it is"
+        )
+
     def test_a_referral_names_what_it_could_not_settle(self, tmp_path) -> None:
         """A case handed to a person has to say what is wrong with it.
 
@@ -1118,6 +1154,61 @@ class TestTheAnswerIsShown:
         for key in ("ordinary-run", "figure-never-right", "same-file-again"):
             _frames, _by_arm, last = _both(key, tmp_path)
             assert not last["referred"], key
+
+    def test_a_run_nobody_could_judge_reaches_the_queue_too(self, tmp_path) -> None:
+        """`request-human` is the disposition, and `fail-closed` arrives with it.
+
+        The card showed `REQUEST-HUMAN` on screen and then nothing happened,
+        which reads as a promise the system does not keep. The gate could not be
+        evaluated, so FR103 routes the case to a person - and the console is the
+        person's queue, exactly as it is for `referred-human`.
+
+        What it must not do is claim a verdict. `unmet` is empty here: a
+        criterion that could not run did not fail, so there is nothing to
+        disagree with and the governor's own sentence is all a reader has.
+        """
+        _frames, by_arm, last = _both("cannot-be-answered", tmp_path)
+        governed = by_arm["governed"]
+        assert governed["terminal"] == "fail-closed"
+        assert governed["disposition"] == "request-human", (
+            "the terminal reason names the cause; the disposition is what was done"
+        )
+
+        referred = last["referred"]
+        assert referred["run_id"], "a case routed to a person has to reach one"
+        assert referred["seal"], "and it is already sealed when it does"
+        assert referred["reason"] == "unevaluable"
+        assert referred["answer"], "with the answer nothing could judge"
+        assert not referred["unmet"], "a criterion that could not run did not fail"
+        assert "could not be evaluated" in referred["why"]
+
+        assert not [f for f in _frames if f["type"] == "approval"], (
+            "nothing was asked during the run, and nothing may look as if it was"
+        )
+        assert "**nobody is asked**" in jobs.by_key("cannot-be-answered").does
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "Nobody could judge this one" in page
+        assert '"request-human": "send it to a person"' not in page, (
+            "`request-human` sends nothing; the queue comes and finds it"
+        )
+
+    def test_a_component_that_raised_is_routed_nowhere(self, tmp_path) -> None:
+        """Both end `fail-closed`, and only one of them is anybody's errand.
+
+        An unknown tool name makes `ToolGovernor` raise, and the driver files it
+        as `terminate`. There is no case to hand over - the run did not fail to
+        be judged, it fell over - so keying the queue on the terminal reason
+        would put a crash in a human's inbox alongside a real referral.
+        """
+        _frames, by_arm, last = _both("asks-for-git-blame", tmp_path)
+        governed = by_arm["governed"]
+        assert governed["terminal"] == "fail-closed"
+        assert governed["disposition"] == "terminate"
+        assert not last["referred"], "a fallen-over run is not a referral"
 
     def test_referring_to_a_human_asks_no_human(self, tmp_path) -> None:
         """`request-human` is a disposition, not a question.
@@ -1317,6 +1408,41 @@ class TestTheAnswerIsShown:
         for verb in ("insert", "update", "delete", "drop", "alter", "truncate", "grant"):
             assert verb in pattern
             assert verb in page[page.index("WRITE_SQL"):page.index("WRITE_SQL") + 200]
+
+    def test_the_call_ceiling_is_declared_and_never_enforced(self, tmp_path) -> None:
+        """`max_tool_calls` is required, validated, shown - and read by nothing.
+
+        The context panel presented it beside the token ceiling and the turn cap,
+        both of which are enforced, so a reader would take all three for limits.
+        A contract held to one call makes eight.
+        """
+        spec = compose.variant(lambda raw: raw["budget"].update({"max_tool_calls": 1}))
+        case = compose.case("sc-c-001")
+        run = compose.governed(
+            case,
+            turns=agents.burns_turns(
+                compose.key_for(case.case_id), int(case.prompt_context["po_id"])
+            ),
+            runs_dir=tmp_path,
+            spec=spec,
+            tag="callcap",
+        )
+        assert len(run.invoked) > spec.budget.max_tool_calls, (
+            "if this ever holds, the ceiling grew teeth and the finding is stale"
+        )
+
+        source = pathlib.Path(__file__).resolve().parents[2] / "src" / "outcomefuse"
+        readers = sorted(
+            p.name for p in source.rglob("*.py")
+            if "budget.max_tool_calls" in p.read_text(encoding="utf-8")
+        )
+        assert not readers, f"something now reads max_tool_calls: {readers}"
+
+        page = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "clients" / "console" / "app.html"
+        ).read_text(encoding="utf-8")
+        assert "tool calls declared, not enforced" in page
 
     def test_the_ceiling_is_a_tripwire_not_a_wall(self, tmp_path) -> None:
         """The run ends over its ceiling, and the card has to say so.

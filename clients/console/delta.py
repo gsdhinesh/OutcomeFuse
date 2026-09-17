@@ -20,11 +20,34 @@ from typing import Any
 AGREE = "the arms agree"
 
 
+def _ended(run: Any) -> tuple[str | None, str]:
+    """How the governor disposed of the run, and what it said about it.
+
+    `terminal_reason` names the *cause* and `policy_action` names what was done
+    about it, and the two are not interchangeable. Two runs both end
+    `fail-closed`: the one whose action is `request-human` could not be judged
+    and is routed to a person, the one whose action is `terminate` had a
+    governing component raise and is routed nowhere. Reading only the terminal
+    reason would put both in the same queue.
+    """
+    for event in run.events:
+        if event.terminal_reason is None:
+            continue
+        return event.policy_action, str((event.payload or {}).get("detail") or "")
+    return None, ""
+
+
 def summarise(run: Any, arm: str) -> dict[str, Any]:
+    disposition, why = _ended(run)
     return {
         "arm": arm,
         "run_id": run.run_id,
         "terminal": run.terminated,
+        #: The policy action recorded beside the terminal reason. Empty on the
+        #: ungoverned arm, which has no policy to act.
+        "disposition": disposition,
+        #: What the governor wrote about the ending, in its own words.
+        "why": why,
         "quality": run.quality_state,
         "seal": run.seal,
         "verified": run.verified,

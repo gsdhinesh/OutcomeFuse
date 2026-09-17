@@ -311,6 +311,18 @@ MUTATIONS = [
         "                pass",
         "ignoring an escalation granted after running out of turns",
     ),
+    (
+        "clients/console/stream.py",
+        'if summary.get("disposition") != ROUTED_TO_A_PERSON:',
+        'if summary.get("terminal") != "referred-human":',
+        "routing a run to a person by its terminal reason rather than its disposition",
+    ),
+    (
+        "clients/console/app.html",
+        "if (e.model_used) { lane.tokens += e.tokens;",
+        "if (true) { lane.tokens += e.tokens;",
+        "folding the ledger's tool estimate into the provider's token count",
+    ),
 ]
 
 TESTS = [

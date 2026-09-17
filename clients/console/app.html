@@ -78,6 +78,7 @@ text-transform:uppercase;margin-top:.45rem;list-style-position:outside}
 .brief[open]>summary{margin-bottom:.1rem}
 .unans{margin-top:.5rem;padding:.45rem .7rem;background:#1b1508;border-left:3px solid #e0af68;
 border-radius:4px;color:#c9b489;font-size:.78rem;max-width:66rem}
+.dead{color:#8b93a1;font-style:italic}
 .pace{display:flex;gap:.5rem;align-items:center;color:#8b93a1;font-size:.74rem}
 .controls{display:flex;gap:1rem;align-items:center;margin-left:auto}
 
@@ -324,7 +325,9 @@ const ACTION = {
   "terminate": "stop the run",
   "escalate": "try again on a stronger model",
   "return-partial": "hand back what it has, labelled",
-  "request-human": "send it to a person",
+  // Not "send it to a person": nothing is sent. The policy writes this beside a
+  // terminal reason and the run closes. A queue has to come and find it.
+  "request-human": "mark it for a person \u2014 nothing is sent",
   "deny": "refuse it",
   "pause-for-approval": "hold it until a person answers",
 };
@@ -336,7 +339,7 @@ const ENDING = {
   "halt-exhausted": "it ran out of budget",
   "halt-no-progress": "it was going nowhere, so the fuse blew",
   "returned-partial": "it could not get there; what it had was handed back, labelled",
-  "referred-human": "it could not get there; the contract sends it to a person",
+  "referred-human": "it could not get there; the contract marks it for a person",
   "fail-closed": "something that governs the run failed, so the run refused to go on",
   "approval-timeout": "nobody answered inside the contract's window",
   "approval-denied": "a person was asked, and refused",
@@ -465,7 +468,8 @@ function loadTask(job) {
           (${c.modes["reference-backed"]||0} reference-backed,
            ${c.modes["constraint-backed"]||0} constraint-backed)</div>
         <div>ceiling <b>${c.budget.tokens.toLocaleString()} tokens</b>,
-          ${c.budget.tool_calls} calls, ${c.budget.iterations} turns</div>
+          ${c.budget.iterations} turns
+          <span class="dead" title="the contract declares it and nothing reads it: a run is bounded by tokens and turns, never by its number of calls">(${c.budget.tool_calls} tool calls declared, not enforced)</span></div>
         <div>models <b>${c.models.join(" \u2192 ")}</b></div>`;
       el("r-extra").innerHTML = c.answerable ? "" : `<div class="unans"></div>`;
       const u = el("r-extra").querySelector(".unans");
@@ -491,7 +495,8 @@ function reset(arms) {
       <div class="stats">
         <div title="rows written to the sealed log">events <b class="s-ev">0</b></div>
         <div title="tools that actually ran">tools ran <b class="s-tools">0</b></div>
-        <div title="model turns only \u2014 tool calls are metered separately">tokens <b class="s-tok">0</b></div>
+        <div title="model turns only \u2014 what the provider actually billed">tokens <b class="s-tok">0</b></div>
+        <div title="what the ledger charged the tool steps: a flat estimate per call, not a measurement. The ungoverned lane keeps no ledger, so it charges nothing">tool budget <b class="s-ttok">\u2014</b></div>
         <div title="calls the governor answered without running the tool">
           calls withheld <b class="s-sup">0</b></div>
         <div title="tool calls that errored">tool errors <b class="s-err">0</b></div>
@@ -501,7 +506,8 @@ function reset(arms) {
     el("lanes").appendChild(node);
     lanes[arm] = { node, tree: node.querySelector(".tree"), current: null, observed: [],
                    gateSeen: false,
-                   events: 0, tools: 0, tokens: 0, withheld: 0, errs: 0, started: false };
+                   events: 0, tools: 0, tokens: 0, toolTokens: 0, withheld: 0, errs: 0,
+                   started: false };
   }
 }
 
@@ -522,7 +528,14 @@ function draw(arm, e) {
   if (!lane) return;
   if (!lane.started) { lane.tree.innerHTML = ""; lane.started = true; }
   set(lane, ".s-ev", ++lane.events);
-  if (e.tokens) { lane.tokens += e.tokens; set(lane, ".s-tok", lane.tokens.toLocaleString()); }
+  // Kept apart because they are different kinds of number. The first is what a
+  // provider billed; the second is a flat estimate the ledger charges so it has
+  // something to reserve against, and only the governed lane keeps one. Summing
+  // them shows the governor spending more to do identical work.
+  if (e.tokens) {
+    if (e.model_used) { lane.tokens += e.tokens; set(lane, ".s-tok", lane.tokens.toLocaleString()); }
+    else { lane.toolTokens += e.tokens; set(lane, ".s-ttok", lane.toolTokens.toLocaleString()); }
+  }
   const failed = (e.detail || "").startsWith("tool error");
   if (e.kind === "outcome-observed" && e.tool && !failed) {
     set(lane, ".s-tools", ++lane.tools);
@@ -638,22 +651,30 @@ function threw(crash) {
 
 // -------------------------------------------------- the human at the gate
 
-// A `referred-human` run closes without asking anyone: `request-human` writes a
-// terminal reason, and the ApprovalPort is only ever reached by a tool call. So
-// what is missing is the queue, not the pause -- and this is the console being
-// the queue, entirely after the seal.
+// A `request-human` run closes without asking anyone: the policy writes the
+// disposition beside a terminal reason, and the ApprovalPort is only ever
+// reached by a tool call. So what is missing is the queue, not the pause -- and
+// this is the console being the queue, entirely after the seal.
+//
+// Two rungs arrive here. `referred` has a verdict and named criteria. On
+// `unevaluable` the gate never ran, so nothing is named and the governor's own
+// sentence is all there is to go on -- which is precisely why a person is
+// wanted, and why the panel must not pretend otherwise.
 function refer(r) {
   const old = el("referral");
   if (old) old.remove();
   if (!r || !r.run_id) return;
+  const stuck = r.reason === "unevaluable";
   const box = document.createElement("div");
   box.className = "ask referral"; box.id = "referral";
   box.innerHTML = `
-    <h3>This one was referred to you</h3>
+    <h3>${stuck ? "Nobody could judge this one" : "This one was referred to you"}</h3>
     <p class="doing">The run is <b>already closed and sealed</b>. Nothing is waiting on
        you, and nothing you do here is written to it \u2014 <code>request-human</code> ends
        the run and marks it, and a queue picks it up. You are the queue.</p>
-    <p class="found">What it could not settle:</p>
+    <p class="found">${stuck
+        ? "Why there is no verdict to disagree with:"
+        : "What it could not settle:"}</p>
     <div class="gathered unmetlist"></div>
     <p class="found">What it produced anyway:</p>
     <div class="callbox"><dl class="args"></dl></div>
@@ -663,8 +684,12 @@ function refer(r) {
     <div class="clock"></div>`;
   box.querySelector(".rid").textContent = r.run_id;
   box.querySelector(".sl").textContent = (r.seal || "").slice(0, 16) + "\u2026";
-  box.querySelector(".unmetlist").textContent =
-    (r.unmet || []).map(id => (criteria[id] || {}).says || id).join(" ") || "nothing named";
+  box.querySelector(".unmetlist").textContent = stuck
+    // `unmet` is empty here and saying "nothing named" would read as nothing
+    // being wrong. A criterion that could not run did not fail.
+    ? (r.why || "the gate could not produce a verdict")
+    : ((r.unmet || []).map(id => (criteria[id] || {}).says || id).join(" ")
+       || "nothing named");
   const args = box.querySelector(".args");
   for (const [k, v] of Object.entries(r.answer || {})) {
     const dt = document.createElement("dt"); dt.textContent = k;

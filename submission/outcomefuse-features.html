@@ -55,7 +55,7 @@ which counts the recorded gpt-5 campaign and disagrees.
 
 <div class="tally">
   <div><b>20</b>demonstrated</div>
-  <div><b>1</b>gap</div>
+  <div><b>2</b>gap</div>
   <div><b>1</b>defect</div>
   <div><b>0</b>not demonstrated</div>
 </div>
@@ -124,6 +124,13 @@ which counts the recorded gpt-5 campaign and disagrees.
   <div class="ev"><div class="line"><span>declared in the frozen contract</span><span>1</span></div><div class="line"><span>condition</span><span>criterion=recommended_action when=value_in value=[&#x27;escalate-to-buyer&#x27;, &#x27;resource-alternate-supplier&#x27;]</span></div><div class="line"><span>requires_approval matches on</span><span>condition.tool only</span></div><div class="line"><span>an ungated tool returns</span><span>None</span></div><div class="line"><span>code path that evaluates a criterion</span><span>none</span></div><div class="line"><span>what a reader would assume</span><span>that escalate-to-buyer needs a human</span></div><div class="line"><span>what happens</span><span>nothing</span></div></div>
   <div class="note">Contract validation is not execution. A clause that loads is not a clause that runs, and this is the one place in the workload where the two differ.</div>
 </div><h2>Budget</h2>
+<div class="f gap">
+  <div class="fh"><h3>A ceiling on the number of tool calls is accepted and never enforced </h3>
+    <span class="badge gap">GAP</span></div>
+  <div class="claim">`budget.max_tool_calls` is required, validated `&gt; 0`, and shown to the viewer as a ceiling. No driver, ledger, governor or fuse reads it. A run is bounded by tokens and by iterations; the number of calls is bounded only as a consequence of those, never on its own terms.</div>
+  <div class="ev"><div class="line"><span>declared in the frozen contract</span><span>35 calls</span></div><div class="line"><span>variant used here</span><span>1 call</span></div><div class="line"><span>tools actually executed</span><span>8</span></div><div class="line"><span>terminal</span><span>halt-no-progress</span></div><div class="line"><span>what stopped the run</span><span>the token ceiling and the iteration cap</span></div><div class="line"><span>code path that reads max_tool_calls</span><span>none</span></div></div>
+  <div class="note">The same shape as the criterion-scoped approval clause: contract validation is not execution. Tokens and iterations are enforced, so a run cannot make calls forever - but a contract asking for at most N calls does not get N.</div>
+</div>
 <div class="f ok">
   <div class="fh"><h3>The run stops at the ceiling instead of crossing it </h3>
     <span class="badge ok">demonstrated</span></div>

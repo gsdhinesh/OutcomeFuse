@@ -348,7 +348,7 @@ criteria:
       classification: E
       verifier: { type: field-present, args: { path: $.alternatives } }
 
-  advisory:                       # model-judged; structurally cannot reach the verdict
+  advisory:                       # never evaluated by the gate; a human judges it, or nobody does
     - id: recommendation-is-justified
       classification: A
 
@@ -430,6 +430,13 @@ known-correct value.
   the prompt must ask for it.** A frozen `min: 2` that the prompt never
   requested caused 6 correct answers to be scored as 1 pass — and then, via
   `on_gate_fail: retry-then-escalate`, doubled the token spend of every case.
+- **An `advisory` criterion is checked by nothing.** The gate iterates
+  `mandatory` then `optional` only; the advisory tier is never evaluated, and
+  although `AdvisorySignal` and `evaluate(advisory=...)` exist, no shipped code
+  path constructs a signal. Declaring a criterion advisory is an honest
+  admission that no machine reaches it — a human does, under
+  [freeze/RUBRIC.md](freeze/RUBRIC.md), or nobody does. Do not put anything you
+  need enforced in that tier.
 
 ### 7e. Validate before you run
 

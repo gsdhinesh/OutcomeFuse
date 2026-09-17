@@ -144,15 +144,35 @@ empty index would silently fail every citation asked about.
 **The verdict is binary.** `pass` or `fail`. There is deliberately no
 `pass-with-concern`: a third state has to resolve somewhere, and wherever it
 resolved would move that judgement out of the contract and into the runtime.
-Concerns are recorded as `AdvisorySignal`s and in the counter-metrics.
+Concerns belong in the decision record and the counter-metrics.
 
 **Tiers.**
 
 - `mandatory` — evaluated, and any failure makes the verdict `fail`.
 - `optional` — evaluated and recorded; **never gates**. An optional criterion
   that cannot run contributes nothing rather than making the gate unavailable.
-- `advisory` — model-judged observations. Recorded and *structurally unable to
-  reach the verdict*: `AdvisorySignal` has no path into `Verdict.verdict`.
+- `advisory` — **not evaluated at all.** `evaluate()` iterates `mandatory`, then
+  `for tier in ("optional",)`. The advisory tier is not in that loop, so no run
+  computes a result for an advisory criterion and none carries a verifier.
+
+**The advisory channel exists and is empty.** `AdvisorySignal` and
+`evaluate(advisory=...)` are defined, and a signal is *structurally unable to
+reach the verdict* — it has no path into `Verdict.verdict`. But **nothing in
+`src/` or `clients/` ever constructs one**: `Driver._run_gate` and
+`BaselineRecorder.score` both call `evaluate()` without the argument, and the
+only callers that pass it are in
+[tests/core/gate/test_gate.py](tests/core/gate/test_gate.py). `rubric-judgement`
+is likewise an `EvidenceKind` with a declared outcome schema in
+[src/outcomefuse/core/policy/advisors.py](src/outcomefuse/core/policy/advisors.py)
+that no advisor implements — E12 was a planned cut.
+
+So an advisory criterion such as supply-chain's `recommendation-is-justified` is
+judged by a **human**, out of band, under [freeze/RUBRIC.md](freeze/RUBRIC.md).
+That rubric names this exact case as load-bearing: its `unsupported` rejection
+reason is *"the criterion the deterministic gate cannot reach — every contract
+classifies 'conclusion is supported' as advisory — so it is the most likely
+source of a false sufficiency"*. Declaring a criterion advisory is an honest
+admission that no machine checks it, not a promise that a model will.
 
 **Per-criterion breakdown.** `Verdict.breakdown` carries one `CriterionResult`
 per criterion (`id`, `tier`, `passed`, `mode`, `verifier`, `detail`), plus
@@ -364,6 +384,23 @@ exhausts its budget and returns a partial result has one of each.
 **Port errors are decision inputs, never escapes.** `Situation` carries
 `gate_unavailable` and `ledger_state_lost` as booleans rather than letting
 exceptions unwind through the Policy.
+
+**`request-human` marks a run; it does not ask anyone.** It is a
+`policy_action` — a disposition written beside a terminal reason, after which
+the run closes. Nothing in the system delivers it: the `ApprovalPort` is reached
+only through `ToolGovernor.requires_approval`, which matches a **tool** clause,
+and there is no path from the Policy to that port. That is arguably the right
+shape — by these rungs the work is over, so there is nothing left to authorise,
+only a case to route — but what the architecture does not supply is the **queue**
+that picks the marked run up. [clients/console/stream.py](clients/console/stream.py)
+is one: it reads the sealed run afterwards and hands it to a person, entirely
+outside the log.
+
+The discriminator for "did this go to a person?" is the **disposition, not the
+terminal reason**. `fail-closed` arrives with both: `request-human` when the gate
+could not produce a verdict (a case someone must judge by hand), and `terminate`
+when the ledger was lost or a governing component raised (a crash nobody can
+action). Keying a queue on `fail-closed` would put the second in someone's inbox.
 
 **FR105 is enforced here:** `sufficiency` raises if `quality_state` is still
 `not-evaluated`. Before the first gate execution the honest answer is that we
